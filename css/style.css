@@ -196,6 +196,18 @@ body {
   .cards { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── 車機／鏡頭分析範圍分頁 ─────────────────────────── */
+.device-tabs { display: flex; gap: 6px; margin: 18px 0 -8px; position: relative; z-index: 3; }
+.device-tab {
+  padding: 9px 20px; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 13.5px; font-weight: 600; font-family: var(--font);
+  border: 1px solid var(--gray-200); border-bottom: none;
+  background: var(--gray-100); color: var(--gray-500);
+  cursor: pointer; transition: all .15s;
+}
+.device-tab:hover { color: var(--teal); background: var(--teal-pale); }
+.device-tab--on { background: var(--white); color: var(--teal-dark); box-shadow: 0 -2px 6px rgba(0,0,0,.04); }
+
 /* ── 篩選器（S2b）──────────────────────────────────── */
 .filters { border-top: 1px solid var(--gray-200); padding-top: 14px; margin-top: 2px; }
 .filters__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }

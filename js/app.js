@@ -8,6 +8,12 @@
 window.App = window.App || {};
 
 App.app = (() => {
+  // ── 車機／鏡頭分析範圍（比照原工具：先依設備類型＋維護原因縮小分析範圍，再談品質指標）──
+  const DEVICE_TABS = [
+    { key: '車機', label: '🚗 車機分析', 設備類型: '車機', 維護原因: '訊號異常' },
+    { key: '鏡頭', label: '📷 鏡頭分析', 設備類型: '鏡頭', 維護原因: '影像異常(鏡頭)' },
+  ];
+
   // ── 指標登錄（key 唯一；def=預設顯示；better：升為好true/壞false/中性null）──
   const METRICS = [
     { key: '總線上量',     label: '總線上量',     fmt: 'int', better: null,  def: true,  get: (k) => k.總線上量 },
@@ -27,6 +33,7 @@ App.app = (() => {
     onlineList: null,
     rows: [],
     periods: [],
+    deviceTab: DEVICE_TABS[0].key,   // '車機' | '鏡頭'
     year: null, quarter: 2,
     cmp: { on: false, year: null, quarter: 2 },
     currentSnap: null,   // 目前期間若為載入的快照 bundle
@@ -67,6 +74,26 @@ App.app = (() => {
     state.year = yl[0]; state.quarter = 2;
     const prevY = yl.find((y) => y === yl[0] - 1);
     state.cmp = (prevY != null) ? { on: true, year: prevY, quarter: 2 } : { on: false, year: yl[0], quarter: 2 };
+  }
+
+  function renderDeviceTabs() {
+    $('device-tabs').innerHTML = DEVICE_TABS.map((t) =>
+      `<button class="device-tab ${state.deviceTab === t.key ? 'device-tab--on' : ''}" data-key="${t.key}">${t.label}</button>`
+    ).join('');
+    $('device-tabs').querySelectorAll('.device-tab').forEach((b) => {
+      b.addEventListener('click', () => {
+        const k = b.dataset.key;
+        if (state.deviceTab === k) return;
+        state.deviceTab = k;
+        state.selection = { 廠商: [], 類型: [], ERP品號: [] };  // 切換分頁時清除舊範圍的篩選殘留
+        renderDeviceTabs();
+        rerender();
+      });
+    });
+  }
+
+  function currentScope() {
+    return DEVICE_TABS.find((t) => t.key === state.deviceTab) || DEVICE_TABS[0];
   }
 
   function renderControls() {
@@ -136,10 +163,19 @@ App.app = (() => {
     const q = snap && snap.meta.period ? snap.meta.period.quarter : (kind === 'current' ? state.quarter : state.cmp.quarter);
     const src = snap || state.raw;
     const online = snap ? App.metrics.buildOnlineList(snap) : state.onlineList;
-    return { rows: App.transform.buildDetail(src, { year: y, quarter: q }).rows, online };
+    const rows = App.transform.buildDetail(src, { year: y, quarter: q }).rows;
+
+    // 分頁範圍前置篩選（比照原工具：車機＝設備類型車機＋維護原因訊號異常；鏡頭同理）
+    // 篩選後再往下送給 KPI／詳細資料／明細表，其餘模組不需感知車機/鏡頭的存在。
+    const scope = currentScope();
+    return {
+      rows:   rows.filter((r) => r.設備類型 === scope.設備類型 && r.維護原因 === scope.維護原因),
+      online: online.filter((o) => o.設備類型 === scope.設備類型),
+    };
   }
 
   function rerender() {
+    renderDeviceTabs();
     renderControls();
     const cur = resolveSource('current');
     state.rows = cur.rows;

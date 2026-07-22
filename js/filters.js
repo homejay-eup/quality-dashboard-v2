@@ -118,7 +118,7 @@ App.filters = (() => {
 
   // ── app.js 呼叫（本模組只負責篩選 UI；明細表移至 detail.js）──
   function onRerender(state) {
-    const periodKey = `${state.year}-${state.quarter}`;
+    const periodKey = `${state.year}-${state.quarter}-${state.deviceTab}`;
     if (periodKey !== lastPeriodKey) {
       lastPeriodKey = periodKey;
       if (!$('list-廠商')) buildFilterUI(state);

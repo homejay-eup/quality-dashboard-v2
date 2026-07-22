@@ -130,7 +130,7 @@ App.detail = (() => {
       }
       // 小計：不論收合與否都顯示（收合＝只留群組標題＋小計）
       body += `<tr class="sub">${cols.map((c, i) => {
-        if (i === 0) return `<td class="sub__label">${g.key} 小計</td>`;
+        if (i === 0) return `<td class="sub__label">${g.key}</td>`;
         return `<td class="num">${['廠商', '類型', 'ERP品號', '品名'].includes(c.key) ? '' : fmtCell(c, g.subtotal[c.key])}</td>`;
       }).join('')}</tr>`;
     }
