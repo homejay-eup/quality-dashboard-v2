@@ -47,7 +47,7 @@ App.detail = (() => {
     $('detail-slot').innerHTML = `
       <section class="card detail">
         <div class="detail__bar">
-          <span class="detail__title">詳細資料</span>
+          <span class="detail__title" id="detail-title">詳細資料</span>
           <span class="detail__count" id="detail-count"></span>
         </div>
         <div class="detail__opts">
@@ -112,6 +112,7 @@ App.detail = (() => {
     const cols = ui.cols.filter((c) => c.on);
     const groups = lastAgg.groups;
     const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
+    $('detail-title').textContent = `${st.deviceTab || ''}_彙整總覽`;
     $('detail-count').textContent = `${groups.length} 組 / ${totalRows.toLocaleString()} 品號`;
 
     const head = `<tr>${cols.map((c) => `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join('')}</tr>`;

@@ -35,7 +35,7 @@ App.rawtable = (() => {
     $('raw-slot').innerHTML = `
       <section class="card detail">
         <div class="detail__head">
-          <span class="detail__title">明細（逐筆）</span>
+          <span class="detail__title" id="raw-title">設備品質分析_彙整總表</span>
           <input type="search" id="raw-search" class="detail__search" placeholder="搜尋明細（條碼、品名、廠商、故障…）" />
           <span class="detail__count" id="raw-count"></span>
         </div>
@@ -54,6 +54,7 @@ App.rawtable = (() => {
     }
     const total = rows.length;
     const shown = rows.slice(0, MAX_ROWS);
+    $('raw-title').textContent = `設備品質分析_彙整總表（${st.deviceTab || ''}）`;
     $('raw-count').textContent = total > MAX_ROWS ? `顯示前 ${MAX_ROWS} / 共 ${total.toLocaleString()} 筆` : `共 ${total.toLocaleString()} 筆`;
     const head = `<tr>${COLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
     const body = shown.map((r) => `<tr>${COLS.map(([, k]) => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`).join('');

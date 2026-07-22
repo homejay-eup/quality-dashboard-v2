@@ -157,7 +157,9 @@ App.app = (() => {
   // 解析期間來源 → { rows, online }。snapshot 用其自身凍結的上線量。
   // 有 meta.period（舊版 JSON 快照）用該固定期間；無 meta.period（雲端 Sheet 複製，含全歷史）
   // 則用目前下拉選定的年/季，可自由挑該快照內任一期間。
-  function resolveSource(kind) {
+  // deviceKey 不傳則用目前分頁（畫面渲染路徑）；report.js 需要不受目前分頁影響、
+  // 同時算車機＋鏡頭兩份資料，故顯式傳入 deviceKey。
+  function resolveSource(kind, deviceKey) {
     const snap = kind === 'current' ? state.currentSnap : state.cmpSnap;
     const y = snap && snap.meta.period ? snap.meta.period.year : (kind === 'current' ? state.year : state.cmp.year);
     const q = snap && snap.meta.period ? snap.meta.period.quarter : (kind === 'current' ? state.quarter : state.cmp.quarter);
@@ -167,11 +169,24 @@ App.app = (() => {
 
     // 分頁範圍前置篩選（比照原工具：車機＝設備類型車機＋維護原因訊號異常；鏡頭同理）
     // 篩選後再往下送給 KPI／詳細資料／明細表，其餘模組不需感知車機/鏡頭的存在。
-    const scope = currentScope();
+    const scope = deviceKey ? (DEVICE_TABS.find((t) => t.key === deviceKey) || DEVICE_TABS[0]) : currentScope();
     return {
       rows:   rows.filter((r) => r.設備類型 === scope.設備類型 && r.維護原因 === scope.維護原因),
       online: online.filter((o) => o.設備類型 === scope.設備類型),
     };
+  }
+
+  // 供落地頁報告使用：不論目前畫面停在哪個分頁，都能算出指定設備類型的完整資料
+  // （rows/online/kpi/cmpKpi），讓報告能同時涵蓋車機＋鏡頭。
+  function dataForDevice(deviceKey) {
+    const cur = resolveSource('current', deviceKey);
+    const kpi = App.metrics.computeKPI(cur.rows, cur.online, state.selection);
+    let cmpKpi = null;
+    if (state.cmp.on) {
+      const c = resolveSource('compare', deviceKey);
+      cmpKpi = App.metrics.computeKPI(c.rows, c.online, state.selection);
+    }
+    return { rows: cur.rows, online: cur.online, kpi, cmpKpi };
   }
 
   function rerender() {
@@ -341,5 +356,5 @@ App.app = (() => {
 
   document.addEventListener('DOMContentLoaded', init);
 
-  return { state, rerender, fmt: { int: fmtInt, pct: fmtPct } };
+  return { state, rerender, fmt: { int: fmtInt, pct: fmtPct }, DEVICE_TABS, dataForDevice };
 })();

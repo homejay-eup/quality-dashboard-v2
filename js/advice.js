@@ -127,5 +127,25 @@ App.advice = (() => {
     return { 品管: genQuality(state), 採購: genProcurement(state) };
   }
 
-  return { onRerender, getTexts };
+  // ── 核心發現（濃縮重點，仿 CR-804 報告的「核心發現」callout）──────────
+  // 傳入任一 {kpi, cmpKpi} 資料（可為特定設備類型範圍，不限於目前分頁），
+  // 產出 3–4 條精簡重點字串（不含表頭/註腳），供落地頁報告的重點框使用。
+  function genFindings({ kpi: k, cmpKpi: c }) {
+    const on = !!c;
+    const bullets = [];
+    const dr = k.不良率;
+    bullets.push(`整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.不良率, true) : ''}，` +
+      `${dr < 0.01 ? '品質表現穩定' : dr < 0.03 ? '略高，建議留意並追蹤' : '偏高，建議優先排查高不良品號並要求改善'}。`);
+    const u = k.再使用率;
+    bullets.push(`期間再使用率 ${pct(u)}${on ? deltaPP(u, c.再使用率, true) : ''}，` +
+      `${u >= 0.7 ? '維修/整新品質良好' : u >= 0.5 ? '尚可，建議檢視退修與報廢原因以提升沿用率' : '偏低，建議檢討維修流程與零件庫存'}。`);
+    const sr = k.過保率;
+    bullets.push(`整體過保率 ${pct(sr)}${on ? deltaPP(sr, c.過保率, true) : ''}，` +
+      `${sr < 0.01 ? '過保狀況在可控範圍內' : '偏高，建議追蹤高過保品號的使用年限分佈'}。`);
+    bullets.push(`期間回廠量 ${(k.期間回廠量 || 0).toLocaleString()}、總線上量 ${(k.總線上量 || 0).toLocaleString()}，` +
+      `整體不良率${on && (dr - c.不良率) > 0.005 ? '較對比期間上升，需留意是否有批次性異常' : on ? '較對比期間持平或下降' : '為當期狀況'}。`);
+    return bullets;
+  }
+
+  return { onRerender, getTexts, genFindings };
 })();

@@ -141,12 +141,107 @@ App.report = (() => {
     return `${cur}　vs　${cmp}`;
   }
 
-  function kpiCardsHTML(state) {
-    const k = state.kpi, c = state.cmpKpi, on = state.cmp.on && !!c;
+  function aggTableHTML(agg, titlePrefix) {
+    const head = `<tr>${RCOLS.map(([h, , f]) => `<th class="${f !== 'text' ? 'num' : ''}">${h}</th>`).join('')}</tr>`;
+    let body = '';
+    for (const g of agg.groups) {
+      body += `<tr class="grp"><td colspan="${RCOLS.length}">${esc(agg.groupBy)}：${esc(g.key)}（${g.rows.length} 品號）</td></tr>`;
+      for (const r of g.rows) body += `<tr>${RCOLS.map(([, key, f]) => `<td class="${f !== 'text' ? 'num' : ''}">${fmtC(f, r[key])}</td>`).join('')}</tr>`;
+      body += `<tr class="sub">${RCOLS.map(([, key, f], i) => i === 0 ? `<td>${esc(g.key)}</td>` : `<td class="num">${['類型', 'ERP品號', '品名'].includes(key) ? '' : fmtC(f, g.subtotal[key])}</td>`).join('')}</tr>`;
+    }
+    body += `<tr class="grand">${RCOLS.map(([, key, f], i) => i === 0 ? `<td>總計</td>` : `<td class="num">${['類型', 'ERP品號', '品名'].includes(key) ? '' : fmtC(f, agg.grandTotal[key])}</td>`).join('')}</tr>`;
+    return `<h3>${esc(titlePrefix)}_彙整總覽</h3><div class="scroll"><table class="agg"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  // ── 品質判定文字（同 rawtable.js 的 判定() 邏輯，供落地頁的合併明細表使用）──
+  function judgeText(r) {
+    const returned = r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
+    if (!returned) return r.回廠狀態 === '不回廠' ? '未回廠' : '無回廠記錄';
+    const parts = [];
+    if (r.良品) parts.push('良品');
+    if (r.不良品) parts.push('不良品');
+    if (r.過保) parts.push('過保');
+    return parts.join('＋') || '—';
+  }
+
+  const RAWCOLS = [
+    ['設備', '_device'], ['條碼', '條碼'], ['品名', '替換前品項'], ['ERP品號', 'ERP品號'],
+    ['類型', '廠牌型號'], ['廠商', '廠商'], ['完工日期', '品項完工日期'], ['維護類型', '維護類型'],
+    ['回廠狀態', '回廠狀態'], ['完成原因', '完成原因'], ['維修分類', '維修分類'], ['QC', 'QC'],
+    ['已使用年限', '已使用年限'], ['報廢狀態', '報廢單狀態'], ['品質判定', '_判定'],
+  ];
+  const RAW_MAX_PER_DEVICE = 300;
+
+  function rawTableHTML(deviceSections) {
+    let allRows = [];
+    let totalAll = 0;
+    for (const sec of deviceSections) {
+      const tagged = sec.data.rows.map((r) => ({ ...r, _device: sec.label, _判定: judgeText(r) }));
+      totalAll += tagged.length;
+      allRows = allRows.concat(tagged.slice(0, RAW_MAX_PER_DEVICE));
+    }
+    const head = `<tr>${RAWCOLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
+    const body = allRows.map((r) => `<tr>${RAWCOLS.map(([, k]) => `<td>${esc(r[k] ?? '')}</td>`).join('')}</tr>`).join('');
+    const note = totalAll > allRows.length
+      ? `<p class="note">車機／鏡頭各顯示前 ${RAW_MAX_PER_DEVICE} 筆，共 ${totalAll.toLocaleString()} 筆（完整明細請至工具內「明細（逐筆）」查看或匯出快照）。</p>` : '';
+    return `<div class="sec"><h2>設備品質分析_彙整總表</h2>${note}<div class="scroll" style="max-height:460px">
+      <table class="agg"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
+  }
+
+  // ── 核心發現 callout（仿 CR-804 報告的「核心發現」重點框）──────────────
+  function findingsCalloutHTML(d) {
+    const bullets = (App.advice && App.advice.genFindings) ? App.advice.genFindings(d) : [];
+    if (!bullets.length) return '';
+    const tone = d.kpi.不良率 >= 0.03 ? 'bad' : d.kpi.不良率 >= 0.01 ? 'warn' : 'good';
+    return `<div class="callout ${tone}"><p class="big-quote">核心發現</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>`;
+  }
+
+  function editableAdviceHTML(deviceKeySafe, label, kind, text) {
+    return `<h3>${esc(label)}</h3>
+      <textarea class="advice-edit" data-key="${deviceKeySafe}-${kind}">${esc(text)}</textarea>`;
+  }
+
+  // ── 單一設備區塊（車機分析／鏡頭分析）────────────────────────────────
+  function deviceSectionHTML(sec, idx, hasCmp) {
+    const d = sec.data;
+    const devState = { ...sec.state, rows: d.rows, kpi: d.kpi, cmpKpi: d.cmpKpi };
+    const advice = (App.advice && App.advice.getTexts) ? App.advice.getTexts(devState) : { 品管: '', 採購: '' };
+    const agg = App.metrics.aggregate(d.rows, d.online, sec.state.selection, { groupBy: '類型' });
+    const trend = App.metrics.trendByMonth(d.rows, sec.state.selection);
+    const fault = App.metrics.faultDistribution(d.rows, sec.state.selection);
+    const ftop = fault.slice(0, 8); const frest = fault.slice(8).reduce((s, f) => s + f.數量, 0);
+    const fLabels = ftop.map((f) => f.維護類型); const fData = ftop.map((f) => f.數量);
+    if (frest > 0) { fLabels.push('其他項'); fData.push(frest); }
+    const chartVarSuffix = idx;
+    return {
+      html: `<div class="sec">
+        <h2>${sec.icon} ${esc(sec.label)}分析</h2>
+        ${findingsCalloutHTML(d)}
+        <div class="cards">${kpiCardsHTMLFor(d, hasCmp)}</div>
+        <div class="two">
+          <div><div class="chart"><canvas id="tc-${chartVarSuffix}"></canvas></div></div>
+          <div><div class="chart"><canvas id="fc-${chartVarSuffix}"></canvas></div></div>
+        </div>
+        ${aggTableHTML(agg, sec.label)}
+        ${editableAdviceHTML(sec.key, '品管建議（可編輯）', '品管', advice.品管)}
+        ${editableAdviceHTML(sec.key, '採購建議（可編輯）', '採購', advice.採購)}
+      </div>`,
+      chartScript: `
+ new Chart(document.getElementById('tc-${chartVarSuffix}'),{type:'line',data:{labels:${JSON.stringify(trend.map((t) => t.年月))},datasets:[
+  {label:'回廠量',data:${JSON.stringify(trend.map((t) => t.回廠量))},borderColor:'#009688',backgroundColor:'rgba(0,150,136,.12)',fill:true,tension:.3,pointRadius:2,borderWidth:2},
+  {label:'不良品數',data:${JSON.stringify(trend.map((t) => t.不良品數))},borderColor:'#EF5350',fill:false,tension:.3,pointRadius:2,borderWidth:1.5}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'${esc(sec.label)}｜每月回廠量／不良品數趨勢'}},scales:{y:{beginAtZero:true,title:{display:true,text:'顆'}}}}});
+ new Chart(document.getElementById('fc-${chartVarSuffix}'),{type:'doughnut',data:{labels:${JSON.stringify(fLabels)},datasets:[{data:${JSON.stringify(fData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:11}}},title:{display:true,text:'${esc(sec.label)}｜故障分佈（維護類型）'}}}});`,
+    };
+  }
+
+  function kpiCardsHTMLFor(d, hasCmp) {
+    const k = d.kpi, c = d.cmpKpi;
     return RKPI.map((m) => {
       const val = fmtC(m.fmt, m.get(k));
       let delta = '';
-      if (on) {
+      if (hasCmp && c) {
         const cur = m.get(k), prev = m.get(c);
         if (m.fmt === 'pct') {
           const pp = (cur - prev) * 100;
@@ -162,79 +257,95 @@ App.report = (() => {
     }).join('');
   }
 
-  function aggTableHTML(agg) {
-    const head = `<tr>${RCOLS.map(([h, , f]) => `<th class="${f !== 'text' ? 'num' : ''}">${h}</th>`).join('')}</tr>`;
-    let body = '';
-    for (const g of agg.groups) {
-      body += `<tr class="grp"><td colspan="${RCOLS.length}">${esc(agg.groupBy)}：${esc(g.key)}（${g.rows.length} 品號）</td></tr>`;
-      for (const r of g.rows) body += `<tr>${RCOLS.map(([, key, f]) => `<td class="${f !== 'text' ? 'num' : ''}">${fmtC(f, r[key])}</td>`).join('')}</tr>`;
-      body += `<tr class="sub">${RCOLS.map(([, key, f], i) => i === 0 ? `<td>${esc(g.key)} 小計</td>` : `<td class="num">${['類型', 'ERP品號', '品名'].includes(key) ? '' : fmtC(f, g.subtotal[key])}</td>`).join('')}</tr>`;
-    }
-    body += `<tr class="grand">${RCOLS.map(([, key, f], i) => i === 0 ? `<td>總計</td>` : `<td class="num">${['類型', 'ERP品號', '品名'].includes(key) ? '' : fmtC(f, agg.grandTotal[key])}</td>`).join('')}</tr>`;
-    return `<table class="agg"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  // ── 整體概覽：車機／鏡頭並列比較（仿 PPTX 封面「車機、鏡頭」整合頁）───
+  function overviewHTML(sections) {
+    const rows = sections.map((sec) => {
+      const k = sec.data.kpi;
+      return `<tr><td class="l">${sec.icon} ${esc(sec.label)}</td>
+        <td class="num">${rInt(k.總線上量)}</td><td class="num">${rInt(k.期間回廠量)}</td>
+        <td class="num">${rPct(k.再使用率)}</td><td class="num">${rPct(k.不良率)}</td><td class="num">${rPct(k.過保率)}</td></tr>`;
+    }).join('');
+    return `<div class="sec"><h2>整體概覽（車機＋鏡頭）</h2>
+      <table class="agg"><thead><tr><th class="l">設備</th><th class="num">總線上量</th><th class="num">期間回廠量</th>
+      <th class="num">期間再使用率</th><th class="num">整體不良率</th><th class="num">整體過保率</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
   }
 
   function generateReportHTML(state) {
-    const trend = App.metrics.trendByMonth(state.rows, state.selection);
-    const fault = App.metrics.faultDistribution(state.rows, state.selection);
-    const ftop = fault.slice(0, 8); const frest = fault.slice(8).reduce((s, d) => s + d.數量, 0);
-    const fLabels = ftop.map((d) => d.維護類型); const fData = ftop.map((d) => d.數量);
-    if (frest > 0) { fLabels.push('其他項'); fData.push(frest); }
-    const agg = App.metrics.aggregate(state.rows, state.onlineList, state.selection, { groupBy: '類型' });
-    const advice = (App.advice && App.advice.getTexts) ? App.advice.getTexts(state) : { 品管: '', 採購: '' };
+    if (!App.app || !App.app.dataForDevice || !App.app.DEVICE_TABS) {
+      throw new Error('報告產生需要 App.app.dataForDevice／DEVICE_TABS（app.js 尚未載入或版本過舊）');
+    }
+    const icons = { 車機: '🚗', 鏡頭: '📷' };
+    const sections = App.app.DEVICE_TABS.map((t) => ({
+      key: t.key, label: t.key, icon: icons[t.key] || '📦',
+      state, data: App.app.dataForDevice(t.key),
+    }));
     const genAt = new Date().toLocaleString('zh-TW');
+    const built = sections.map((sec, idx) => deviceSectionHTML(sec, idx, state.cmp.on));
 
     return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>設備品質分析報告 ${esc(periodText(state))}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--teal:#009688;--teal-d:#00796B;--grad:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA}
+:root{--teal:#009688;--teal-d:#00796B;--grad:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
 .hero{background:var(--grad);color:#fff;padding:32px 32px 40px}.hero h1{margin:0 0 6px;font-size:24px}.hero .meta{font-size:13px;opacity:.95}
 .wrap{max-width:1160px;margin:0 auto;padding:24px 32px 60px}
 .sec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.sec h2{font-size:16px;margin:0 0 14px;color:var(--teal-d);border-bottom:2px solid var(--teal);padding-bottom:6px}
+.sec h2{font-size:18px;margin:0 0 14px;color:var(--teal-d);border-bottom:2px solid var(--teal);padding-bottom:6px}
+.sec h3{font-size:14px;margin:20px 0 8px;color:#333}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
 .kpi{border:1px solid var(--line);border-radius:12px;padding:14px 16px;border-top:3px solid var(--teal)}
 .kpi .l{font-size:12px;color:var(--muted)}.kpi .v{font-size:24px;font-weight:800}
 .kpi .d{font-size:12px;font-weight:600;margin-top:4px}.kpi .p{font-size:11px;color:var(--muted)}
-.d-good{color:#1a9c53}.d-bad{color:#D32F2F}.d-flat{color:var(--muted)}
+.d-good{color:var(--good)}.d-bad{color:var(--bad)}.d-flat{color:var(--muted)}
 .two{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
-.chart{position:relative;height:300px}
+.chart{position:relative;height:280px}
 table.agg{border-collapse:collapse;width:100%;font-size:12px}
 table.agg th{background:var(--teal);color:#fff;padding:7px 9px;text-align:left;white-space:nowrap;position:sticky;top:0}
 table.agg th.num,table.agg td.num{text-align:right}
+table.agg td.l{text-align:left}
 table.agg td{padding:5px 9px;border-bottom:1px solid #eef0f4;white-space:nowrap}
 tr.grp td{background:#E0F2F1;font-weight:700;color:var(--teal-d)}
 tr.sub td{background:#f3f6f9;font-weight:600}tr.grand td{background:#1F2535;color:#fff;font-weight:700}
-.scroll{overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
-.advice{white-space:pre-wrap;font-size:13.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px}
-.foot{color:var(--muted);font-size:12px;margin-top:20px;text-align:center}
+.scroll{overflow-x:auto;max-height:460px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+.advice-edit{white-space:pre-wrap;font-size:13.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical}
+.callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 0 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.callout.bad{border-left-color:var(--bad);background:#fff8f9}
+.callout.warn{border-left-color:var(--warn);background:#fffcf5}
+.callout.good{border-left-color:var(--good);background:#f6fbf8}
+.callout ul{margin:8px 0 0 20px}.callout li{margin:5px 0;font-size:13.5px}
+.big-quote{font-size:14.5px;font-weight:700;color:var(--teal-d)}
+.note{font-size:12px;color:var(--muted);margin:4px 0 10px}
+.save-bar{text-align:center;margin-top:20px}
+.save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;background:var(--grad);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
+.foot{color:var(--muted);font-size:12px;margin-top:14px;text-align:center}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
 <div class="hero"><h1>設備品質分析報告</h1>
-<div class="meta">期間：${esc(periodText(state))}　｜　範圍：${esc(scopeText(state))}　｜　製表：${esc(genAt)}　｜　資料來源：CRM（Google Sheets）</div></div>
+<div class="meta">期間：${esc(periodText(state))}　｜　範圍：車機＋鏡頭　｜　製表：${esc(genAt)}　｜　資料來源：CRM（Google Sheets）</div></div>
 <div class="wrap">
-<div class="sec"><h2>一、關鍵指標</h2><div class="cards">${kpiCardsHTML(state)}</div></div>
-<div class="sec"><h2>二、趨勢與故障分佈</h2><div class="two">
-<div><div class="chart"><canvas id="tc"></canvas></div></div>
-<div><div class="chart"><canvas id="fc"></canvas></div></div></div></div>
-<div class="sec"><h2>三、詳細資料（依品號彙整）</h2><div class="scroll">${aggTableHTML(agg)}</div></div>
-<div class="sec"><h2>四、品管建議</h2><div class="advice">${esc(advice.品管)}</div></div>
-<div class="sec"><h2>五、採購建議</h2><div class="advice">${esc(advice.採購)}</div></div>
-<div class="foot">本報告由「設備品質分析工具」自動生成，數據為製表當下之凍結快照。EUP 弋揚科技</div>
+${overviewHTML(sections)}
+${built.map((b) => b.html).join('\n')}
+${rawTableHTML(sections)}
+<div class="save-bar"><button class="save-btn" id="save-edited">💾 儲存目前版本（含已編輯的建議文字）</button></div>
+<div class="foot">本報告由「設備品質分析工具」自動生成，核心發現／建議文字可於框內直接編輯後按上方按鈕另存。EUP 弋揚科技</div>
 </div>
 <script>
-const TREND=${JSON.stringify(trend)};const FL=${JSON.stringify(fLabels)};const FD=${JSON.stringify(fData)};const PAL=${JSON.stringify(PAL)};
+const PAL=${JSON.stringify(PAL)};
 window.addEventListener('load',function(){
- if(typeof Chart==='undefined')return;
- new Chart(document.getElementById('tc'),{type:'line',data:{labels:TREND.map(function(d){return d.年月}),datasets:[
-  {label:'回廠量',data:TREND.map(function(d){return d.回廠量}),borderColor:'#009688',backgroundColor:'rgba(0,150,136,.12)',fill:true,tension:.3,pointRadius:2,borderWidth:2},
-  {label:'不良品數',data:TREND.map(function(d){return d.不良品數}),borderColor:'#EF5350',fill:false,tension:.3,pointRadius:2,borderWidth:1.5}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'每月回廠量／不良品數趨勢'}},scales:{y:{beginAtZero:true,title:{display:true,text:'顆'}}}}});
- new Chart(document.getElementById('fc'),{type:'doughnut',data:{labels:FL,datasets:[{data:FD,backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:11}}},title:{display:true,text:'故障分佈（維護類型）'}}}});
+ if(typeof Chart!=='undefined'){${built.map((b) => b.chartScript).join('\n')}}
+ var btn=document.getElementById('save-edited');
+ if(btn)btn.addEventListener('click',function(){
+   document.querySelectorAll('textarea.advice-edit').forEach(function(t){t.textContent=t.value;});
+   var html='<!DOCTYPE html>'+document.documentElement.outerHTML;
+   var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+   var a=document.createElement('a');
+   a.href=URL.createObjectURL(blob);
+   a.download='設備品質分析報告_已編輯_'+new Date().toISOString().slice(0,10)+'.html';
+   a.click();
+ });
 });
 </script></body></html>`;
   }
