@@ -14,32 +14,59 @@ App.detail = (() => {
   const fmtYear = (v) => (v == null || v === '' ? '' : Number(v).toFixed(1));
 
   // 欄位登錄（可開關、可拖曳排序）；num=右對齊
-  const ALL_COLS = [
+  // 故障原因 5 欄（AB點/失聯/… 或 黑畫面/進水模糊/…）依 deviceTab 動態插入，見 buildColsFor()
+  const BASE_PRE = [
     { key: '廠商', label: '廠商', fmt: 'text' },
     { key: '類型', label: '類型', fmt: 'text' },
     { key: 'ERP品號', label: 'ERP品號', fmt: 'text' },
     { key: '品名', label: '品名', fmt: 'text' },
     { key: '上線量', label: '上線量', fmt: 'int', num: true },
+  ];
+  const BASE_POST = [
     { key: '回廠量', label: '回廠量', fmt: 'int', num: true },
-    { key: '良品數', label: '良品數', fmt: 'int', num: true },
-    { key: '再使用率', label: '再使用率(%)', fmt: 'pct', num: true },
-    { key: '不良品數', label: '不良品數', fmt: 'int', num: true },
-    { key: '不良率', label: '不良率(%)', fmt: 'pct', num: true },
-    { key: '過保數', label: '過保數', fmt: 'int', num: true },
-    { key: '過保率', label: '過保率(%)', fmt: 'pct', num: true },
+    { key: '回廠不良品數(全)', label: '回廠不良品數(全)', fmt: 'int', num: true },
+    { key: '回廠良品數', label: '回廠良品數', fmt: 'int', num: true },
+    { key: '回廠不良品數', label: '回廠不良品數', fmt: 'int', num: true },
+    { key: '回廠過保數', label: '回廠過保數', fmt: 'int', num: true },
+    { key: '回廠人為數', label: '回廠人為數', fmt: 'int', num: true },
+    { key: 'D /停產報廢', label: 'D /停產報廢', fmt: 'int', num: true },
+    { key: 'E /過保報廢', label: 'E /過保報廢', fmt: 'int', num: true },
+    { key: 'G /評估後退修', label: 'G /評估後退修', fmt: 'int', num: true },
+    { key: 'H /人為報廢', label: 'H /人為報廢', fmt: 'int', num: true },
+    { key: 'O /測試正常', label: 'O /測試正常', fmt: 'int', num: true },
+    { key: 'X /已完修', label: 'X /已完修', fmt: 'int', num: true },
+    { key: 'V /已完修 人為', label: 'V /已完修 人為', fmt: 'int', num: true },
+    { key: '維修換貨＋換貨條碼', label: '維修換貨＋換貨條碼', fmt: 'int', num: true },
+    { key: '回廠QC', label: '回廠QC', fmt: 'int', num: true },
+    { key: '回廠報廢', label: '回廠報廢', fmt: 'int', num: true },
+    { key: '其他(良品)', label: '其他(良品)', fmt: 'int', num: true },
+    { key: '其他(回廠)', label: '其他(回廠)', fmt: 'int', num: true },
     { key: '已使用年限', label: '已使用年限(年)', fmt: 'year', num: true },
+    { key: '再使用率', label: '再使用率(%)', fmt: 'pct', num: true },
+    { key: '不良率', label: '不良率(%)', fmt: 'pct', num: true },
+    { key: '過保率', label: '過保率(%)', fmt: 'pct', num: true },
     { key: '整體不良率', label: '整體不良率(%)', fmt: 'pct', num: true },
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
   ];
 
+  function faultColsFor(deviceTab) {
+    const cfg = App.config.FAULT_COLS_BY_DEVICE || {};
+    return cfg[deviceTab] || cfg.車機 || [];
+  }
+  function buildColsFor(deviceTab) {
+    const faultCols = faultColsFor(deviceTab).map((f) => ({ key: f, label: f, fmt: 'int', num: true }));
+    return [...BASE_PRE, ...faultCols, ...BASE_POST].map((c) => ({ ...c, on: true }));
+  }
+
   const ui = {
     groupBy: '類型',
     onlySubtotal: false,
-    cols: ALL_COLS.map((c) => ({ ...c, on: true })), // 順序可變
+    cols: buildColsFor('車機'), // 順序可變；deviceTab 切換時於 renderTable() 重建
     collapsed: new Set(),
     dragKey: null,
   };
   let built = false;
+  let lastDeviceTab = '車機';
 
   const fmtCell = (c, v) => c.fmt === 'pct' ? fmtPct(v) : c.fmt === 'int' ? fmtInt(v) : c.fmt === 'year' ? fmtYear(v) : (v ?? '');
 
@@ -108,11 +135,18 @@ App.detail = (() => {
 
   function renderTable() {
     const st = App.app.state;
-    lastAgg = App.metrics.aggregate(st.rows, st.onlineList, st.selection, { groupBy: ui.groupBy });
+    if (st.deviceTab && st.deviceTab !== lastDeviceTab) {
+      lastDeviceTab = st.deviceTab;
+      ui.cols = buildColsFor(lastDeviceTab);
+      ui.collapsed.clear();
+      if (built) renderChips();
+    }
+    const faultCols = faultColsFor(st.deviceTab || lastDeviceTab);
+    lastAgg = App.metrics.aggregate(st.rows, st.onlineList, st.selection, { groupBy: ui.groupBy, faultCols });
     const cols = ui.cols.filter((c) => c.on);
     const groups = lastAgg.groups;
     const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
-    $('detail-title').textContent = `${st.deviceTab || ''}_彙整總覽`;
+    $('detail-title').textContent = '詳細明細';
     $('detail-count').textContent = `${groups.length} 組 / ${totalRows.toLocaleString()} 品號`;
 
     const head = `<tr>${cols.map((c) => `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join('')}</tr>`;

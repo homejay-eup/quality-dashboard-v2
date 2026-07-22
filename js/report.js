@@ -119,13 +119,8 @@ App.report = (() => {
     { label: '整體過保率', get: (k) => k.過保率, fmt: 'pct', better: false },
   ];
 
-  // 故障原因分類（彙整總覽第 7-11 欄），對齊 build_分析總表.py 的 CAR_FAULT_SUM / LENS_FAULT
-  const FAULT_COLS_BY_DEVICE = {
-    車機: ['AB點', '失聯', '定位不良', '訊號異常', '其他'],
-    鏡頭: ['黑畫面', '進水/模糊', '水波紋', '時有時無', '其他'],
-  };
-
   // 車機_彙整總覽／鏡頭_彙整總覽：30欄，對齊 設備品質分析_分析總表_新版.xlsx（見 build_分析總表.py build_overview）
+  // 故障原因分類（第 7-11 欄）取自 App.config.FAULT_COLS_BY_DEVICE（與 detail.js 共用同一份定義）
   function rcolsFor(faultCols) {
     return [
       ['期間', '期間', 'text'], ['類型', '類型', 'text'], ['廠商', '廠商', 'text'],
@@ -233,7 +228,7 @@ App.report = (() => {
     const d = sec.data;
     const devState = { ...sec.state, rows: d.rows, kpi: d.kpi, cmpKpi: d.cmpKpi };
     const advice = (App.advice && App.advice.getTexts) ? App.advice.getTexts(devState) : { 品管: '', 採購: '' };
-    const faultCols = FAULT_COLS_BY_DEVICE[sec.key] || FAULT_COLS_BY_DEVICE.車機;
+    const faultCols = App.config.FAULT_COLS_BY_DEVICE[sec.key] || App.config.FAULT_COLS_BY_DEVICE.車機;
     const periodLabel = `${sec.state.year}-Q${sec.state.quarter}`;
     const agg = App.metrics.aggregate(d.rows, d.online, sec.state.selection, { groupBy: '類型', faultCols });
     const trend = App.metrics.trendByMonth(d.rows, sec.state.selection);
