@@ -368,17 +368,32 @@ App.metrics = (() => {
   // 彙整表（依 ERP品號，供折疊明細表；groupBy 類型/廠商 + 小計）
   // ─────────────────────────────────────────────────
 
+  // 維修分類／QC 細項計數欄位（對齊 build_分析總表.py 的 build_overview，冊03 v6 規格）
+  const REPAIR_COUNT_KEYS = ['D /停產報廢', 'E /過保報廢', 'G /評估後退修', 'H /人為報廢', 'O /測試正常', 'X /已完修', 'V /已完修 人為', '維修換貨＋換貨條碼'];
+  const QC_COUNT_KEYS = ['回廠QC', '回廠報廢', '其他(良品)', '其他(回廠)'];
+  const EXTRA_COUNT_KEYS = [...REPAIR_COUNT_KEYS, ...QC_COUNT_KEYS, '回廠不良品數(全)', '回廠良品數', '回廠不良品數', '回廠過保數', '回廠人為數'];
+
   /**
    * 依 selection 過濾後，將 cohort 依 ERP品號 彙整成一列，並依 groupBy（類型/廠商）分組，
    * 附各組小計與總計。列指標對齊舊工具彙整總覽：
    *   期間率（÷回廠量）：再使用率、不良率、過保率
    *   整體率（÷上線量）：整體不良率、整體過保率
    *   已使用年限：過保明細（排除 QC='其他(未過)'）之平均，無則 null
+   *   維修分類／QC 細項計數（回廠不良品數(全)/回廠良品數/…/其他(回廠)）：對齊 build_分析總表.py
+   *     build_overview()（僅在 opts.faultCols 有給故障原因分類時才附加該 5 欄，計數母體與
+   *     回廠量/良品數/不良品數/過保數 一致，皆為「已回廠」子集，故 回廠不良品數(全)+回廠良品數＝回廠量）
    *
+   * @param {Object[]} rows
+   * @param {Object[]} 上線量Enriched
+   * @param {Object} selection
+   * @param {{ groupBy?: '類型'|'廠商', faultCols?: string[] }} [opts] - faultCols：5 個故障原因分類
+   *   （車機＝['AB點','失聯','定位不良','訊號異常','其他']；鏡頭＝['黑畫面','進水/模糊','水波紋','時有時無','其他']），
+   *   最後一項為餘數「其他」。提供時，回傳列會附加這 5 欄的計數。
    * @returns {{ groups: Array<{key, rows, subtotal}>, grandTotal: Object, groupBy: '類型'|'廠商' }}
    */
   function aggregate(rows, 上線量Enriched, selection, opts) {
     const groupBy = (opts && opts.groupBy === '廠商') ? '廠商' : '類型';
+    const faultCols = (opts && opts.faultCols) || null;
     const filtered   = applyFilter(rows, selection);
     const filtered上線 = applyFilter(上線量Enriched, selection);
 
@@ -389,34 +404,81 @@ App.metrics = (() => {
     }
 
     const isReturned = (r) => r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
+    const QC_LABEL = { '回廠QC': '回廠QC', '回廠報廢': '回廠報廢', '其他': '其他(良品)', '其他(未過)': '其他(回廠)' };
 
     // 依 ERP品號 累加
     const acc = new Map();
     for (const r of filtered) {
       const erp = String(r.ERP品號 || '');
       const key = erp || `型:${r.廠牌型號 || ''}|${r.替換前品項 || ''}`;
-      if (!acc.has(key)) acc.set(key, { ERP品號: erp, 廠商: r.廠商 || '未分類', 類型: r.廠牌型號 || '', 品名: r.替換前品項 || '', 回廠量: 0, 良品數: 0, 不良品數: 0, 過保數: 0, 年限Sum: 0, 年限N: 0 });
+      if (!acc.has(key)) {
+        acc.set(key, {
+          ERP品號: erp, 廠商: r.廠商 || '未分類', 類型: r.廠牌型號 || '', 品名: r.替換前品項 || '',
+          回廠量: 0, 良品數: 0, 不良品數: 0, 過保數: 0, 年限Sum: 0, 年限N: 0,
+          維修分類count: {}, QCcount: {}, 維護類型count: {},
+        });
+      }
       const a = acc.get(key);
-      if (isReturned(r)) { a.回廠量++; if (r.良品) a.良品數++; if (r.不良品) a.不良品數++; if (r.過保) a.過保數++; }
+      if (isReturned(r)) {
+        a.回廠量++;
+        if (r.良品) a.良品數++;
+        if (r.不良品) a.不良品數++;
+        if (r.過保) a.過保數++;
+        const mc = r.維修分類 || '';
+        a.維修分類count[mc] = (a.維修分類count[mc] || 0) + 1;
+        const qcLabel = QC_LABEL[r.QC] || null;
+        if (qcLabel) a.QCcount[qcLabel] = (a.QCcount[qcLabel] || 0) + 1;
+        if (faultCols) {
+          const ft = r.維護類型 || '其他';
+          a.維護類型count[ft] = (a.維護類型count[ft] || 0) + 1;
+        }
+      }
       if (r.過保 && r.QC !== '其他(未過)' && r.已使用年限 != null) { a.年限Sum += Number(r.已使用年限); a.年限N++; }
     }
 
-    const mkRow = (a, 上線量) => ({
-      廠商: a.廠商, 類型: a.類型, ERP品號: a.ERP品號, 品名: a.品名,
-      上線量, 回廠量: a.回廠量, 良品數: a.良品數, 不良品數: a.不良品數, 過保數: a.過保數,
-      再使用率: safeDiv(a.良品數, a.回廠量), 不良率: safeDiv(a.不良品數, a.回廠量), 過保率: safeDiv(a.過保數, a.回廠量),
-      已使用年限: a.年限N ? Math.round(a.年限Sum / a.年限N * 10) / 10 : null,
-      整體不良率: safeDiv(a.不良品數, 上線量), 整體過保率: safeDiv(a.過保數, 上線量),
-      _年限Sum: a.年限Sum, _年限N: a.年限N,
-    });
+    const mkRow = (a, 上線量) => {
+      const mc = a.維修分類count, qc = a.QCcount;
+      const d = mc['D /停產報廢'] || 0, e = mc['E /過保報廢'] || 0, gg = mc['G /評估後退修'] || 0,
+        h = mc['H /人為報廢'] || 0, o = mc['O /測試正常'] || 0, x = mc['X /已完修'] || 0,
+        v = mc['V /已完修 人為'] || 0, ex = mc['維修換貨＋換貨條碼'] || 0;
+      const qcQc = qc['回廠QC'] || 0, qcScrap = qc['回廠報廢'] || 0, qcOth = qc['其他(良品)'] || 0, qcOth2 = qc['其他(回廠)'] || 0;
+      const row = {
+        廠商: a.廠商, 類型: a.類型, ERP品號: a.ERP品號, 品名: a.品名,
+        上線量, 回廠量: a.回廠量, 良品數: a.良品數, 不良品數: a.不良品數, 過保數: a.過保數,
+        再使用率: safeDiv(a.良品數, a.回廠量), 不良率: safeDiv(a.不良品數, a.回廠量), 過保率: safeDiv(a.過保數, a.回廠量),
+        已使用年限: a.年限N ? Math.round(a.年限Sum / a.年限N * 10) / 10 : null,
+        整體不良率: safeDiv(a.不良品數, 上線量), 整體過保率: safeDiv(a.過保數, 上線量),
+        'D /停產報廢': d, 'E /過保報廢': e, 'G /評估後退修': gg, 'H /人為報廢': h,
+        'O /測試正常': o, 'X /已完修': x, 'V /已完修 人為': v, '維修換貨＋換貨條碼': ex,
+        '回廠QC': qcQc, '回廠報廢': qcScrap, '其他(良品)': qcOth, '其他(回廠)': qcOth2,
+        '回廠不良品數(全)': d + e + gg + h + x + v + ex + qcScrap + qcOth2,
+        '回廠良品數': o + qcQc + qcOth,
+        '回廠不良品數': gg + x + ex,
+        '回廠過保數': d + e + qcScrap + qcOth2,
+        '回廠人為數': h,
+        _年限Sum: a.年限Sum, _年限N: a.年限N,
+      };
+      if (faultCols) {
+        const main4 = faultCols.slice(0, -1);
+        let sum4 = 0;
+        for (const ft of main4) { row[ft] = a.維護類型count[ft] || 0; sum4 += row[ft]; }
+        row[faultCols[faultCols.length - 1]] = a.回廠量 - sum4;
+      }
+      return row;
+    };
 
     const erpRows = [...acc.values()].map((a) => mkRow(a, onlineByERP.get(a.ERP品號) || 0));
 
     const subtotal = (arr, label) => {
-      const s = { 上線量: 0, 回廠量: 0, 良品數: 0, 不良品數: 0, 過保數: 0, 年限Sum: 0, 年限N: 0 };
-      for (const r of arr) { s.上線量 += r.上線量; s.回廠量 += r.回廠量; s.良品數 += r.良品數; s.不良品數 += r.不良品數; s.過保數 += r.過保數; s.年限Sum += r._年限Sum || 0; s.年限N += r._年限N || 0; }
+      const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
+      const s = { 年限Sum: 0, 年限N: 0 };
+      for (const k of sumKeys) s[k] = 0;
+      for (const r of arr) {
+        for (const k of sumKeys) s[k] += (r[k] || 0);
+        s.年限Sum += r._年限Sum || 0; s.年限N += r._年限N || 0;
+      }
       return {
-        label, 上線量: s.上線量, 回廠量: s.回廠量, 良品數: s.良品數, 不良品數: s.不良品數, 過保數: s.過保數,
+        label, ...s,
         再使用率: safeDiv(s.良品數, s.回廠量), 不良率: safeDiv(s.不良品數, s.回廠量), 過保率: safeDiv(s.過保數, s.回廠量),
         已使用年限: s.年限N ? Math.round(s.年限Sum / s.年限N * 10) / 10 : null,
         整體不良率: safeDiv(s.不良品數, s.上線量), 整體過保率: safeDiv(s.過保數, s.上線量),

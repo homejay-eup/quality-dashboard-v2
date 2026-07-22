@@ -87,6 +87,16 @@ App.transform = (() => {
   }
 
   /**
+   * Date → 'YYYY-MM-DD' 字串（供 進貨日 等落地頁欄位顯示用）。
+   * @param {Date} date
+   * @returns {string}
+   */
+  function toDateStr(date) {
+    if (!date) return '';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
    * 判斷 Date 是否在 [startMonth, endMonth] 範圍內（同年、含兩端，1-indexed）。
    * @param {Date|null} date
    * @param {number} year
@@ -362,8 +372,11 @@ App.transform = (() => {
    *   條碼(string)           替換前品項(string)    ERP品號(string)
    *   設備類型(string)       廠牌型號(string)       廠商(string)
    *   品項完工日期(string)   年月(string YYYY-MM)
-   *   維護類型(string)       回廠狀態(string)       完成原因(string)
-   *   維修分類(string)       QC(string)             已使用年限(number|null)
+   *   維護原因(string)       維護細節(string)       維護類型(string)
+   *   回廠狀態(string)       完成原因(string)
+   *   輸入年月(string)       輸入時間(string)
+   *   維修分類(string)       QC(string)             進貨日(string YYYY-MM-DD)
+   *   已使用年限(number|null)
    *   報廢單狀態(string)     報廢原因(string)
    *   良品(boolean)          不良品(boolean)        過保(boolean)
    *
@@ -562,11 +575,15 @@ App.transform = (() => {
         品項完工日期: String(row['品項完工日期'] || '').trim(),
         年月,
         維護原因,
+        維護細節,
         維護類型,
         回廠狀態,
         完成原因,
+        輸入年月:     String(維修Row?.['輸入年月'] || '').trim(),
+        輸入時間:     String(維修Row?.['輸入時間'] || '').trim(),
         維修分類:     維修分類Code,
         QC,
+        進貨日:       toDateStr(進貨日Date),
         已使用年限,
         報廢單狀態,
         報廢原因,
