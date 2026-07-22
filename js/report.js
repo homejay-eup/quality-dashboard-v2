@@ -119,26 +119,6 @@ App.report = (() => {
     { label: '整體過保率', get: (k) => k.過保率, fmt: 'pct', better: false },
   ];
 
-  // 車機_彙整總覽／鏡頭_彙整總覽：30欄，對齊 設備品質分析_分析總表_新版.xlsx（見 build_分析總表.py build_overview）
-  // 故障原因分類（第 7-11 欄）取自 App.config.FAULT_COLS_BY_DEVICE（與 detail.js 共用同一份定義）
-  function rcolsFor(faultCols) {
-    return [
-      ['期間', '期間', 'text'], ['類型', '類型', 'text'], ['廠商', '廠商', 'text'],
-      ['ERP品號', 'ERP品號', 'text'], ['品名', '品名', 'text'], ['上線量', '上線量', 'int'],
-      ...faultCols.map((f) => [f, f, 'int']),
-      ['回廠量', '回廠量', 'int'], ['回廠不良品數(全)', '回廠不良品數(全)', 'int'],
-      ['回廠良品數', '回廠良品數', 'int'], ['回廠不良品數', '回廠不良品數', 'int'],
-      ['回廠過保數', '回廠過保數', 'int'], ['回廠人為數', '回廠人為數', 'int'],
-      ['D /停產報廢', 'D /停產報廢', 'int'], ['E /過保報廢', 'E /過保報廢', 'int'],
-      ['G /評估後退修', 'G /評估後退修', 'int'], ['H /人為報廢', 'H /人為報廢', 'int'],
-      ['O /測試正常', 'O /測試正常', 'int'], ['X /已完修', 'X /已完修', 'int'],
-      ['V /已完修 人為', 'V /已完修 人為', 'int'], ['維修換貨＋換貨條碼', '維修換貨＋換貨條碼', 'int'],
-      ['回廠QC', '回廠QC', 'int'], ['回廠報廢', '回廠報廢', 'int'],
-      ['其他(良品)', '其他(良品)', 'int'], ['其他(回廠)', '其他(回廠)', 'int'],
-      ['已使用年限', '已使用年限', 'year'],
-    ];
-  }
-  const RCOLS_NONSUM = ['期間', '類型', '廠商', 'ERP品號', '品名'];
   const fmtC = (fmt, v) => fmt === 'pct' ? rPct(v) : fmt === 'int' ? rInt(v) : fmt === 'year' ? rYear(v) : esc(v);
 
   function scopeText(state) {
@@ -153,61 +133,6 @@ App.report = (() => {
     if (!state.cmp.on) return cur;
     const cmp = state.cmpSnap ? `${state.cmp.year}-Q${state.cmp.quarter}（快照）` : `${state.cmp.year}-Q${state.cmp.quarter}`;
     return `${cur}　vs　${cmp}`;
-  }
-
-  function aggTableHTML(agg, titlePrefix, rcols, periodLabel) {
-    const head = `<tr>${rcols.map(([h, , f]) => `<th class="${f !== 'text' ? 'num' : ''}">${h}</th>`).join('')}</tr>`;
-    const labelIdx = Math.max(0, rcols.findIndex(([, key]) => key === agg.groupBy));
-    const cellFor = (r, key, f) => key === '期間' ? esc(periodLabel) : fmtC(f, r[key]);
-    let body = '';
-    for (const g of agg.groups) {
-      for (const r of g.rows) body += `<tr>${rcols.map(([, key, f]) => `<td class="${f !== 'text' ? 'num' : ''}">${cellFor(r, key, f)}</td>`).join('')}</tr>`;
-      body += `<tr class="sub">${rcols.map(([, key, f], i) => {
-        if (i === labelIdx) return `<td>${esc(g.key)} 小計</td>`;
-        if (RCOLS_NONSUM.includes(key)) return '<td></td>';
-        return `<td class="num">${fmtC(f, g.subtotal[key])}</td>`;
-      }).join('')}</tr>`;
-    }
-    body += `<tr class="grand">${rcols.map(([, key, f], i) => {
-      if (i === labelIdx) return `<td>總計</td>`;
-      if (RCOLS_NONSUM.includes(key)) return '<td></td>';
-      return `<td class="num">${fmtC(f, agg.grandTotal[key])}</td>`;
-    }).join('')}</tr>`;
-    return `<h3>${esc(titlePrefix)}_彙整總覽</h3><div class="scroll"><table class="agg"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
-  }
-
-  // 設備品質分析_彙整總表：21欄（含期間），對齊 設備品質分析_分析總表_新版.xlsx 明細分頁
-  const RAWCOLS = [
-    ['期間', '_period'], ['品項完工日期', '品項完工日期'], ['設備類型', '設備類型'], ['廠牌型號', '廠牌型號'],
-    ['廠商', '廠商'], ['ERP品號', 'ERP品號'], ['替換前品項', '替換前品項'], ['替換前品項條碼', '條碼'],
-    ['維護原因', '維護原因'], ['維護細節', '維護細節'], ['輸入年月', '輸入年月'], ['輸入時間', '輸入時間'],
-    ['完成原因', '完成原因'], ['報廢單狀態', '報廢單狀態'], ['報廢原因', '報廢原因'], ['上線量', '_上線量'],
-    ['維護類型', '維護類型'], ['維修分類', '維修分類'], ['進貨日', '進貨日'], ['已使用年限', '已使用年限'],
-    ['QC', 'QC'],
-  ];
-  const RAW_MAX_PER_DEVICE = 300;
-
-  function rawTableHTML(deviceSections, periodLabel) {
-    let allRows = [];
-    let totalAll = 0;
-    for (const sec of deviceSections) {
-      const onlineByERP = new Map();
-      for (const o of (sec.data.online || [])) {
-        const e = String(o.ERP品號 || '');
-        onlineByERP.set(e, (onlineByERP.get(e) || 0) + (Number(o.上線量) || 0));
-      }
-      const tagged = sec.data.rows.map((r) => ({
-        ...r, _period: periodLabel, _上線量: onlineByERP.get(String(r.ERP品號 || '')) || 0,
-      }));
-      totalAll += tagged.length;
-      allRows = allRows.concat(tagged.slice(0, RAW_MAX_PER_DEVICE));
-    }
-    const head = `<tr>${RAWCOLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
-    const body = allRows.map((r) => `<tr>${RAWCOLS.map(([, k]) => `<td>${esc(r[k] ?? '')}</td>`).join('')}</tr>`).join('');
-    const note = totalAll > allRows.length
-      ? `<p class="note">車機／鏡頭各顯示前 ${RAW_MAX_PER_DEVICE} 筆，共 ${totalAll.toLocaleString()} 筆（完整明細請至工具內「明細（逐筆）」查看或匯出快照）。</p>` : '';
-    return `<div class="sec"><h2>設備品質分析_彙整總表</h2>${note}<div class="scroll" style="max-height:460px">
-      <table class="agg"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
   }
 
   // ── 核心發現 callout（仿 CR-804 報告的「核心發現」重點框）──────────────
@@ -228,9 +153,6 @@ App.report = (() => {
     const d = sec.data;
     const devState = { ...sec.state, rows: d.rows, kpi: d.kpi, cmpKpi: d.cmpKpi };
     const advice = (App.advice && App.advice.getTexts) ? App.advice.getTexts(devState) : { 品管: '', 採購: '' };
-    const faultCols = App.config.FAULT_COLS_BY_DEVICE[sec.key] || App.config.FAULT_COLS_BY_DEVICE.車機;
-    const periodLabel = `${sec.state.year}-Q${sec.state.quarter}`;
-    const agg = App.metrics.aggregate(d.rows, d.online, sec.state.selection, { groupBy: '類型', faultCols });
     const trend = App.metrics.trendByMonth(d.rows, sec.state.selection);
     const fault = App.metrics.faultDistribution(d.rows, sec.state.selection);
     const ftop = fault.slice(0, 8); const frest = fault.slice(8).reduce((s, f) => s + f.數量, 0);
@@ -246,7 +168,6 @@ App.report = (() => {
           <div><div class="chart"><canvas id="tc-${chartVarSuffix}"></canvas></div></div>
           <div><div class="chart"><canvas id="fc-${chartVarSuffix}"></canvas></div></div>
         </div>
-        ${aggTableHTML(agg, sec.label, rcolsFor(faultCols), periodLabel)}
         ${editableAdviceHTML(sec.key, '品管建議（可編輯）', '品管', advice.品管)}
         ${editableAdviceHTML(sec.key, '採購建議（可編輯）', '採購', advice.採購)}
       </div>`,
@@ -352,7 +273,6 @@ tr.sub td{background:#f3f6f9;font-weight:600}tr.grand td{background:#1F2535;colo
 <div class="wrap">
 ${overviewHTML(sections)}
 ${built.map((b) => b.html).join('\n')}
-${rawTableHTML(sections, `${state.year}-Q${state.quarter}`)}
 <div class="save-bar"><button class="save-btn" id="save-edited">💾 儲存目前版本（含已編輯的建議文字）</button></div>
 <div class="foot">本報告由「設備品質分析工具」自動生成，核心發現／建議文字可於框內直接編輯後按上方按鈕另存。EUP 弋揚科技</div>
 </div>

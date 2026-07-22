@@ -2,7 +2,8 @@
  * js/detail.js — 彙整明細表（掛 App.detail）
  *
  * 依 App.metrics.aggregate 產生「依 ERP品號 彙整、依 類型/廠商 分組、含小計/總計」的表。
- * 功能：折疊依據(類型/廠商)切換、群組收合、只顯示小計、欄位顯示開關、欄序拖曳。
+ * 功能：折疊依據(類型/廠商)切換、只顯示小計、欄位顯示開關、欄序拖曳。
+ * 不顯示分組標題列（如「類型：16-1車機（5 品號）」），資料列直接接續、緊接小計列。
  * 由 app.js 的 rerender() 呼叫 App.detail.onRerender(state)。
  */
 window.App = window.App || {};
@@ -16,12 +17,14 @@ App.detail = (() => {
   // 欄位登錄（可開關、可拖曳排序）；num=右對齊
   // 故障原因 5 欄（AB點/失聯/… 或 黑畫面/進水模糊/…）依 deviceTab 動態插入，見 buildColsFor()
   const BASE_PRE = [
+    { key: '期間', label: '期間', fmt: 'text' },
     { key: '廠商', label: '廠商', fmt: 'text' },
     { key: '類型', label: '類型', fmt: 'text' },
     { key: 'ERP品號', label: 'ERP品號', fmt: 'text' },
     { key: '品名', label: '品名', fmt: 'text' },
     { key: '上線量', label: '上線量', fmt: 'int', num: true },
   ];
+  const NONSUM_KEYS = ['期間', '廠商', '類型', 'ERP品號', '品名'];
   const BASE_POST = [
     { key: '回廠量', label: '回廠量', fmt: 'int', num: true },
     { key: '回廠不良品數(全)', label: '回廠不良品數(全)', fmt: 'int', num: true },
@@ -62,7 +65,6 @@ App.detail = (() => {
     groupBy: '類型',
     onlySubtotal: false,
     cols: buildColsFor('車機'), // 順序可變；deviceTab 切換時於 renderTable() 重建
-    collapsed: new Set(),
     dragKey: null,
   };
   let built = false;
@@ -83,9 +85,6 @@ App.detail = (() => {
             <label class="radio"><input type="radio" name="groupBy" value="類型" checked/> 類型</label>
             <label class="radio"><input type="radio" name="groupBy" value="廠商"/> 廠商</label>
             <label class="radio"><input type="checkbox" id="only-subtotal"/> 只顯示小計</label>
-            <span class="opt-sep"></span>
-            <button class="btn-ghost" id="btn-expand-all">全部展開</button>
-            <button class="btn-ghost" id="btn-collapse-all">全部摺疊</button>
           </div>
           <div class="opt-row opt-row--cols">
             <span class="opt-label">欄位顯示（可拖曳排序）</span>
@@ -95,12 +94,8 @@ App.detail = (() => {
         <div class="detail__scroll" id="detail-wrap"></div>
       </section>`;
     $('detail-slot').querySelectorAll('input[name="groupBy"]').forEach((r) =>
-      r.addEventListener('change', (e) => { ui.groupBy = e.target.value; ui.collapsed.clear(); render(); }));
+      r.addEventListener('change', (e) => { ui.groupBy = e.target.value; render(); }));
     $('only-subtotal').addEventListener('change', (e) => { ui.onlySubtotal = e.target.checked; render(); });
-    $('btn-expand-all').addEventListener('click', () => { ui.collapsed.clear(); renderTable(); });
-    $('btn-collapse-all').addEventListener('click', () => {
-      (lastAgg ? lastAgg.groups : []).forEach((g) => ui.collapsed.add(g.key)); renderTable();
-    });
     built = true;
   }
 
@@ -138,51 +133,39 @@ App.detail = (() => {
     if (st.deviceTab && st.deviceTab !== lastDeviceTab) {
       lastDeviceTab = st.deviceTab;
       ui.cols = buildColsFor(lastDeviceTab);
-      ui.collapsed.clear();
       if (built) renderChips();
     }
     const faultCols = faultColsFor(st.deviceTab || lastDeviceTab);
     lastAgg = App.metrics.aggregate(st.rows, st.onlineList, st.selection, { groupBy: ui.groupBy, faultCols });
+    const periodLabel = `${st.year}-Q${st.quarter}`;
     const cols = ui.cols.filter((c) => c.on);
+    const labelIdx = Math.max(0, cols.findIndex((c) => c.key === ui.groupBy));
     const groups = lastAgg.groups;
     const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
     $('detail-title').textContent = '詳細明細';
     $('detail-count').textContent = `${groups.length} 組 / ${totalRows.toLocaleString()} 品號`;
 
     const head = `<tr>${cols.map((c) => `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join('')}</tr>`;
-    const cell = (c, row) => `<td class="${c.num ? 'num' : ''}">${fmtCell(c, row[c.key])}</td>`;
+    const cellVal = (c, row) => c.key === '期間' ? periodLabel : fmtCell(c, row[c.key]);
+    const cell = (c, row) => `<td class="${c.num ? 'num' : ''}">${cellVal(c, row)}</td>`;
 
     let body = '';
     for (const g of groups) {
-      const collapsed = ui.collapsed.has(g.key);
-      body += `<tr class="grp" data-g="${encodeURIComponent(g.key)}">
-        <td class="grp__cell" colspan="${cols.length}">
-          <span class="grp__caret">${collapsed ? '▶' : '▼'}</span> ${ui.groupBy}：${g.key}
-          <span class="grp__n">（${g.rows.length} 品號）</span>
-        </td></tr>`;
-      if (!collapsed && !ui.onlySubtotal) {
+      if (!ui.onlySubtotal) {
         for (const r of g.rows) body += `<tr>${cols.map((c) => cell(c, r)).join('')}</tr>`;
       }
-      // 小計：不論收合與否都顯示（收合＝只留群組標題＋小計）
       body += `<tr class="sub">${cols.map((c, i) => {
-        if (i === 0) return `<td class="sub__label">${g.key}</td>`;
-        return `<td class="num">${['廠商', '類型', 'ERP品號', '品名'].includes(c.key) ? '' : fmtCell(c, g.subtotal[c.key])}</td>`;
+        if (i === labelIdx) return `<td class="sub__label">${g.key} 小計</td>`;
+        return `<td class="num">${NONSUM_KEYS.includes(c.key) ? '' : fmtCell(c, g.subtotal[c.key])}</td>`;
       }).join('')}</tr>`;
     }
     // 總計
     body += `<tr class="grand">${cols.map((c, i) => {
-      if (i === 0) return `<td>總計</td>`;
-      return `<td class="num">${['廠商', '類型', 'ERP品號', '品名'].includes(c.key) ? '' : fmtCell(c, lastAgg.grandTotal[c.key])}</td>`;
+      if (i === labelIdx) return `<td>總計</td>`;
+      return `<td class="num">${NONSUM_KEYS.includes(c.key) ? '' : fmtCell(c, lastAgg.grandTotal[c.key])}</td>`;
     }).join('')}</tr>`;
 
     $('detail-wrap').innerHTML = `<table class="agg-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
-    $('detail-wrap').querySelectorAll('tr.grp').forEach((tr) => {
-      tr.addEventListener('click', () => {
-        const k = decodeURIComponent(tr.dataset.g);
-        if (ui.collapsed.has(k)) ui.collapsed.delete(k); else ui.collapsed.add(k);
-        renderTable();
-      });
-    });
   }
 
   function onRerender() {

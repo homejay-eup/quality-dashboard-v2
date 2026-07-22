@@ -297,15 +297,10 @@ body {
 }
 .agg-table th.num, .agg-table td.num { text-align: right; }
 .agg-table td { padding: 6px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
-.agg-table tr.grp { background: var(--teal-pale); cursor: pointer; }
-.agg-table tr.grp:hover { background: #cdeae7; }
-.grp__cell { font-weight: 700; color: var(--teal-dark); }
-.grp__caret { display: inline-block; width: 14px; }
-.grp__n { font-weight: 400; color: var(--gray-500); font-size: 11.5px; }
 .agg-table tr.sub td { background: #f3f6f9; font-weight: 600; border-bottom: 1px solid var(--gray-200); }
 .sub__label { color: var(--gray-600); }
 .agg-table tr.grand td { background: var(--gray-800); color: #fff; font-weight: 700; position: sticky; bottom: 0; }
-.agg-table tbody tr:not(.grp):not(.sub):not(.grand):hover { background: #fafbfc; }
+.agg-table tbody tr:not(.sub):not(.grand):hover { background: #fafbfc; }
 
 /* ── 品管/採購建議（F5）───────────────────────────── */
 .advice { margin-top: 18px; padding: 16px 18px; }

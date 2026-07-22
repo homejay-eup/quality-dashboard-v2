@@ -202,6 +202,7 @@ App.app = (() => {
     renderKpi();
     if (App.filters && App.filters.onRerender) App.filters.onRerender(state);
     if (App.detail && App.detail.onRerender) App.detail.onRerender(state);
+    if (App.rawtable && App.rawtable.onRerender) App.rawtable.onRerender(state);
     if (App.advice && App.advice.onRerender) App.advice.onRerender(state);
     showContent();
   }
