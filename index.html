@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>設備品質分析</title>
+  <link rel="stylesheet" href="css/style.css?v=1" />
+</head>
+<body>
+  <!-- ── Header ─────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand">
+        <span class="brand__mark">📊</span>
+        <div class="brand__text">
+          <div class="brand__title">設備品質分析</div>
+          <div class="brand__sub">EUP 弋揚科技</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero ───────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero__inner">
+      <h1 class="hero__title">設備品質分析工具</h1>
+      <p class="hero__desc">依廠商、類型、ERP品號與季度彈性篩選，分析回廠、再使用、不良與過保品質。</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <!-- ── 控制列（期間 / YoY）──────────────────────── -->
+    <section class="controls card">
+      <div class="controls__group">
+        <label class="field">
+          <span class="field__label">目前期間</span>
+          <select id="sel-current"></select>
+        </label>
+        <label class="field">
+          <span class="field__label">對比期間</span>
+          <select id="sel-compare"></select>
+        </label>
+      </div>
+      <!-- 指標顯示 -->
+      <div class="metric-toggle">
+        <span class="metric-toggle__label">指標顯示</span>
+        <div id="metric-chips" class="chips"></div>
+      </div>
+      <!-- 快照動作 -->
+      <div class="controls__actions">
+        <button class="btn" id="btn-report">🖨 生成落地頁報告</button>
+        <button class="btn-ghost" id="btn-export">📥 匯出本期快照</button>
+        <span class="controls__hint">報告＝當前篩選結果＋圖表＋品管/採購建議；快照供跨期比較</span>
+      </div>
+      <!-- 篩選器（filters.js 注入）-->
+      <div id="filter-slot"></div>
+    </section>
+
+    <!-- ── 載入 / 錯誤 狀態 ─────────────────────────── -->
+    <div id="status" class="status" hidden></div>
+
+    <!-- ── 主內容（載入完成才顯示）──────────────────── -->
+    <div id="content" hidden>
+      <!-- KPI 主卡列 -->
+      <section class="cards" id="kpi-primary"></section>
+      <!-- KPI 次卡列 -->
+      <section class="cards cards--secondary" id="kpi-secondary"></section>
+
+      <!-- 詳細資料：依品號彙整（detail.js 注入）-->
+      <div id="detail-slot"></div>
+
+      <!-- 明細：逐筆原始判定（rawtable.js 注入）-->
+      <div id="raw-slot"></div>
+
+      <!-- 品管/採購建議（advice.js 注入）-->
+      <div id="advice-slot"></div>
+    </div>
+  </main>
+
+  <!-- ── ☁️ 共用雲端快照選取 modal ────────────────────── -->
+  <div class="modal-overlay" id="cloud-modal">
+    <div class="modal">
+      <div class="modal__head">
+        <span class="modal__title">☁️ 從共用雲端選取快照</span>
+        <button class="modal__close" id="cloud-modal-close">✕</button>
+      </div>
+      <div class="modal__body" id="cloud-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ── 相依函式庫（CDN）──────────────────────────── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- ── 本地模組（依序）；?v= 為快取版本號，改動 js 時一併調高 ── -->
+  <script src="js/config.js?v=5"></script>
+  <script src="js/sheets.js?v=3"></script>
+  <script src="js/transform.js?v=1"></script>
+  <script src="js/metrics.js?v=1"></script>
+  <script src="js/filters.js?v=1"></script>
+  <script src="js/detail.js?v=1"></script>
+  <script src="js/rawtable.js?v=1"></script>
+  <script src="js/advice.js?v=1"></script>
+  <script src="js/report.js?v=4"></script>
+  <script src="js/cloud.js?v=2"></script>
+  <script src="js/app.js?v=4"></script>
+  <input type="file" id="snap-file" accept="application/json,.json" hidden />
+</body>
+</html>
