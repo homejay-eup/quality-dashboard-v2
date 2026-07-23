@@ -10,8 +10,8 @@ window.App = window.App || {};
 App.app = (() => {
   // ── 車機／鏡頭分析範圍（比照原工具：先依設備類型＋維護原因縮小分析範圍，再談品質指標）──
   const DEVICE_TABS = [
-    { key: '車機', label: '🚗 車機分析', 設備類型: '車機', 維護原因: '訊號異常' },
-    { key: '鏡頭', label: '📷 鏡頭分析', 設備類型: '鏡頭', 維護原因: '影像異常(鏡頭)' },
+    { key: '車機', label: `${App.icons.car()} 車機分析`, 設備類型: '車機', 維護原因: '訊號異常' },
+    { key: '鏡頭', label: `${App.icons.camera()} 鏡頭分析`, 設備類型: '鏡頭', 維護原因: '影像異常(鏡頭)' },
   ];
 
   // ── 指標登錄（key 唯一；def=預設顯示；better：升為好true/壞false/中性null）──
@@ -270,7 +270,7 @@ App.app = (() => {
       }
       $('cloud-modal-body').innerHTML = items.map((f) => `
         <div class="cloud-item" data-id="${f.id}" data-kind="${f.kind}" data-name="${encodeURIComponent(f.name)}">
-          <div class="cloud-item__name">${f.kind === 'sheet' ? '📊' : '📄'} ${f.name}</div>
+          <div class="cloud-item__name">${f.kind === 'sheet' ? App.icons.chart() : App.icons.file()} ${f.name}</div>
           <div class="cloud-item__meta">${new Date(f.createdAt).toLocaleString('zh-TW')}${f.size != null ? `　·　${(f.size / 1024 / 1024).toFixed(1)} MB` : '　·　完整來源複本'}</div>
         </div>`).join('');
       $('cloud-modal-body').querySelectorAll('.cloud-item').forEach((el) => {

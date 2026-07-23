@@ -223,9 +223,9 @@ App.report = (() => {
     if (!App.app || !App.app.dataForDevice || !App.app.DEVICE_TABS) {
       throw new Error('報告產生需要 App.app.dataForDevice／DEVICE_TABS（app.js 尚未載入或版本過舊）');
     }
-    const icons = { 車機: '🚗', 鏡頭: '📷' };
+    const icons = { 車機: App.icons.car(), 鏡頭: App.icons.camera() };
     const sections = App.app.DEVICE_TABS.map((t) => ({
-      key: t.key, label: t.key, icon: icons[t.key] || '📦',
+      key: t.key, label: t.key, icon: icons[t.key] || App.icons.file(),
       state, data: App.app.dataForDevice(t.key),
     }));
     const genAt = new Date().toLocaleString('zh-TW');
@@ -238,6 +238,7 @@ App.report = (() => {
 <style>
 :root{--teal:#009688;--teal-d:#00796B;--grad:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+.icon{vertical-align:-0.15em;flex-shrink:0}
 .hero{background:var(--grad);color:#fff;padding:32px 32px 40px}.hero h1{margin:0 0 6px;font-size:24px}.hero .meta{font-size:13px;opacity:.95}
 .wrap{max-width:1160px;margin:0 auto;padding:24px 32px 60px}
 .sec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
@@ -276,7 +277,7 @@ tr.sub td{background:#f3f6f9;font-weight:600}tr.grand td{background:#1F2535;colo
 <div class="wrap">
 ${overviewHTML(sections)}
 ${built.map((b) => b.html).join('\n')}
-<div class="save-bar"><button class="save-btn" id="save-edited">💾 儲存目前版本（含已編輯的建議文字）</button></div>
+<div class="save-bar"><button class="save-btn" id="save-edited">${App.icons.save()} 儲存目前版本（含已編輯的建議文字）</button></div>
 <div class="foot">本報告由「設備品質分析工具」自動生成，核心發現／建議文字可於框內直接編輯後按上方按鈕另存。EUP 弋揚科技</div>
 </div>
 <script>

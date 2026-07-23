@@ -83,7 +83,7 @@ App.advice = (() => {
     $('advice-slot').innerHTML = `
       <section class="card advice">
         <div class="advice__head">
-          <span class="advice__title">🧭 品管 &amp; 採購建議</span>
+          <span class="advice__title">${App.icons.compass()} 品管 &amp; 採購建議</span>
           <span class="advice__note">依上方篩選自動生成初稿，可於框內修改後下載</span>
         </div>
         <div class="advice__tabs">
