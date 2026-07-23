@@ -469,22 +469,6 @@ App.metrics = (() => {
 
     const erpRows = [...acc.values()].map((a) => mkRow(a, onlineByERP.get(a.ERP品號) || 0));
 
-    const subtotal = (arr, label) => {
-      const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
-      const s = { 年限Sum: 0, 年限N: 0 };
-      for (const k of sumKeys) s[k] = 0;
-      for (const r of arr) {
-        for (const k of sumKeys) s[k] += (r[k] || 0);
-        s.年限Sum += r._年限Sum || 0; s.年限N += r._年限N || 0;
-      }
-      return {
-        label, ...s,
-        再使用率: safeDiv(s.良品數, s.回廠量), 不良率: safeDiv(s.不良品數, s.回廠量), 過保率: safeDiv(s.過保數, s.回廠量),
-        已使用年限: s.年限N ? Math.round(s.年限Sum / s.年限N * 10) / 10 : null,
-        整體不良率: safeDiv(s.不良品數, s.上線量), 整體過保率: safeDiv(s.過保數, s.上線量),
-      };
-    };
-
     const groupMap = new Map();
     for (const row of erpRows) {
       const g = row[groupBy] || '(未分類)';
@@ -494,10 +478,33 @@ App.metrics = (() => {
     const groups = [...groupMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, arr]) => ({
       key,
       rows: arr.sort((a, b) => String(a.ERP品號).localeCompare(String(b.ERP品號))),
-      subtotal: subtotal(arr, `${key} 小計`),
+      subtotal: { label: `${key} 小計`, ...summarizeRows(arr, faultCols) },
     }));
 
-    return { groups, grandTotal: subtotal(erpRows, '總計'), groupBy };
+    return { groups, grandTotal: { label: '總計', ...summarizeRows(erpRows, faultCols) }, groupBy };
+  }
+
+  /**
+   * 依 aggregate() 產生的 ERP 列（mkRow 輸出）重新加總，供畫面端欄位篩選後即時重算小計/總計。
+   * 與 aggregate() 內部 subtotal 邏輯一致：期間率÷回廠量、整體率÷上線量、已使用年限取平均。
+   * @param {Object[]} rows - aggregate() 回傳的 group.rows（或篩選後的子集）
+   * @param {string[]} [faultCols] - 需與產生這批 rows 時的 faultCols 一致，才能正確加總故障原因 5 欄
+   * @returns {Object} 同 aggregate() 的 subtotal/grandTotal 形狀（不含 label）
+   */
+  function summarizeRows(rows, faultCols) {
+    const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
+    const s = { 年限Sum: 0, 年限N: 0 };
+    for (const k of sumKeys) s[k] = 0;
+    for (const r of rows) {
+      for (const k of sumKeys) s[k] += (r[k] || 0);
+      s.年限Sum += r._年限Sum || 0; s.年限N += r._年限N || 0;
+    }
+    return {
+      ...s,
+      再使用率: safeDiv(s.良品數, s.回廠量), 不良率: safeDiv(s.不良品數, s.回廠量), 過保率: safeDiv(s.過保數, s.回廠量),
+      已使用年限: s.年限N ? Math.round(s.年限Sum / s.年限N * 10) / 10 : null,
+      整體不良率: safeDiv(s.不良品數, s.上線量), 整體過保率: safeDiv(s.過保數, s.上線量),
+    };
   }
 
   // ─────────────────────────────────────────────────
@@ -555,6 +562,12 @@ App.metrics = (() => {
      * 回傳：{ groups:[{key,rows,subtotal}], grandTotal, groupBy }
      */
     aggregate,
+
+    /**
+     * 依 aggregate() 產生的 ERP 列重新加總（不含 label），供畫面端欄位篩選後即時重算小計/總計。
+     * faultCols 需與產生這批 rows 時一致。
+     */
+    summarizeRows,
 
     // 內部工具（底線前綴，供測試直接呼叫）
     _safeDiv: safeDiv,

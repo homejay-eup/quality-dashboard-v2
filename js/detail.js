@@ -2,10 +2,11 @@
  * js/detail.js — 明細彙整表（掛 App.detail）
  *
  * 依 App.metrics.aggregate 產生「依 ERP品號 彙整、依 類型/廠商 分組、含小計/總計」的表。
- * 這個模組同時管理畫面上的兩張表（各自獨立的欄位設定／折疊依據／只顯示小計／拖曳排序）：
- *   1. 詳細明細（#detail-simple-slot）：固定精簡欄位，車機／鏡頭皆同一組欄位。
- *   2. 明細分析表（#detail-slot）：完整欄位（含故障原因細項、維修/報廢分類），
- *      車機／鏡頭欄位不同（faultCols 依 deviceTab 動態插入），置於詳細明細下方。
+ * 這個模組同時管理畫面上的兩張表（各自獨立的欄位設定／折疊依據／只顯示小計／拖曳排序／
+ * 逐欄 Excel 風格下拉篩選，篩選元件由 App.tablefilter 共用）：
+ *   1. 比率表（#detail-simple-slot）：固定精簡欄位，車機／鏡頭皆同一組欄位。
+ *   2. 分析表（#detail-slot）：完整欄位（含故障原因細項、維修/報廢分類），
+ *      車機／鏡頭欄位不同（faultCols 依 deviceTab 動態插入），置於比率表下方。
  * 由 app.js 的 rerender() 呼叫 App.detail.onRerender(state)。
  */
 window.App = window.App || {};
@@ -16,13 +17,14 @@ App.detail = (() => {
   const fmtPct = (v) => `${((Number(v) || 0) * 100).toFixed(1)}%`;
   const fmtYear = (v) => (v == null || v === '' ? '' : Number(v).toFixed(1));
   const fmtCell = (c, v) => c.fmt === 'pct' ? fmtPct(v) : c.fmt === 'int' ? fmtInt(v) : c.fmt === 'year' ? fmtYear(v) : (v ?? '');
+  const esc = App.tablefilter.esc;
 
   function faultColsFor(deviceTab) {
     const cfg = App.config.FAULT_COLS_BY_DEVICE || {};
     return cfg[deviceTab] || cfg.車機 || [];
   }
 
-  // ── 明細分析表：完整欄位（故障原因 5 欄依 deviceTab 動態插入，見 buildAnalysisCols）──
+  // ── 分析表：完整欄位（故障原因 5 欄依 deviceTab 動態插入，見 buildAnalysisCols）──
   const ANALYSIS_PRE = [
     { key: '期間', label: '期間', fmt: 'text' },
     { key: '類型', label: '類型', fmt: 'text' },
@@ -57,7 +59,7 @@ App.detail = (() => {
     return [...ANALYSIS_PRE, ...faultCols, ...ANALYSIS_POST].map((c) => ({ ...c, on: true }));
   }
 
-  // ── 詳細明細：固定精簡欄位，車機／鏡頭共用同一組 ──────────────────────
+  // ── 比率表：固定精簡欄位，車機／鏡頭共用同一組 ──────────────────────
   const SUMMARY_COLS = [
     { key: '廠商', label: '廠商', fmt: 'text' },
     { key: 'ERP品號', label: 'ERP品號', fmt: 'text' },
@@ -76,23 +78,27 @@ App.detail = (() => {
   ].map((c) => ({ ...c, on: true }));
 
   /**
-   * 建立一張獨立的彙整明細表控制器（各自的 DOM／欄位設定／折疊依據／小計狀態）。
+   * 建立一張獨立的彙整明細表控制器（各自的 DOM／欄位設定／折疊依據／小計狀態／逐欄下拉篩選）。
    * @param {{ slotId: string, title: string, colsInit: Array|Function, deviceAware: boolean }} cfg
-   *   colsInit 為 Function 時依 deviceTab 動態算欄位（明細分析表）；為固定陣列時兩分頁共用（詳細明細）。
+   *   colsInit 為 Function 時依 deviceTab 動態算欄位（分析表）；為固定陣列時兩分頁共用（比率表）。
    */
   function makeTable({ slotId, title, colsInit, deviceAware }) {
     const ids = {
       title: `${slotId}-title`, count: `${slotId}-count`, wrap: `${slotId}-wrap`,
-      chips: `${slotId}-col-chips`, groupName: `${slotId}-groupBy`, onlySub: `${slotId}-only-subtotal`,
+      chips: `${slotId}-col-chips`, colsToggle: `${slotId}-cols-toggle`,
+      groupName: `${slotId}-groupBy`, onlySub: `${slotId}-only-subtotal`,
     };
     const ui = {
       groupBy: '類型',
       onlySubtotal: false,
+      colsPanelOpen: false,
+      colFilters: {},   // { [colKey]: Set<string>|undefined }
       cols: deviceAware ? colsInit('車機') : colsInit.map((c) => ({ ...c })),
       dragKey: null,
     };
     let built = false;
     let lastDeviceTab = '車機';
+    let lastOptionsByKey = {};
 
     function buildShell() {
       $(slotId).innerHTML = `
@@ -109,8 +115,10 @@ App.detail = (() => {
               <label class="radio"><input type="checkbox" id="${ids.onlySub}"/> 只顯示小計</label>
             </div>
             <div class="opt-row opt-row--cols">
-              <span class="opt-label">欄位顯示（可拖曳排序）</span>
-              <div class="col-chips" id="${ids.chips}"></div>
+              <button type="button" class="cols-toggle" id="${ids.colsToggle}">
+                欄位顯示（可拖曳排序）<span class="cols-toggle__arrow">▸</span>
+              </button>
+              <div class="col-chips" id="${ids.chips}" hidden></div>
             </div>
           </div>
           <div class="detail__scroll" id="${ids.wrap}"></div>
@@ -118,6 +126,26 @@ App.detail = (() => {
       $(slotId).querySelectorAll(`input[name="${ids.groupName}"]`).forEach((r) =>
         r.addEventListener('change', (e) => { ui.groupBy = e.target.value; render(); }));
       $(ids.onlySub).addEventListener('change', (e) => { ui.onlySubtotal = e.target.checked; render(); });
+      $(ids.colsToggle).addEventListener('click', () => {
+        ui.colsPanelOpen = !ui.colsPanelOpen;
+        $(ids.chips).hidden = !ui.colsPanelOpen;
+        $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
+      });
+      // 欄位下拉篩選按鈕（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
+      $(ids.wrap).addEventListener('click', (e) => {
+        const btn = e.target.closest('.col-filter-btn');
+        if (!btn) return;
+        const key = btn.dataset.key;
+        if (App.tablefilter.isOpenFor($(ids.wrap), key)) { App.tablefilter.close(); return; }
+        App.tablefilter.open($(ids.wrap), key, {
+          options: lastOptionsByKey[key] || [],
+          selectedSet: ui.colFilters[key] || null,
+          onFilterChange: (newSet) => {
+            if (newSet) ui.colFilters[key] = newSet; else delete ui.colFilters[key];
+            renderTable();
+          },
+        }, btn);
+      });
       built = true;
     }
 
@@ -161,13 +189,25 @@ App.detail = (() => {
       const periodLabel = `${st.year}-Q${st.quarter}`;
       const cols = ui.cols.filter((c) => c.on);
       const labelIdx = Math.max(0, cols.findIndex((c) => c.key === ui.groupBy));
-      const groups = agg.groups;
-      const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
-      $(ids.title).textContent = title;
-      $(ids.count).textContent = `${groups.length} 組 / ${totalRows.toLocaleString()} 品號`;
-
-      const head = `<tr>${cols.map((c) => `<th class="${c.num ? 'num' : ''}">${c.label}</th>`).join('')}</tr>`;
       const cellVal = (c, row) => c.key === '期間' ? periodLabel : fmtCell(c, row[c.key]);
+
+      // 逐欄下拉篩選選項（非串接式：一律以完整未篩選資料算不同值，避免清單邊勾邊變動）
+      const baseRows = agg.groups.flatMap((g) => g.rows);
+      lastOptionsByKey = {};
+      for (const c of cols) lastOptionsByKey[c.key] = App.tablefilter.uniqueOptions(baseRows, (row) => cellVal(c, row));
+
+      const rowMatches = (row) => App.tablefilter.matches(ui.colFilters, cols, cellVal, row);
+      const groups = agg.groups
+        .map((g) => ({ key: g.key, rows: g.rows.filter(rowMatches) }))
+        .filter((g) => g.rows.length)
+        .map((g) => ({ ...g, subtotal: App.metrics.summarizeRows(g.rows, faultCols) }));
+      const allRows = groups.flatMap((g) => g.rows);
+      const grandTotal = App.metrics.summarizeRows(allRows, faultCols);
+
+      $(ids.title).textContent = title;
+      $(ids.count).textContent = `${groups.length} 組 / ${allRows.length.toLocaleString()} 品號`;
+
+      const head = `<tr>${cols.map((c) => App.tablefilter.headerCellHTML(c, ui.colFilters)).join('')}</tr>`;
       const cell = (c, row) => `<td class="${c.num ? 'num' : ''}">${cellVal(c, row)}</td>`;
 
       let body = '';
@@ -175,18 +215,20 @@ App.detail = (() => {
         if (!ui.onlySubtotal) {
           for (const r of g.rows) body += `<tr>${cols.map((c) => cell(c, r)).join('')}</tr>`;
         }
+        const subLabel = ui.onlySubtotal ? g.key : `${g.key} 小計`;
         body += `<tr class="sub">${cols.map((c, i) => {
-          if (i === labelIdx) return `<td class="sub__label">${g.key} 小計</td>`;
+          if (i === labelIdx) return `<td class="sub__label">${esc(subLabel)}</td>`;
           return `<td class="num">${c.num ? fmtCell(c, g.subtotal[c.key]) : ''}</td>`;
         }).join('')}</tr>`;
       }
       // 總計
       body += `<tr class="grand">${cols.map((c, i) => {
         if (i === labelIdx) return `<td>總計</td>`;
-        return `<td class="num">${c.num ? fmtCell(c, agg.grandTotal[c.key]) : ''}</td>`;
+        return `<td class="num">${c.num ? fmtCell(c, grandTotal[c.key]) : ''}</td>`;
       }).join('')}</tr>`;
 
       $(ids.wrap).innerHTML = `<table class="agg-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+      App.tablefilter.reposition();
     }
 
     function onRerender() {
@@ -197,8 +239,8 @@ App.detail = (() => {
     return { onRerender };
   }
 
-  const summaryTable = makeTable({ slotId: 'detail-simple-slot', title: '詳細明細', colsInit: SUMMARY_COLS, deviceAware: false });
-  const analysisTable = makeTable({ slotId: 'detail-slot', title: '明細分析表', colsInit: buildAnalysisCols, deviceAware: true });
+  const summaryTable = makeTable({ slotId: 'detail-simple-slot', title: '比率表', colsInit: SUMMARY_COLS, deviceAware: false });
+  const analysisTable = makeTable({ slotId: 'detail-slot', title: '分析表', colsInit: buildAnalysisCols, deviceAware: true });
 
   function onRerender() {
     summaryTable.onRerender();

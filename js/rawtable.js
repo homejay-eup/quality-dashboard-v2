@@ -1,8 +1,9 @@
 /**
- * js/rawtable.js — 設備品質分析_彙整總表（逐筆明細，掛 App.rawtable）
+ * js/rawtable.js — 彙整表（逐筆明細，掛 App.rawtable）
  *
  * 依目前篩選（廠商/類型/ERP品號 + 期間 + 車機/鏡頭分頁）即時顯示逐筆明細，21 欄，
  * 欄位與計算邏輯對齊 新版產出/build_分析總表.py 的 build_detail()（見 report.js RAWCOLS）。
+ * 支援欄位顯示開關／拖曳排序（同比率表/分析表）＋逐欄 Excel 風格下拉篩選（App.tablefilter 共用）。
  * 由 app.js 的 rerender() 呼叫 App.rawtable.onRerender(state)。
  */
 window.App = window.App || {};
@@ -12,11 +13,9 @@ App.rawtable = (() => {
   const MAX_ROWS = 500;
   const fmtInt = (v) => (Number(v) || 0).toLocaleString('en-US');
   const fmtYear = (v) => (v == null || v === '' ? '' : Number(v).toFixed(1));
-  let search = '';
-  let built = false;
 
   // [顯示標題, row 欄位 key]；'_period'／'_上線量' 為即時運算補上的欄位
-  const COLS = [
+  const BASE_COLS = [
     ['期間', '_period'], ['品項完工日期', '品項完工日期'], ['設備類型', '設備類型'], ['廠牌型號', '廠牌型號'],
     ['廠商', '廠商'], ['ERP品號', 'ERP品號'], ['替換前品項', '替換前品項'], ['替換前品項條碼', '條碼'],
     ['維護原因', '維護原因'], ['維護細節', '維護細節'], ['輸入年月', '輸入年月'], ['輸入時間', '輸入時間'],
@@ -25,24 +24,87 @@ App.rawtable = (() => {
     ['QC', 'QC'],
   ];
 
-  function build() {
-    $('raw-slot').innerHTML = `
-      <section class="card detail">
-        <div class="detail__head">
-          <span class="detail__title" id="raw-title">設備品質分析_彙整總表</span>
-          <input type="search" id="raw-search" class="detail__search" placeholder="搜尋明細（品號、品名、廠商、故障…）" />
-          <span class="detail__count" id="raw-count"></span>
-        </div>
-        <div class="detail__scroll" id="raw-wrap"></div>
-      </section>`;
-    $('raw-search').addEventListener('input', (e) => { search = e.target.value.trim(); render(); });
-    built = true;
-  }
+  const ids = {
+    chips: 'raw-col-chips', colsToggle: 'raw-cols-toggle',
+  };
+  const ui = {
+    colsPanelOpen: false,
+    colFilters: {}, // { [key]: Set<string>|undefined }
+    cols: BASE_COLS.map(([label, key]) => ({ key, label, on: true })),
+    dragKey: null,
+  };
+  let built = false;
+  let lastOptionsByKey = {};
 
   function cellVal(k, v) {
     if (k === '已使用年限') return fmtYear(v);
     if (k === '_上線量') return fmtInt(v);
     return v ?? '';
+  }
+
+  function build() {
+    $('raw-slot').innerHTML = `
+      <section class="card detail">
+        <div class="detail__bar">
+          <span class="detail__title" id="raw-title">彙整表</span>
+          <span class="detail__count" id="raw-count"></span>
+        </div>
+        <div class="detail__opts">
+          <div class="opt-row opt-row--cols">
+            <button type="button" class="cols-toggle" id="${ids.colsToggle}">
+              欄位顯示（可拖曳排序）<span class="cols-toggle__arrow">▸</span>
+            </button>
+            <div class="col-chips" id="${ids.chips}" hidden></div>
+          </div>
+        </div>
+        <div class="detail__scroll" id="raw-wrap"></div>
+      </section>`;
+    $(ids.colsToggle).addEventListener('click', () => {
+      ui.colsPanelOpen = !ui.colsPanelOpen;
+      $(ids.chips).hidden = !ui.colsPanelOpen;
+      $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
+    });
+    $('raw-wrap').addEventListener('click', (e) => {
+      const btn = e.target.closest('.col-filter-btn');
+      if (!btn) return;
+      const key = btn.dataset.key;
+      if (App.tablefilter.isOpenFor($('raw-wrap'), key)) { App.tablefilter.close(); return; }
+      App.tablefilter.open($('raw-wrap'), key, {
+        options: lastOptionsByKey[key] || [],
+        selectedSet: ui.colFilters[key] || null,
+        onFilterChange: (newSet) => {
+          if (newSet) ui.colFilters[key] = newSet; else delete ui.colFilters[key];
+          render();
+        },
+      }, btn);
+    });
+    built = true;
+  }
+
+  function renderChips() {
+    const el = $(ids.chips);
+    el.innerHTML = ui.cols.map((c) =>
+      `<span class="col-chip ${c.on ? 'col-chip--on' : ''}" draggable="true" data-key="${c.key}">
+        <span class="col-chip__dot"></span>${c.label}
+      </span>`).join('');
+    el.querySelectorAll('.col-chip').forEach((chip) => {
+      const key = chip.dataset.key;
+      chip.addEventListener('click', () => {
+        const c = ui.cols.find((x) => x.key === key); c.on = !c.on;
+        chip.classList.toggle('col-chip--on'); render();
+      });
+      chip.addEventListener('dragstart', () => { ui.dragKey = key; chip.classList.add('dragging'); });
+      chip.addEventListener('dragend', () => { chip.classList.remove('dragging'); });
+      chip.addEventListener('dragover', (e) => { e.preventDefault(); });
+      chip.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!ui.dragKey || ui.dragKey === key) return;
+        const from = ui.cols.findIndex((x) => x.key === ui.dragKey);
+        const to = ui.cols.findIndex((x) => x.key === key);
+        const [m] = ui.cols.splice(from, 1); ui.cols.splice(to, 0, m);
+        ui.dragKey = null; renderChips(); render();
+      });
+    });
   }
 
   function render() {
@@ -55,24 +117,29 @@ App.rawtable = (() => {
       onlineByERP.set(e, (onlineByERP.get(e) || 0) + (Number(o.上線量) || 0));
     }
 
-    let rows = App.metrics.applyFilter(st.rows, st.selection).map((r) => ({
+    const allRows = App.metrics.applyFilter(st.rows, st.selection).map((r) => ({
       ...r, _period: periodLabel, _上線量: onlineByERP.get(String(r.ERP品號 || '')) || 0,
     }));
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => COLS.some(([, k]) => String(r[k] ?? '').toLowerCase().includes(q)));
-    }
+
+    const cols = ui.cols.filter((c) => c.on);
+    lastOptionsByKey = {};
+    for (const c of cols) lastOptionsByKey[c.key] = App.tablefilter.uniqueOptions(allRows, (r) => cellVal(c.key, r[c.key]));
+
+    const getDisplay = (c, row) => cellVal(c.key, row[c.key]);
+    const rows = allRows.filter((r) => App.tablefilter.matches(ui.colFilters, cols, getDisplay, r));
+
     const total = rows.length;
     const shown = rows.slice(0, MAX_ROWS);
-    $('raw-title').textContent = `設備品質分析_彙整總表（${st.deviceTab || ''}）`;
+    $('raw-title').textContent = `彙整表（${st.deviceTab || ''}）`;
     $('raw-count').textContent = total > MAX_ROWS ? `顯示前 ${MAX_ROWS} / 共 ${total.toLocaleString()} 筆` : `共 ${total.toLocaleString()} 筆`;
-    const head = `<tr>${COLS.map(([h]) => `<th>${h}</th>`).join('')}</tr>`;
-    const body = shown.map((r) => `<tr>${COLS.map(([, k]) => `<td>${cellVal(k, r[k])}</td>`).join('')}</tr>`).join('');
+    const head = `<tr>${cols.map((c) => App.tablefilter.headerCellHTML(c, ui.colFilters)).join('')}</tr>`;
+    const body = shown.map((r) => `<tr>${cols.map((c) => `<td>${cellVal(c.key, r[c.key])}</td>`).join('')}</tr>`).join('');
     $('raw-wrap').innerHTML = `<table class="detail-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    App.tablefilter.reposition();
   }
 
   function onRerender() {
-    if (!built) build();
+    if (!built) { build(); renderChips(); }
     render();
   }
 
