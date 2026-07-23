@@ -318,11 +318,17 @@ body {
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 8px; width: 220px;
   display: flex; flex-direction: column; gap: 6px;
 }
+.col-filter-pop__head { display: flex; align-items: center; gap: 6px; }
 .col-filter-pop__search {
-  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12px;
+  flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; font-size: 12px;
   padding: 5px 8px; border: 1px solid var(--gray-200); border-radius: 6px;
 }
 .col-filter-pop__search:focus { outline: none; border-color: var(--teal-light); }
+.col-filter-pop__close {
+  flex-shrink: 0; background: none; border: none; color: var(--gray-400); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 5px 6px; border-radius: 6px;
+}
+.col-filter-pop__close:hover { background: var(--gray-100); color: var(--gray-700); }
 .col-filter-pop__actions { display: flex; gap: 6px; }
 .col-filter-pop__actions button {
   flex: 1; font-size: 11.5px; padding: 4px 0; border: 1px solid var(--gray-200);

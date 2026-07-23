@@ -95,6 +95,7 @@ App.tablefilter = (() => {
    * @param {HTMLElement} anchorEl - 觸發按鈕（用於初次定位）
    */
   function open(wrapEl, key, opts, anchorEl) {
+    close(); // 確保先前開啟的下拉（不論哪張表/哪個欄位）先關閉，避免監聽器堆疊
     ensurePortal();
     current = { wrapEl, key };
     let search = '';
@@ -104,7 +105,10 @@ App.tablefilter = (() => {
       const q = search.toLowerCase();
       const shown = q ? opts.options.filter((v) => v.toLowerCase().includes(q)) : opts.options;
       portal.innerHTML = `
-        <input type="text" class="col-filter-pop__search" placeholder="搜尋值…" value="${esc(search)}"/>
+        <div class="col-filter-pop__head">
+          <input type="text" class="col-filter-pop__search" placeholder="搜尋值…" value="${esc(search)}"/>
+          <button type="button" class="col-filter-pop__close" title="關閉">✕</button>
+        </div>
         <div class="col-filter-pop__actions">
           <button type="button" data-act="all">全選</button>
           <button type="button" data-act="none">清空</button>
@@ -116,6 +120,7 @@ App.tablefilter = (() => {
           </label>`).join('') : '<div class="col-filter-pop__empty">無符合項目</div>'}
         </div>`;
 
+      portal.querySelector('.col-filter-pop__close').addEventListener('click', close);
       const searchEl = portal.querySelector('.col-filter-pop__search');
       searchEl.addEventListener('input', (e) => {
         search = e.target.value;
@@ -142,13 +147,18 @@ App.tablefilter = (() => {
     portal.hidden = false;
     position(anchorEl);
 
+    // 外部點擊／Esc 關閉；捲動或視窗縮放時改為「跟著重新定位」而非直接關閉
+    // （下拉清單本身也有內部捲動，若捲動就關閉會讓使用者滑到一半清單就消失）
     const onDocClick = (e) => { if (!portal.contains(e.target) && e.target !== anchorEl) close(); };
-    const onScrollOrResize = () => close();
+    const onKeydown = (e) => { if (e.key === 'Escape') close(); };
+    const onScrollOrResize = () => reposition();
     document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKeydown, true);
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize, true);
     cleanupListeners = () => {
       document.removeEventListener('click', onDocClick, true);
+      document.removeEventListener('keydown', onKeydown, true);
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize, true);
     };
