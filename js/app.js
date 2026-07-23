@@ -33,6 +33,7 @@ App.app = (() => {
     onlineList: null,
     rows: [],
     periods: [],
+    currentPeriods: [],
     deviceTab: DEVICE_TABS[0].key,   // '車機' | '鏡頭'
     year: null, quarter: 2,
     cmp: { on: false, year: null, quarter: 2 },
@@ -59,21 +60,42 @@ App.app = (() => {
   function showContent() { $('status').hidden = true; $('content').hidden = false; }
 
   const QLABEL = { 1: 'Q1（1–3月）', 2: 'Q2（1–6月）', 3: 'Q3（1–9月）', 4: 'Q4（1–12月）' };
+  const Q_END_MONTH = { 1: 3, 2: 6, 3: 9, 4: 12 };
+
+  // 依派工資料實際涵蓋到的月份，逐年算出「該年資料涵蓋到幾月」，藉以判斷各季是否成立。
+  // 例：資料到 2026-06 → 2026 年只有 Q1、Q2 成立；已結束的舊年份視為全年資料齊全，Q1–Q4 皆成立。
   function buildPeriods() {
-    const years = new Set();
+    const maxMonthByYear = new Map();
     for (const r of state.raw.派工 || []) {
-      const y = String(r['品項完工年月'] || r['品項完工日期'] || '').trim().slice(0, 4);
-      if (/^\d{4}$/.test(y)) years.add(Number(y));
+      const s = String(r['品項完工年月'] || r['品項完工日期'] || '').trim();
+      const m = s.match(/^(\d{4})[-/]?(\d{1,2})/);
+      if (!m) continue;
+      const y = Number(m[1]), mo = Number(m[2]);
+      if (mo < 1 || mo > 12) continue;
+      if (!maxMonthByYear.has(y) || mo > maxMonthByYear.get(y)) maxMonthByYear.set(y, mo);
     }
-    const yl = [...years].sort((a, b) => b - a);
-    if (!yl.length) yl.push(2026);
+    const yl = [...maxMonthByYear.keys()].sort((a, b) => b - a);
+    if (!yl.length) { maxMonthByYear.set(2026, 12); yl.push(2026); }
+
+    // 對比期間：維持全部年份的完整 Q1–Q4（不隨目前期間收斂，使用者自由選）
     state.periods = [];
     for (const y of yl) for (let q = 4; q >= 1; q--) {
       state.periods.push({ code: `${y}-Q${q}`, year: y, quarter: q, label: `${y} ${QLABEL[q]}` });
     }
-    state.year = yl[0]; state.quarter = 2;
-    const prevY = yl.find((y) => y === yl[0] - 1);
-    state.cmp = (prevY != null) ? { on: true, year: prevY, quarter: 2 } : { on: false, year: yl[0], quarter: 2 };
+
+    // 目前期間：只列出資料實際涵蓋到的季度
+    state.currentPeriods = [];
+    for (const y of yl) {
+      const maxM = maxMonthByYear.get(y);
+      for (let q = 4; q >= 1; q--) {
+        if (Q_END_MONTH[q] <= maxM) state.currentPeriods.push({ code: `${y}-Q${q}`, year: y, quarter: q, label: `${y} ${QLABEL[q]}` });
+      }
+    }
+
+    const latestValid = state.currentPeriods[0] || state.periods[0];
+    state.year = latestValid.year; state.quarter = latestValid.quarter;
+    const prevY = yl.find((y) => y === state.year - 1);
+    state.cmp = (prevY != null) ? { on: true, year: prevY, quarter: 2 } : { on: false, year: state.year, quarter: 2 };
   }
 
   function renderDeviceTabs() {
@@ -99,11 +121,11 @@ App.app = (() => {
   function renderControls() {
     const curCode = `${state.year}-Q${state.quarter}`;
     const cmpCode = `${state.cmp.year}-Q${state.cmp.quarter}`;
-    const periodOpts = (sel) => state.periods.map((p) => `<option value="${p.code}" ${p.code === sel ? 'selected' : ''}>${p.label}</option>`).join('');
+    const periodOpts = (list, sel) => list.map((p) => `<option value="${p.code}" ${p.code === sel ? 'selected' : ''}>${p.label}</option>`).join('');
 
     const cloudOpt = App.cloud && App.cloud.enabled() ? `<option value="__cloud__">☁️ 從共用雲端選取快照…</option>` : '';
 
-    let cur = periodOpts(state.currentSnap ? '' : curCode);
+    let cur = periodOpts(state.currentPeriods, state.currentSnap ? '' : curCode);
     if (state.currentSnap) cur += `<option value="__snap__" selected>📁 ${snapLabel(state.currentSnap)}（快照）</option>`;
     cur += `<option value="__load__">📁 載入快照檔…</option>${cloudOpt}`;
     $('sel-current').innerHTML = cur;
@@ -283,7 +305,7 @@ App.app = (() => {
       if (v === '__snap__') return;
       if (v === '__load__') { renderControls(); openPicker('current'); return; }
       if (v === '__cloud__') { renderControls(); openCloudPicker('current'); return; }
-      const p = state.periods.find((x) => x.code === v);
+      const p = state.currentPeriods.find((x) => x.code === v);
       if (p) { state.currentSnap = null; state.year = p.year; state.quarter = p.quarter; rerender(); }
     });
     $('sel-compare').addEventListener('change', (e) => {

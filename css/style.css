@@ -261,6 +261,7 @@ body {
 }
 .chip:hover { border-color: var(--teal-light); color: var(--teal); }
 .chip--on { background: var(--teal); color: #fff; border-color: var(--teal); box-shadow: 0 2px 8px rgba(0,150,136,.3); }
+.chip--on:hover { color: #fff; }
 .kpi__empty { color: var(--gray-400); font-size: 13px; padding: 10px; }
 
 /* ── 篩選欄搜尋框（F2）─────────────────────────────── */
