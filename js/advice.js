@@ -42,8 +42,8 @@ App.advice = (() => {
     const k = state.kpi, c = state.cmpKpi, on = state.cmp.on && !!c;
     const L = [`【品管建議】　${scopeLabel(state)}　｜　${periodLabel(state)}`, '─'.repeat(28)];
     // 整體不良率
-    const dr = k.不良率;
-    L.push(`${dr < 0.01 ? '✅' : dr < 0.03 ? '⚠️' : '🔴'} 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.不良率, true) : ''}，` +
+    const dr = k.整體不良率;
+    L.push(`${dr < 0.01 ? '✅' : dr < 0.03 ? '⚠️' : '🔴'} 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.整體不良率, true) : ''}，` +
       `${dr < 0.01 ? '品質表現穩定。' : dr < 0.03 ? '略高，建議留意並追蹤。' : '偏高，建議優先排查高不良品號並要求改善。'}`);
     // 再使用率
     const u = k.再使用率;
@@ -53,8 +53,8 @@ App.advice = (() => {
     const f = topFault(state);
     if (f) L.push(`🔍 主要故障原因為「${f.類型}」（佔 ${pct(f.佔比)}），建議建立專項改善計畫並設定月度追蹤指標。`);
     // 整體過保率
-    const sr = k.過保率;
-    L.push(`${sr < 0.01 ? '✅' : sr < 0.03 ? '⚠️' : '🔴'} 整體過保率 ${pct(sr)}${on ? deltaPP(sr, c.過保率, true) : ''}，` +
+    const sr = k.整體過保率;
+    L.push(`${sr < 0.01 ? '✅' : sr < 0.03 ? '⚠️' : '🔴'} 整體過保率 ${pct(sr)}${on ? deltaPP(sr, c.整體過保率, true) : ''}，` +
       `${sr < 0.01 ? '過保狀況在可控範圍內。' : '偏高，建議追蹤高過保品號的使用年限分佈。'}`);
     L.push('', '＊以上為系統依指標自動生成之初稿，請依實際情況修改後使用。');
     return L.join('\n');
@@ -63,16 +63,16 @@ App.advice = (() => {
   function genProcurement(state) {
     const k = state.kpi, c = state.cmpKpi, on = state.cmp.on && !!c;
     const L = [`【採購建議】　${scopeLabel(state)}　｜　${periodLabel(state)}`, '─'.repeat(28)];
-    const dr = k.不良率, rising = on && (dr - c.不良率) > 0.005;
+    const dr = k.整體不良率, rising = on && (dr - c.整體不良率) > 0.005;
     if (dr >= 0.03 || rising) {
-      L.push(`🔴 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.不良率, true) : ''}，建議向對應供應商提出品質檢討與改善要求，必要時評估索賠或導入第二供應商。`);
+      L.push(`🔴 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.整體不良率, true) : ''}，建議向對應供應商提出品質檢討與改善要求，必要時評估索賠或導入第二供應商。`);
     } else {
-      L.push(`✅ 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.不良率, true) : ''}，供應商品質穩定，維持現行採購策略。`);
+      L.push(`✅ 整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.整體不良率, true) : ''}，供應商品質穩定，維持現行採購策略。`);
     }
     const u = k.再使用率;
     if (u >= 0.7) L.push(`✅ 再使用率 ${pct(u)}，整新沿用成效佳，可評估延緩新購或降低採購量以節省成本。`);
     else L.push(`🔍 再使用率 ${pct(u)}，沿用成效有限，採購前建議一併評估維修成本與新購成本。`);
-    const sr = k.過保率;
+    const sr = k.整體過保率;
     if (sr >= 0.02) L.push(`⚠️ 整體過保率 ${pct(sr)}，建議檢視採購保固條款與設備汰換年限設定。`);
     L.push(`ℹ️ 期間回廠量 ${(k.期間回廠量 || 0).toLocaleString()}、總線上量 ${(k.總線上量 || 0).toLocaleString()}，可作為後續採購量與備品規劃參考。`);
     L.push('', '＊以上為系統依指標自動生成之初稿，請依實際情況修改後使用。');
@@ -133,17 +133,17 @@ App.advice = (() => {
   function genFindings({ kpi: k, cmpKpi: c }) {
     const on = !!c;
     const bullets = [];
-    const dr = k.不良率;
-    bullets.push(`整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.不良率, true) : ''}，` +
+    const dr = k.整體不良率;
+    bullets.push(`整體不良率 ${pct(dr)}${on ? deltaPP(dr, c.整體不良率, true) : ''}，` +
       `${dr < 0.01 ? '品質表現穩定' : dr < 0.03 ? '略高，建議留意並追蹤' : '偏高，建議優先排查高不良品號並要求改善'}。`);
     const u = k.再使用率;
     bullets.push(`期間再使用率 ${pct(u)}${on ? deltaPP(u, c.再使用率, true) : ''}，` +
       `${u >= 0.7 ? '維修/整新品質良好' : u >= 0.5 ? '尚可，建議檢視退修與報廢原因以提升沿用率' : '偏低，建議檢討維修流程與零件庫存'}。`);
-    const sr = k.過保率;
-    bullets.push(`整體過保率 ${pct(sr)}${on ? deltaPP(sr, c.過保率, true) : ''}，` +
+    const sr = k.整體過保率;
+    bullets.push(`整體過保率 ${pct(sr)}${on ? deltaPP(sr, c.整體過保率, true) : ''}，` +
       `${sr < 0.01 ? '過保狀況在可控範圍內' : '偏高，建議追蹤高過保品號的使用年限分佈'}。`);
     bullets.push(`期間回廠量 ${(k.期間回廠量 || 0).toLocaleString()}、總線上量 ${(k.總線上量 || 0).toLocaleString()}，` +
-      `整體不良率${on && (dr - c.不良率) > 0.005 ? '較對比期間上升，需留意是否有批次性異常' : on ? '較對比期間持平或下降' : '為當期狀況'}。`);
+      `整體不良率${on && (dr - c.整體不良率) > 0.005 ? '較對比期間上升，需留意是否有批次性異常' : on ? '較對比期間持平或下降' : '為當期狀況'}。`);
     return bullets;
   }
 

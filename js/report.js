@@ -114,9 +114,10 @@ App.report = (() => {
     { label: '總線上量', get: (k) => k.總線上量, fmt: 'int' },
     { label: '期間回廠量', get: (k) => k.期間回廠量, fmt: 'int' },
     { label: '期間再使用率', get: (k) => k.再使用率, fmt: 'pct', better: true },
-    { label: '期間不良率', get: (k) => (k.期間回廠量 ? k.不良品數 / k.期間回廠量 : 0), fmt: 'pct', better: false },
-    { label: '整體不良率', get: (k) => k.不良率, fmt: 'pct', better: false },
-    { label: '整體過保率', get: (k) => k.過保率, fmt: 'pct', better: false },
+    { label: '期間不良率', get: (k) => k.期間不良率, fmt: 'pct', better: false },
+    { label: '期間過保率', get: (k) => k.期間過保率, fmt: 'pct', better: false },
+    { label: '整體不良率', get: (k) => k.整體不良率, fmt: 'pct', better: false },
+    { label: '整體過保率', get: (k) => k.整體過保率, fmt: 'pct', better: false },
   ];
 
   const fmtC = (fmt, v) => fmt === 'pct' ? rPct(v) : fmt === 'int' ? rInt(v) : fmt === 'year' ? rYear(v) : esc(v);
@@ -139,7 +140,7 @@ App.report = (() => {
   function findingsCalloutHTML(d) {
     const bullets = (App.advice && App.advice.genFindings) ? App.advice.genFindings(d) : [];
     if (!bullets.length) return '';
-    const tone = d.kpi.不良率 >= 0.03 ? 'bad' : d.kpi.不良率 >= 0.01 ? 'warn' : 'good';
+    const tone = d.kpi.整體不良率 >= 0.03 ? 'bad' : d.kpi.整體不良率 >= 0.01 ? 'warn' : 'good';
     return `<div class="callout ${tone}"><p class="big-quote">核心發現</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>`;
   }
 
@@ -208,11 +209,13 @@ App.report = (() => {
       const k = sec.data.kpi;
       return `<tr><td class="l">${sec.icon} ${esc(sec.label)}</td>
         <td class="num">${rInt(k.總線上量)}</td><td class="num">${rInt(k.期間回廠量)}</td>
-        <td class="num">${rPct(k.再使用率)}</td><td class="num">${rPct(k.不良率)}</td><td class="num">${rPct(k.過保率)}</td></tr>`;
+        <td class="num">${rPct(k.再使用率)}</td><td class="num">${rPct(k.期間不良率)}</td><td class="num">${rPct(k.期間過保率)}</td>
+        <td class="num">${rPct(k.整體不良率)}</td><td class="num">${rPct(k.整體過保率)}</td></tr>`;
     }).join('');
     return `<div class="sec"><h2>整體概覽（車機＋鏡頭）</h2>
       <table class="agg"><thead><tr><th class="l">設備</th><th class="num">總線上量</th><th class="num">期間回廠量</th>
-      <th class="num">期間再使用率</th><th class="num">整體不良率</th><th class="num">整體過保率</th></tr></thead>
+      <th class="num">期間再使用率</th><th class="num">期間不良率</th><th class="num">期間過保率</th>
+      <th class="num">整體不良率</th><th class="num">整體過保率</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
 
