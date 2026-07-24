@@ -102,9 +102,20 @@ App.detail = (() => {
     未歸類數: ['H /人為報廢', '其他(回廠)'],
   };
 
-  // ── 分析表分類欄位點擊 → 彙整表依 維修分類／QC 值篩選（單一或多值 OR）──
   // isReturned 對齊 metrics.js aggregate()：只有「已回廠且非不回廠」的紀錄才計入分類統計。
   const isReturned = (r) => r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
+
+  // ── 比率表 良品數/不良品數/過保數/未歸類數 點擊 → 彙整表依「該列 ERP品號 ＋ 對應旗標」篩選 ──
+  // 直接用 transform.js 算好的 良品/不良品/過保/未歸類 旗標（跟比率表的數字同一個來源），
+  // 不透過維修分類/QC 重建，才不會有「已遺失」覆寫規則造成的落差（見對話紀錄）。
+  const METRIC_LOGIC = {
+    良品數: { label: '良品', test: (r) => isReturned(r) && r.良品 },
+    不良品數: { label: '不良品', test: (r) => isReturned(r) && r.不良品 },
+    過保數: { label: '過保', test: (r) => isReturned(r) && r.過保 },
+    未歸類數: { label: '未歸類', test: (r) => isReturned(r) && r.未歸類 },
+  };
+
+  // ── 分析表分類欄位點擊 → 彙整表依 維修分類／QC 值篩選（單一或多值 OR）──
   const 維修分類Is = (v) => (r) => isReturned(r) && r.維修分類 === v;
   const QCIs = (v) => (r) => isReturned(r) && r.QC === v;
   const ANALYSIS_COL_LOGIC = {
@@ -210,14 +221,23 @@ App.detail = (() => {
         const metricCell = e.target.closest('.metric-link');
         if (metricCell) {
           const key = metricCell.dataset.metric;
+          const erp = metricCell.dataset.erp;
           if (analysisTable) analysisTable.focusColumns(METRIC_BUCKET_COLS[key] || []);
+          const entry = METRIC_LOGIC[key];
+          if (entry && erp && App.rawtable && App.rawtable.focusERPAndLogic) {
+            App.rawtable.focusERPAndLogic(erp, entry.label, entry.test);
+          }
           return;
         }
         const logicCell = e.target.closest('.logic-link');
         if (logicCell) {
           const key = logicCell.dataset.logic;
+          const erp = logicCell.dataset.erp;
           const entry = logicLinks && logicLinks[key];
-          if (entry && App.rawtable && App.rawtable.focusLogic) App.rawtable.focusLogic(entry.label, entry.test);
+          if (entry && App.rawtable) {
+            if (erp && App.rawtable.focusERPAndLogic) App.rawtable.focusERPAndLogic(erp, entry.label, entry.test);
+            else if (App.rawtable.focusLogic) App.rawtable.focusLogic(entry.label, entry.test);
+          }
           return;
         }
         const btn = e.target.closest('.col-filter-btn');
@@ -315,10 +335,10 @@ App.detail = (() => {
           return `<td class="erp-link" data-erp="${esc(row.ERP品號)}" title="點擊查看彙整表原始資料">${v}</td>`;
         }
         if (metricLinkKeys && metricLinkKeys.has(c.key)) {
-          return `<td class="num metric-link" data-metric="${c.key}" title="點擊只看分析表對應的分類欄位">${v}</td>`;
+          return `<td class="num metric-link" data-metric="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊只看分析表對應的分類欄位，並鎖定彙整表到這個品號">${v}</td>`;
         }
         if (logicLinks && logicLinks[c.key]) {
-          return `<td class="num logic-link" data-logic="${c.key}" title="點擊查看彙整表對應的原始資料">${v}</td>`;
+          return `<td class="num logic-link" data-logic="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊查看彙整表對應的原始資料（鎖定這個品號）">${v}</td>`;
         }
         return `<td class="${c.num ? 'num' : ''}">${v}</td>`;
       };

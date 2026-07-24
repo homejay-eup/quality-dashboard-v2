@@ -195,10 +195,24 @@ App.rawtable = (() => {
     if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  /**
+   * 逆查：同時鎖定 ERP品號 欄位篩選＋依邏輯篩選（比率表/分析表點擊某一列的
+   * 良品數/不良品數/過保數/未歸類數或分類欄位時呼叫，兩者一起套用並一起顯示在篩選提示列）。
+   * @param {string} erp
+   * @param {string} label
+   * @param {(row: Object) => boolean} test
+   */
+  function focusERPAndLogic(erp, label, test) {
+    ui.colFilters = { 'ERP品號': new Set([erp]) };
+    logicFilter = { label: `${label}（ERP品號=${erp}）`, test };
+    render();
+    if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function clearLogicFilter() {
     logicFilter = null;
     render();
   }
 
-  return { onRerender, focusERP, focusLogic, clearLogicFilter };
+  return { onRerender, focusERP, focusLogic, focusERPAndLogic, clearLogicFilter };
 })();
