@@ -93,26 +93,30 @@ App.detail = (() => {
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
   ].map((c) => ({ ...c, on: !SUMMARY_DEFAULT_OFF.has(c.key) }));
 
-  // ── 比率表 良品數/不良品數/過保數/未歸類數 點擊 → 分析表只留這些欄位（+ 下方 ALWAYS 欄位）──
+  // ── 比率表 良品數/不良品數/過保數/未歸類數/已使用年限 點擊 → 分析表只留這些欄位（+ 下方 ALWAYS 欄位）──
   const ANALYSIS_ALWAYS_COLS = ['期間', '類型', '廠商', 'ERP品號', '品名', '上線量', '回廠量'];
   const METRIC_BUCKET_COLS = {
     良品數: ['O /測試正常', '回廠QC', '其他(良品)', '回廠良品數'],
     不良品數: ['G /評估後退修', 'X /已完修', '維修換貨＋換貨條碼', '回廠不良品數'],
     過保數: ['D /停產報廢', 'E /過保報廢', '回廠報廢', '回廠過保數'],
     未歸類數: ['H /人為報廢', '其他(回廠)'],
+    已使用年限: ['D /停產報廢', 'E /過保報廢', '回廠報廢', '回廠過保數', '已使用年限'],
   };
 
   // isReturned 對齊 metrics.js aggregate()：只有「已回廠且非不回廠」的紀錄才計入分類統計。
   const isReturned = (r) => r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
 
-  // ── 比率表 良品數/不良品數/過保數/未歸類數 點擊 → 彙整表依「該列 ERP品號 ＋ 對應旗標」篩選 ──
+  // ── 比率表 良品數/不良品數/過保數/未歸類數/已使用年限 點擊 → 彙整表依「該列 ERP品號 ＋ 對應旗標」篩選 ──
   // 直接用 transform.js 算好的 良品/不良品/過保/未歸類 旗標（跟比率表的數字同一個來源），
   // 不透過維修分類/QC 重建，才不會有「已遺失」覆寫規則造成的落差（見對話紀錄）。
+  // 已使用年限：對齊 metrics.js aggregate() 的年限Sum/年限N 累加條件（r.過保 且 已使用年限 不為空，
+  // 這條件本身沒有再檢查 isReturned，故意跟其他三個不同，維持跟計算來源一致）。
   const METRIC_LOGIC = {
     良品數: { label: '良品', test: (r) => isReturned(r) && r.良品 },
     不良品數: { label: '不良品', test: (r) => isReturned(r) && r.不良品 },
     過保數: { label: '過保', test: (r) => isReturned(r) && r.過保 },
     未歸類數: { label: '未歸類', test: (r) => isReturned(r) && r.未歸類 },
+    已使用年限: { label: '已使用年限（過保 且 已使用年限不為空）', test: (r) => r.過保 && r.已使用年限 != null },
   };
 
   // ── 分析表分類欄位點擊 → 彙整表依 維修分類／QC 值篩選（單一或多值 OR）──
@@ -371,7 +375,7 @@ App.detail = (() => {
 
   const summaryTable = makeTable({
     slotId: 'detail-simple-slot', title: '比率表', colsInit: SUMMARY_COLS, deviceAware: false,
-    metricLinkKeys: new Set(['良品數', '不良品數', '過保數', '未歸類數']),
+    metricLinkKeys: new Set(['良品數', '不良品數', '過保數', '未歸類數', '已使用年限']),
   });
   analysisTable = makeTable({
     slotId: 'detail-slot', title: '分析表', colsInit: buildAnalysisCols, deviceAware: true,
