@@ -80,13 +80,7 @@ App.app = (() => {
     const yl = [...maxMonthByYear.keys()].sort((a, b) => b - a);
     if (!yl.length) { maxMonthByYear.set(2026, 12); yl.push(2026); }
 
-    // 對比期間：維持全部年份的完整 Q1–Q4（不隨目前期間收斂，使用者自由選）
-    state.periods = [];
-    for (const y of yl) for (let q = 4; q >= 1; q--) {
-      state.periods.push({ code: `${y}-Q${q}`, year: y, quarter: q, label: `${y} ${QLABEL[q]}` });
-    }
-
-    // 目前期間：只列出資料實際涵蓋到的季度
+    // 目前期間／對比期間：都只列出資料實際涵蓋到的季度（比照目前期間邏輯，避免選到無資料的未來季度）
     state.currentPeriods = [];
     for (const y of yl) {
       const maxM = maxMonthByYear.get(y);
@@ -94,6 +88,7 @@ App.app = (() => {
         if (Q_END_MONTH[q] <= maxM) state.currentPeriods.push({ code: `${y}-Q${q}`, year: y, quarter: q, label: `${y} ${QLABEL[q]}` });
       }
     }
+    state.periods = state.currentPeriods;
 
     const latestValid = state.currentPeriods[0] || state.periods[0];
     state.year = latestValid.year; state.quarter = latestValid.quarter;
