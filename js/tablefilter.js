@@ -47,11 +47,21 @@ App.tablefilter = (() => {
   }
 
   // ── 共用下拉 portal（同時間只開一個，直接掛在 body 上以避開表格捲動容器的裁切）──
+  // backdrop：全螢幕透明遮罩，點擊任何「下拉本體以外」的地方都會關閉——比逐一判斷
+  // e.target 是否在 portal 內／是否等於觸發按鈕更可靠，不受特定瀏覽器點擊事件細節影響。
   let portal = null;
+  let backdrop = null;
   let current = null; // { wrapEl, key }
   let cleanupListeners = null;
 
   function ensurePortal() {
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.className = 'col-filter-backdrop';
+      backdrop.hidden = true;
+      backdrop.addEventListener('click', close);
+      document.body.appendChild(backdrop);
+    }
     if (!portal) {
       portal = document.createElement('div');
       portal.className = 'col-filter-pop';
@@ -71,6 +81,7 @@ App.tablefilter = (() => {
   function close() {
     if (!portal || portal.hidden) return;
     portal.hidden = true;
+    if (backdrop) backdrop.hidden = true;
     current = null;
     if (cleanupListeners) { cleanupListeners(); cleanupListeners = null; }
   }
@@ -145,19 +156,18 @@ App.tablefilter = (() => {
 
     renderList();
     portal.hidden = false;
+    backdrop.hidden = false;
     position(anchorEl);
 
-    // 外部點擊／Esc 關閉；捲動或視窗縮放時改為「跟著重新定位」而非直接關閉
-    // （下拉清單本身也有內部捲動，若捲動就關閉會讓使用者滑到一半清單就消失）
-    const onDocClick = (e) => { if (!portal.contains(e.target) && e.target !== anchorEl) close(); };
+    // 關閉方式：點 X／點背景遮罩（涵蓋整個畫面，點下拉本體以外任何地方）／按 Esc。
+    // 捲動或視窗縮放時改為「跟著重新定位」而非直接關閉（清單本身也有內部捲動，
+    // 若捲動就關閉會讓使用者滑到一半清單就消失）。
     const onKeydown = (e) => { if (e.key === 'Escape') close(); };
     const onScrollOrResize = () => reposition();
-    document.addEventListener('click', onDocClick, true);
     document.addEventListener('keydown', onKeydown, true);
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize, true);
     cleanupListeners = () => {
-      document.removeEventListener('click', onDocClick, true);
       document.removeEventListener('keydown', onKeydown, true);
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize, true);

@@ -313,6 +313,7 @@ body {
 .col-filter-btn--on { color: #fff; background: rgba(255,255,255,.32); }
 
 /* ── Excel 風格欄位下拉篩選 portal（掛在 body 上，見 tablefilter.js）───── */
+.col-filter-backdrop { position: fixed; inset: 0; z-index: 499; background: transparent; }
 .col-filter-pop {
   position: fixed; z-index: 500; background: #fff; border: 1px solid var(--gray-200);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 8px; width: 220px;
