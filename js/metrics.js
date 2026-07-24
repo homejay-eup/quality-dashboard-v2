@@ -213,10 +213,13 @@ App.metrics = (() => {
    * 良品數/不良品數/過保數：在上述回廠子集上分別計數。
    * 總線上量：對過濾後 上線量Enriched 的 上線量 欄位加總。
    *
-   * 期間率（分母＝期間回廠量）：再使用率、期間不良率、期間過保率。
+   * 期間率（分母＝期間回廠量）：再使用率、期間不良率、期間過保率、期間未歸類率。
    * 整體率（分母＝總線上量）：整體不良率、整體過保率。
    * 舊欄位名 不良率／過保率（分母其實是總線上量）已移除，改用 整體不良率／整體過保率，
    * 避免欄位名稱與分母語意不符被誤用。
+   *
+   * 2026-07-24 新增「未歸類數」／「期間未歸類率」（第四桶，見 transform.js calcBuckets()）：
+   * 良品／不良品／過保／未歸類 四桶互斥且加總＝期間回廠量，四個期間率加總恆等於 100%。
    *
    * @param {Object[]} rows           - buildDetail 回傳的 rows
    * @param {Object[]} 上線量Enriched - buildOnlineList 回傳值
@@ -227,10 +230,12 @@ App.metrics = (() => {
    *   良品數: number,
    *   不良品數: number,
    *   過保數: number,
+   *   未歸類數: number,
    *   總線上量: number,
    *   再使用率: number,
    *   期間不良率: number,
    *   期間過保率: number,
+   *   期間未歸類率: number,
    *   整體不良率: number,
    *   整體過保率: number,
    * }}
@@ -248,6 +253,7 @@ App.metrics = (() => {
     const 良品數     = 回廠Subset.filter(r => r.良品).length;
     const 不良品數   = 回廠Subset.filter(r => r.不良品).length;
     const 過保數     = 回廠Subset.filter(r => r.過保).length;
+    const 未歸類數   = 回廠Subset.filter(r => r.未歸類).length;
     const 總線上量   = filtered上線量.reduce((sum, r) => sum + (Number(r.上線量) || 0), 0);
     const 派工量     = filteredRows.length;
 
@@ -257,12 +263,14 @@ App.metrics = (() => {
       良品數,
       不良品數,
       過保數,
+      未歸類數,
       總線上量,
-      再使用率:   safeDiv(良品數,   期間回廠量),
-      期間不良率: safeDiv(不良品數, 期間回廠量),
-      期間過保率: safeDiv(過保數,   期間回廠量),
-      整體不良率: safeDiv(不良品數, 總線上量),
-      整體過保率: safeDiv(過保數,   總線上量),
+      再使用率:     safeDiv(良品數,   期間回廠量),
+      期間不良率:   safeDiv(不良品數, 期間回廠量),
+      期間過保率:   safeDiv(過保數,   期間回廠量),
+      期間未歸類率: safeDiv(未歸類數, 期間回廠量),
+      整體不良率:   safeDiv(不良品數, 總線上量),
+      整體過保率:   safeDiv(過保數,   總線上量),
     };
   }
 
@@ -385,7 +393,7 @@ App.metrics = (() => {
   /**
    * 依 selection 過濾後，將 cohort 依 ERP品號 彙整成一列，並依 groupBy（類型/廠商）分組，
    * 附各組小計與總計。列指標對齊舊工具彙整總覽：
-   *   期間率（÷回廠量）：再使用率、不良率、過保率
+   *   期間率（÷回廠量）：再使用率、不良率、過保率、未歸類率（四者加總＝100%，見 calcBuckets 第四桶）
    *   整體率（÷上線量）：整體不良率、整體過保率
    *   已使用年限：過保明細之平均，無則 null（過保定義已不含 QC='其他(未過)'，見 calcBuckets）
    *   維修分類／QC 細項計數（回廠不良品數(全)/回廠良品數/…/其他(回廠)）：對齊 build_分析總表.py
@@ -423,7 +431,7 @@ App.metrics = (() => {
       if (!acc.has(key)) {
         acc.set(key, {
           ERP品號: erp, 廠商: r.廠商 || '未分類', 類型: r.廠牌型號 || '', 品名: r.替換前品項 || '',
-          回廠量: 0, 良品數: 0, 不良品數: 0, 過保數: 0, 年限Sum: 0, 年限N: 0,
+          回廠量: 0, 良品數: 0, 不良品數: 0, 過保數: 0, 未歸類數: 0, 年限Sum: 0, 年限N: 0,
           維修分類count: {}, QCcount: {}, 維護類型count: {},
         });
       }
@@ -433,6 +441,7 @@ App.metrics = (() => {
         if (r.良品) a.良品數++;
         if (r.不良品) a.不良品數++;
         if (r.過保) a.過保數++;
+        if (r.未歸類) a.未歸類數++;
         const mc = r.維修分類 || '';
         a.維修分類count[mc] = (a.維修分類count[mc] || 0) + 1;
         const qcLabel = QC_LABEL[r.QC] || null;
@@ -453,8 +462,9 @@ App.metrics = (() => {
       const qcQc = qc['回廠QC'] || 0, qcScrap = qc['回廠報廢'] || 0, qcOth = qc['其他(良品)'] || 0, qcOth2 = qc['其他(回廠)'] || 0;
       const row = {
         廠商: a.廠商, 類型: a.類型, ERP品號: a.ERP品號, 品名: a.品名,
-        上線量, 回廠量: a.回廠量, 良品數: a.良品數, 不良品數: a.不良品數, 過保數: a.過保數,
+        上線量, 回廠量: a.回廠量, 良品數: a.良品數, 不良品數: a.不良品數, 過保數: a.過保數, 未歸類數: a.未歸類數,
         再使用率: safeDiv(a.良品數, a.回廠量), 不良率: safeDiv(a.不良品數, a.回廠量), 過保率: safeDiv(a.過保數, a.回廠量),
+        未歸類率: safeDiv(a.未歸類數, a.回廠量),
         已使用年限: a.年限N ? Math.round(a.年限Sum / a.年限N * 10) / 10 : null,
         整體不良率: safeDiv(a.不良品數, 上線量), 整體過保率: safeDiv(a.過保數, 上線量),
         'D /停產報廢': d, 'E /過保報廢': e, 'G /評估後退修': gg, 'H /人為報廢': h,
@@ -501,7 +511,7 @@ App.metrics = (() => {
    * @returns {Object} 同 aggregate() 的 subtotal/grandTotal 形狀（不含 label）
    */
   function summarizeRows(rows, faultCols) {
-    const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
+    const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', '未歸類數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
     const s = { 年限Sum: 0, 年限N: 0 };
     for (const k of sumKeys) s[k] = 0;
     for (const r of rows) {
@@ -511,6 +521,7 @@ App.metrics = (() => {
     return {
       ...s,
       再使用率: safeDiv(s.良品數, s.回廠量), 不良率: safeDiv(s.不良品數, s.回廠量), 過保率: safeDiv(s.過保數, s.回廠量),
+      未歸類率: safeDiv(s.未歸類數, s.回廠量),
       已使用年限: s.年限N ? Math.round(s.年限Sum / s.年限N * 10) / 10 : null,
       整體不良率: safeDiv(s.不良品數, s.上線量), 整體過保率: safeDiv(s.過保數, s.上線量),
     };

@@ -22,11 +22,13 @@ App.app = (() => {
     { key: '期間再使用率', label: '期間再使用率', fmt: 'pct', better: true,  def: true,  get: (k) => k.再使用率 },
     { key: '期間不良率',   label: '期間不良率',   fmt: 'pct', better: false, def: true,  get: (k) => k.期間不良率 },
     { key: '期間過保率',   label: '期間過保率',   fmt: 'pct', better: false, def: true,  get: (k) => k.期間過保率 },
+    { key: '期間未歸類率', label: '期間未歸類率', fmt: 'pct', better: null,  def: true,  get: (k) => k.期間未歸類率 },
     { key: '整體不良率',   label: '整體不良率',   fmt: 'pct', better: false, def: true,  get: (k) => k.整體不良率 },
     { key: '整體過保率',   label: '整體過保率',   fmt: 'pct', better: false, def: true,  get: (k) => k.整體過保率 },
     { key: '良品數',       label: '良品數',       fmt: 'int', better: null,  def: false, get: (k) => k.良品數 },
     { key: '不良品數',     label: '不良品數',     fmt: 'int', better: null,  def: false, get: (k) => k.不良品數 },
     { key: '過保數',       label: '過保數',       fmt: 'int', better: null,  def: false, get: (k) => k.過保數 },
+    { key: '未歸類數',     label: '未歸類數',     fmt: 'int', better: null,  def: false, get: (k) => k.未歸類數 },
   ];
 
   const state = {

@@ -73,6 +73,8 @@ App.detail = (() => {
     { key: '不良率', label: '不良率(%)', fmt: 'pct', num: true },
     { key: '過保數', label: '過保數', fmt: 'int', num: true },
     { key: '過保率', label: '過保率(%)', fmt: 'pct', num: true },
+    { key: '未歸類數', label: '未歸類數', fmt: 'int', num: true },
+    { key: '未歸類率', label: '未歸類率(%)', fmt: 'pct', num: true },
     { key: '已使用年限', label: '已使用年限(年)', fmt: 'year', num: true },
     { key: '整體不良率', label: '整體不良率(%)', fmt: 'pct', num: true },
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
