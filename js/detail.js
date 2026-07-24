@@ -61,6 +61,7 @@ App.detail = (() => {
 
   // ── 比率表：固定精簡欄位，車機／鏡頭共用同一組 ──────────────────────
   const SUMMARY_COLS = [
+    { key: '期間', label: '期間', fmt: 'text' },
     { key: '廠商', label: '廠商', fmt: 'text' },
     { key: 'ERP品號', label: 'ERP品號', fmt: 'text' },
     { key: '品名', label: '品名', fmt: 'text' },
