@@ -24,13 +24,16 @@ App.rawtable = (() => {
     ['QC', 'QC'],
   ];
 
+  // 預設關閉：輸入年月、輸入時間、報廢單狀態、報廢原因、上線量（仍可從欄位顯示手動開啟）
+  const RAW_DEFAULT_OFF = new Set(['輸入年月', '輸入時間', '報廢單狀態', '報廢原因', '_上線量']);
+
   const ids = {
     chips: 'raw-col-chips', colsToggle: 'raw-cols-toggle',
   };
   const ui = {
     colsPanelOpen: false,
     colFilters: {}, // { [key]: Set<string>|undefined }
-    cols: BASE_COLS.map(([label, key]) => ({ key, label, on: true })),
+    cols: BASE_COLS.map(([label, key]) => ({ key, label, on: !RAW_DEFAULT_OFF.has(key) })),
     dragKey: null,
   };
   let built = false;
