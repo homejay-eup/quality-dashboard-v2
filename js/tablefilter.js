@@ -53,6 +53,7 @@ App.tablefilter = (() => {
   let backdrop = null;
   let current = null; // { wrapEl, key }
   let cleanupListeners = null;
+  let rafId = null;
 
   function ensurePortal() {
     if (!backdrop) {
@@ -83,6 +84,7 @@ App.tablefilter = (() => {
     portal.hidden = true;
     if (backdrop) backdrop.hidden = true;
     current = null;
+    if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
     if (cleanupListeners) { cleanupListeners(); cleanupListeners = null; }
   }
 
@@ -160,17 +162,15 @@ App.tablefilter = (() => {
     position(anchorEl);
 
     // 關閉方式：點 X／點背景遮罩（涵蓋整個畫面，點下拉本體以外任何地方）／按 Esc。
-    // 捲動或視窗縮放時改為「跟著重新定位」而非直接關閉（清單本身也有內部捲動，
-    // 若捲動就關閉會讓使用者滑到一半清單就消失）。
+    // 對齊改用 requestAnimationFrame 每禎重新計算位置（而非監聽 scroll/resize），
+    // 不管是哪個容器捲動、捲動事件有沒有正確傳到 window，下拉都會持續跟著按鈕跑，
+    // 不會發生「頁面捲走了，下拉還留在原地」而看起來對不上/點了沒反應的狀況。
     const onKeydown = (e) => { if (e.key === 'Escape') close(); };
-    const onScrollOrResize = () => reposition();
     document.addEventListener('keydown', onKeydown, true);
-    window.addEventListener('scroll', onScrollOrResize, true);
-    window.addEventListener('resize', onScrollOrResize, true);
+    const tick = () => { reposition(); if (!portal.hidden) rafId = requestAnimationFrame(tick); };
+    rafId = requestAnimationFrame(tick);
     cleanupListeners = () => {
       document.removeEventListener('keydown', onKeydown, true);
-      window.removeEventListener('scroll', onScrollOrResize, true);
-      window.removeEventListener('resize', onScrollOrResize, true);
     };
   }
 
