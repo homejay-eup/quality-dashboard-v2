@@ -60,6 +60,8 @@ App.detail = (() => {
   }
 
   // ── 比率表：固定精簡欄位，車機／鏡頭共用同一組 ──────────────────────
+  // 預設關閉：期間、未歸類數、未歸類率(%)、整體不良率(%)、整體過保率(%)（仍可從欄位顯示手動開啟）
+  const SUMMARY_DEFAULT_OFF = new Set(['期間', '未歸類數', '未歸類率', '整體不良率', '整體過保率']);
   const SUMMARY_COLS = [
     { key: '期間', label: '期間', fmt: 'text' },
     { key: '廠商', label: '廠商', fmt: 'text' },
@@ -78,7 +80,7 @@ App.detail = (() => {
     { key: '已使用年限', label: '已使用年限(年)', fmt: 'year', num: true },
     { key: '整體不良率', label: '整體不良率(%)', fmt: 'pct', num: true },
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
-  ].map((c) => ({ ...c, on: true }));
+  ].map((c) => ({ ...c, on: !SUMMARY_DEFAULT_OFF.has(c.key) }));
 
   /**
    * 建立一張獨立的彙整明細表控制器（各自的 DOM／欄位設定／折疊依據／小計狀態／逐欄下拉篩選）。
