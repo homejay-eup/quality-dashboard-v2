@@ -4,6 +4,13 @@
  * 依目前篩選（廠商/類型/ERP品號 + 期間 + 車機/鏡頭分頁）即時顯示逐筆明細，21 欄，
  * 欄位與計算邏輯對齊 新版產出/build_分析總表.py 的 build_detail()（見 report.js RAWCOLS）。
  * 支援欄位顯示開關／拖曳排序（同比率表/分析表）＋逐欄 Excel 風格下拉篩選（App.tablefilter 共用）。
+ *
+ * 逆查連結（2026-07-24 新增，見 detail.js）：
+ *   - focusERP(erp)：比率表/分析表點擊 ERP品號 → 鎖定 ERP品號 欄位篩選。
+ *   - focusLogic(label, test)：分析表點擊分類欄位（如 D/停產報廢、回廠過保數）→ 依對應的
+ *     維修分類／QC 邏輯（單一或多值 OR）篩選逐筆資料，疊加在既有欄位篩選之上，並顯示
+ *     一個可清除的篩選提示列。
+ *
  * 由 app.js 的 rerender() 呼叫 App.rawtable.onRerender(state)。
  */
 window.App = window.App || {};
@@ -13,6 +20,7 @@ App.rawtable = (() => {
   const MAX_ROWS = 500;
   const fmtInt = (v) => (Number(v) || 0).toLocaleString('en-US');
   const fmtYear = (v) => (v == null || v === '' ? '' : Number(v).toFixed(1));
+  const esc = App.tablefilter.esc;
 
   // [顯示標題, row 欄位 key]；'_period'／'_上線量' 為即時運算補上的欄位
   const BASE_COLS = [
@@ -28,7 +36,7 @@ App.rawtable = (() => {
   const RAW_DEFAULT_OFF = new Set(['輸入年月', '輸入時間', '報廢單狀態', '報廢原因', '_上線量']);
 
   const ids = {
-    chips: 'raw-col-chips', colsToggle: 'raw-cols-toggle',
+    chips: 'raw-col-chips', colsToggle: 'raw-cols-toggle', logicBar: 'raw-logic-bar',
   };
   const ui = {
     colsPanelOpen: false,
@@ -36,6 +44,7 @@ App.rawtable = (() => {
     cols: BASE_COLS.map(([label, key]) => ({ key, label, on: !RAW_DEFAULT_OFF.has(key) })),
     dragKey: null,
   };
+  let logicFilter = null; // { label, test(row) } | null
   let built = false;
   let lastOptionsByKey = {};
 
@@ -59,6 +68,7 @@ App.rawtable = (() => {
             </button>
             <div class="col-chips" id="${ids.chips}" hidden></div>
           </div>
+          <div class="logic-bar" id="${ids.logicBar}" hidden></div>
         </div>
         <div class="detail__scroll" id="raw-wrap"></div>
       </section>`;
@@ -66,6 +76,9 @@ App.rawtable = (() => {
       ui.colsPanelOpen = !ui.colsPanelOpen;
       $(ids.chips).hidden = !ui.colsPanelOpen;
       $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
+    });
+    $(ids.logicBar).addEventListener('click', (e) => {
+      if (e.target.closest('.logic-bar__clear')) clearLogicFilter();
     });
     $('raw-wrap').addEventListener('click', (e) => {
       const btn = e.target.closest('.col-filter-btn');
@@ -110,6 +123,14 @@ App.rawtable = (() => {
     });
   }
 
+  function renderLogicBar() {
+    const el = $(ids.logicBar);
+    if (!logicFilter) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    el.innerHTML = `<span class="logic-bar__label">邏輯篩選中：${esc(logicFilter.label)}</span>
+      <button type="button" class="logic-bar__clear">✕ 清除</button>`;
+  }
+
   function render() {
     const st = App.app.state;
     const periodLabel = `${st.year}-Q${st.quarter}`;
@@ -129,7 +150,10 @@ App.rawtable = (() => {
     for (const c of cols) lastOptionsByKey[c.key] = App.tablefilter.uniqueOptions(allRows, (r) => cellVal(c.key, r[c.key]));
 
     const getDisplay = (c, row) => cellVal(c.key, row[c.key]);
-    const rows = allRows.filter((r) => App.tablefilter.matches(ui.colFilters, cols, getDisplay, r));
+    let rows = allRows.filter((r) => App.tablefilter.matches(ui.colFilters, cols, getDisplay, r));
+    if (logicFilter) rows = rows.filter(logicFilter.test);
+
+    renderLogicBar();
 
     const total = rows.length;
     const shown = rows.slice(0, MAX_ROWS);
@@ -154,9 +178,27 @@ App.rawtable = (() => {
    */
   function focusERP(erp) {
     ui.colFilters = { 'ERP品號': new Set([erp]) };
+    logicFilter = null;
     render();
     if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return { onRerender, focusERP };
+  /**
+   * 逆查：依分析表分類欄位的邏輯（維修分類／QC 值，單一或多值 OR）篩選逐筆資料。
+   * 疊加在既有欄位篩選（含 ERP品號）之上，不會清掉；只會取代上一個邏輯篩選。
+   * @param {string} label - 顯示於篩選提示列的說明文字
+   * @param {(row: Object) => boolean} test
+   */
+  function focusLogic(label, test) {
+    logicFilter = { label, test };
+    render();
+    if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function clearLogicFilter() {
+    logicFilter = null;
+    render();
+  }
+
+  return { onRerender, focusERP, focusLogic, clearLogicFilter };
 })();

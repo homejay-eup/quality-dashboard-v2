@@ -357,6 +357,26 @@ body {
 .agg-table tbody tr:not(.sub):not(.grand):hover { background: #fafbfc; }
 .erp-link { color: var(--teal-dark); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 .erp-link:hover { background: var(--teal-pale); text-decoration-style: solid; }
+.metric-link, .logic-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.metric-link:hover, .logic-link:hover { background: var(--teal-pale); text-decoration-style: solid; }
+
+.cols-reset {
+  background: none; border: none; font-family: inherit; font-size: 12px; color: var(--teal-dark);
+  cursor: pointer; padding: 0; text-decoration: underline;
+}
+.cols-reset:hover { color: var(--teal); }
+
+.logic-bar {
+  display: flex; align-items: center; gap: 10px; background: var(--teal-pale);
+  border: 1px solid var(--teal-light); border-radius: var(--radius-sm);
+  padding: 8px 12px; font-size: 12.5px; color: var(--teal-dark);
+}
+.logic-bar__label { flex: 1; }
+.logic-bar__clear {
+  background: none; border: 1px solid var(--teal-light); border-radius: 6px;
+  color: var(--teal-dark); font-family: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer;
+}
+.logic-bar__clear:hover { background: #fff; }
 
 /* ── 品管/採購建議（F5）───────────────────────────── */
 .advice { margin-top: 18px; padding: 16px 18px; }

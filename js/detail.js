@@ -7,6 +7,17 @@
  *   1. 比率表（#detail-simple-slot）：固定精簡欄位，車機／鏡頭皆同一組欄位。
  *   2. 分析表（#detail-slot）：完整欄位（含故障原因細項、維修/報廢分類），
  *      車機／鏡頭欄位不同（faultCols 依 deviceTab 動態插入），置於比率表下方。
+ *
+ * 逆查連結（2026-07-24 新增）：
+ *   - 比率表的 ERP品號／分析表的 ERP品號 → 點擊鎖定彙整表的 ERP品號 篩選＋捲動過去。
+ *   - 比率表的 良品數/不良品數/過保數/未歸類數 → 點擊讓分析表只顯示對應的分類明細欄位
+ *     （見 METRIC_BUCKET_COLS；良品數/未歸類數的欄位加總不保證等於該數字，因為
+ *     transform.js 的「已遺失」規則會覆寫良品/不良品/過保=false、未歸類=true，
+ *     過保數則實測完全一致，見對話紀錄）。
+ *   - 分析表的分類欄位（D/E/G/H/O/X/V/換貨/回廠QC/回廠報廢/其他(良品)/其他(回廠)，
+ *     或合併欄位回廠良品數/回廠不良品數/回廠過保數/回廠人為數/回廠不良品數(全)）
+ *     → 點擊讓彙整表依對應的 維修分類／QC 值（單一或多值 OR）篩選（見 ANALYSIS_COL_LOGIC）。
+ *
  * 由 app.js 的 rerender() 呼叫 App.detail.onRerender(state)。
  */
 window.App = window.App || {};
@@ -82,15 +93,66 @@ App.detail = (() => {
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
   ].map((c) => ({ ...c, on: !SUMMARY_DEFAULT_OFF.has(c.key) }));
 
+  // ── 比率表 良品數/不良品數/過保數/未歸類數 點擊 → 分析表只留這些欄位（+ 下方 ALWAYS 欄位）──
+  const ANALYSIS_ALWAYS_COLS = ['期間', '類型', '廠商', 'ERP品號', '品名', '上線量', '回廠量'];
+  const METRIC_BUCKET_COLS = {
+    良品數: ['O /測試正常', '回廠QC', '其他(良品)', '回廠良品數'],
+    不良品數: ['G /評估後退修', 'X /已完修', '維修換貨＋換貨條碼', '回廠不良品數'],
+    過保數: ['D /停產報廢', 'E /過保報廢', '回廠報廢', '回廠過保數'],
+    未歸類數: ['H /人為報廢', '其他(回廠)'],
+  };
+
+  // ── 分析表分類欄位點擊 → 彙整表依 維修分類／QC 值篩選（單一或多值 OR）──
+  // isReturned 對齊 metrics.js aggregate()：只有「已回廠且非不回廠」的紀錄才計入分類統計。
+  const isReturned = (r) => r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
+  const 維修分類Is = (v) => (r) => isReturned(r) && r.維修分類 === v;
+  const QCIs = (v) => (r) => isReturned(r) && r.QC === v;
+  const ANALYSIS_COL_LOGIC = {
+    'D /停產報廢': { label: 'D /停產報廢', test: 維修分類Is('D /停產報廢') },
+    'E /過保報廢': { label: 'E /過保報廢', test: 維修分類Is('E /過保報廢') },
+    'G /評估後退修': { label: 'G /評估後退修', test: 維修分類Is('G /評估後退修') },
+    'H /人為報廢': { label: 'H /人為報廢', test: 維修分類Is('H /人為報廢') },
+    'O /測試正常': { label: 'O /測試正常', test: 維修分類Is('O /測試正常') },
+    'X /已完修': { label: 'X /已完修', test: 維修分類Is('X /已完修') },
+    'V /已完修 人為': { label: 'V /已完修 人為', test: 維修分類Is('V /已完修 人為') },
+    '維修換貨＋換貨條碼': { label: '維修換貨＋換貨條碼', test: 維修分類Is('維修換貨＋換貨條碼') },
+    '回廠QC': { label: '回廠QC', test: QCIs('回廠QC') },
+    '回廠報廢': { label: '回廠報廢', test: QCIs('回廠報廢') },
+    '其他(良品)': { label: '其他(良品)', test: QCIs('其他') },
+    '其他(回廠)': { label: '其他(回廠)', test: QCIs('其他(未過)') },
+    '回廠良品數': {
+      label: '回廠良品數（O /測試正常 或 QC=回廠QC/其他）',
+      test: (r) => isReturned(r) && (r.維修分類 === 'O /測試正常' || ['回廠QC', '其他'].includes(r.QC)),
+    },
+    '回廠不良品數': {
+      label: '回廠不良品數（G /評估後退修、X /已完修、維修換貨＋換貨條碼）',
+      test: (r) => isReturned(r) && ['G /評估後退修', 'X /已完修', '維修換貨＋換貨條碼'].includes(r.維修分類),
+    },
+    '回廠過保數': {
+      label: '回廠過保數（D /停產報廢、E /過保報廢 或 QC=回廠報廢）',
+      test: (r) => isReturned(r) && (['D /停產報廢', 'E /過保報廢'].includes(r.維修分類) || r.QC === '回廠報廢'),
+    },
+    '回廠人為數': { label: '回廠人為數（H /人為報廢）', test: 維修分類Is('H /人為報廢') },
+    '回廠不良品數(全)': {
+      label: '回廠不良品數(全)（除 O/回廠QC/其他(良品) 以外的已回廠紀錄）',
+      test: (r) => isReturned(r) &&
+        (['D /停產報廢', 'E /過保報廢', 'G /評估後退修', 'H /人為報廢', 'X /已完修', 'V /已完修 人為', '維修換貨＋換貨條碼'].includes(r.維修分類)
+          || ['回廠報廢', '其他(未過)'].includes(r.QC)),
+    },
+  };
+
   /**
    * 建立一張獨立的彙整明細表控制器（各自的 DOM／欄位設定／折疊依據／小計狀態／逐欄下拉篩選）。
-   * @param {{ slotId: string, title: string, colsInit: Array|Function, deviceAware: boolean }} cfg
+   * @param {{ slotId: string, title: string, colsInit: Array|Function, deviceAware: boolean,
+   *   metricLinkKeys?: Set<string>, logicLinks?: Object }} cfg
    *   colsInit 為 Function 時依 deviceTab 動態算欄位（分析表）；為固定陣列時兩分頁共用（比率表）。
+   *   metricLinkKeys：這張表裡點擊會觸發「分析表只留對應欄位」的欄位 key 集合（比率表用）。
+   *   logicLinks：這張表裡點擊會觸發「彙整表依邏輯篩選」的欄位 key → {label,test} 對照（分析表用）。
    */
-  function makeTable({ slotId, title, colsInit, deviceAware }) {
+  function makeTable({ slotId, title, colsInit, deviceAware, metricLinkKeys, logicLinks }) {
     const ids = {
       title: `${slotId}-title`, count: `${slotId}-count`, wrap: `${slotId}-wrap`,
-      chips: `${slotId}-col-chips`, colsToggle: `${slotId}-cols-toggle`,
+      chips: `${slotId}-col-chips`, colsToggle: `${slotId}-cols-toggle`, colsReset: `${slotId}-cols-reset`,
       groupName: `${slotId}-groupBy`, onlySub: `${slotId}-only-subtotal`,
     };
     const ui = {
@@ -123,6 +185,7 @@ App.detail = (() => {
               <button type="button" class="cols-toggle" id="${ids.colsToggle}">
                 欄位顯示（可拖曳排序）<span class="cols-toggle__arrow">▸</span>
               </button>
+              <button type="button" class="cols-reset" id="${ids.colsReset}" hidden>顯示全部欄位</button>
               <div class="col-chips" id="${ids.chips}" hidden></div>
             </div>
           </div>
@@ -136,11 +199,25 @@ App.detail = (() => {
         $(ids.chips).hidden = !ui.colsPanelOpen;
         $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
       });
-      // 欄位下拉篩選按鈕／ERP品號 逆查連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
+      $(ids.colsReset).addEventListener('click', resetColumns);
+      // 欄位下拉篩選按鈕／ERP品號 逆查連結／指標-分析欄連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
       $(ids.wrap).addEventListener('click', (e) => {
         const erpCell = e.target.closest('.erp-link');
         if (erpCell) {
           if (App.rawtable && App.rawtable.focusERP) App.rawtable.focusERP(erpCell.dataset.erp);
+          return;
+        }
+        const metricCell = e.target.closest('.metric-link');
+        if (metricCell) {
+          const key = metricCell.dataset.metric;
+          if (analysisTable) analysisTable.focusColumns(METRIC_BUCKET_COLS[key] || []);
+          return;
+        }
+        const logicCell = e.target.closest('.logic-link');
+        if (logicCell) {
+          const key = logicCell.dataset.logic;
+          const entry = logicLinks && logicLinks[key];
+          if (entry && App.rawtable && App.rawtable.focusLogic) App.rawtable.focusLogic(entry.label, entry.test);
           return;
         }
         const btn = e.target.closest('.col-filter-btn');
@@ -185,6 +262,20 @@ App.detail = (() => {
       });
     }
 
+    /** 只留 ANALYSIS_ALWAYS_COLS + keys 這些欄位（供比率表指標點擊呼叫）。 */
+    function focusColumns(keys) {
+      const keep = new Set([...ANALYSIS_ALWAYS_COLS, ...keys]);
+      ui.cols.forEach((c) => { c.on = keep.has(c.key); });
+      if (built) { renderChips(); $(ids.colsReset).hidden = false; }
+      renderTable();
+    }
+
+    function resetColumns() {
+      ui.cols.forEach((c) => { c.on = true; });
+      renderChips(); renderTable();
+      $(ids.colsReset).hidden = true;
+    }
+
     function render() { renderChips(); renderTable(); }
 
     function renderTable() {
@@ -223,6 +314,12 @@ App.detail = (() => {
         if (c.key === 'ERP品號' && row.ERP品號) {
           return `<td class="erp-link" data-erp="${esc(row.ERP品號)}" title="點擊查看彙整表原始資料">${v}</td>`;
         }
+        if (metricLinkKeys && metricLinkKeys.has(c.key)) {
+          return `<td class="num metric-link" data-metric="${c.key}" title="點擊只看分析表對應的分類欄位">${v}</td>`;
+        }
+        if (logicLinks && logicLinks[c.key]) {
+          return `<td class="num logic-link" data-logic="${c.key}" title="點擊查看彙整表對應的原始資料">${v}</td>`;
+        }
         return `<td class="${c.num ? 'num' : ''}">${v}</td>`;
       };
 
@@ -252,11 +349,22 @@ App.detail = (() => {
       renderTable();
     }
 
-    return { onRerender };
+    return { onRerender, focusColumns, resetColumns };
   }
 
-  const summaryTable = makeTable({ slotId: 'detail-simple-slot', title: '比率表', colsInit: SUMMARY_COLS, deviceAware: false });
-  const analysisTable = makeTable({ slotId: 'detail-slot', title: '分析表', colsInit: buildAnalysisCols, deviceAware: true });
+  // analysisTable 用 let 先宣告：比率表的指標點擊 callback 要引用它，
+  // 但比率表（summaryTable）建立時 analysisTable 還沒指派——JS closure 抓的是變數本身
+  // 不是當下的值，只要點擊發生在兩者都建立完成之後（畫面互動必然如此）就沒問題。
+  let analysisTable;
+
+  const summaryTable = makeTable({
+    slotId: 'detail-simple-slot', title: '比率表', colsInit: SUMMARY_COLS, deviceAware: false,
+    metricLinkKeys: new Set(['良品數', '不良品數', '過保數', '未歸類數']),
+  });
+  analysisTable = makeTable({
+    slotId: 'detail-slot', title: '分析表', colsInit: buildAnalysisCols, deviceAware: true,
+    logicLinks: ANALYSIS_COL_LOGIC,
+  });
 
   function onRerender() {
     summaryTable.onRerender();
