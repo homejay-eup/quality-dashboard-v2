@@ -284,6 +284,7 @@ body {
 .radio { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--gray-600); cursor: pointer; }
 .radio input { accent-color: var(--teal); }
 .col-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.col-chips[hidden] { display: none; }
 .col-chip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 10px; border-radius: 20px; font-size: 12px;
@@ -323,6 +324,7 @@ body {
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); padding: 8px; width: 220px;
   display: flex; flex-direction: column; gap: 6px;
 }
+.col-filter-pop[hidden], .col-filter-backdrop[hidden] { display: none; }
 .col-filter-pop__head { display: flex; align-items: center; gap: 6px; }
 .col-filter-pop__search {
   flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; font-size: 12px;
