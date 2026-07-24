@@ -44,13 +44,6 @@
           <select id="sel-compare"></select>
         </label>
       </div>
-      <!-- 指標顯示 -->
-      <div class="metric-toggle">
-        <button type="button" class="cols-toggle" id="metric-toggle-btn">
-          指標顯示<span class="cols-toggle__arrow">▸</span>
-        </button>
-        <div id="metric-chips" class="chips" hidden></div>
-      </div>
       <!-- 快照動作 -->
       <div class="controls__actions">
         <button class="btn" id="btn-report"><svg class="icon" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8V4h10v4"/><rect x="4" y="8" width="16" height="8" rx="1.5"/><path d="M7 16h10v4H7z"/><circle cx="17" cy="11" r="0.6" fill="currentColor" stroke="none"/></svg> 生成落地頁報告</button>
@@ -59,6 +52,13 @@
       </div>
       <!-- 篩選器（filters.js 注入）-->
       <div id="filter-slot"></div>
+      <!-- 指標顯示 -->
+      <div class="metric-toggle">
+        <button type="button" class="cols-toggle" id="metric-toggle-btn">
+          指標顯示<span class="cols-toggle__arrow">▸</span>
+        </button>
+        <div id="metric-chips" class="chips" hidden></div>
+      </div>
     </section>
 
     <!-- ── 載入 / 錯誤 狀態 ─────────────────────────── -->
