@@ -44,6 +44,10 @@
 
 * { box-sizing: border-box; }
 
+/* ── 線性圖示（icons.js／index.html 內嵌 SVG 共用）───── */
+.icon { vertical-align: -0.15em; flex-shrink: 0; }
+.brand__mark { color: var(--teal); display: inline-flex; }
+
 body {
   margin: 0;
   font-family: var(--font);
