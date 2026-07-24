@@ -134,8 +134,13 @@ App.detail = (() => {
         $(ids.chips).hidden = !ui.colsPanelOpen;
         $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
       });
-      // 欄位下拉篩選按鈕（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
+      // 欄位下拉篩選按鈕／ERP品號 逆查連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
       $(ids.wrap).addEventListener('click', (e) => {
+        const erpCell = e.target.closest('.erp-link');
+        if (erpCell) {
+          if (App.rawtable && App.rawtable.focusERP) App.rawtable.focusERP(erpCell.dataset.erp);
+          return;
+        }
         const btn = e.target.closest('.col-filter-btn');
         if (!btn) return;
         const key = btn.dataset.key;
@@ -211,7 +216,13 @@ App.detail = (() => {
       $(ids.count).textContent = `${groups.length} 組 / ${allRows.length.toLocaleString()} 品號`;
 
       const head = `<tr>${cols.map((c) => App.tablefilter.headerCellHTML(c, ui.colFilters)).join('')}</tr>`;
-      const cell = (c, row) => `<td class="${c.num ? 'num' : ''}">${cellVal(c, row)}</td>`;
+      const cell = (c, row) => {
+        const v = cellVal(c, row);
+        if (c.key === 'ERP品號' && row.ERP品號) {
+          return `<td class="erp-link" data-erp="${esc(row.ERP品號)}" title="點擊查看彙整表原始資料">${v}</td>`;
+        }
+        return `<td class="${c.num ? 'num' : ''}">${v}</td>`;
+      };
 
       let body = '';
       for (const g of groups) {

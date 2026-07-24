@@ -143,5 +143,17 @@ App.rawtable = (() => {
     render();
   }
 
-  return { onRerender };
+  /**
+   * 逆查：把彙整表的 ERP品號 欄位篩選鎖定到單一品號並捲動過去。
+   * 供比率表/分析表點擊 ERP品號 儲存格時呼叫（見 detail.js），三張表共用同一份
+   * 廠商/類型/ERP品號 篩選範圍，所以這裡只需再疊加一層「只看這一個品號」。
+   * @param {string} erp
+   */
+  function focusERP(erp) {
+    ui.colFilters = { 'ERP品號': new Set([erp]) };
+    render();
+    if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  return { onRerender, focusERP };
 })();
