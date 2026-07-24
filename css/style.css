@@ -355,9 +355,7 @@ body {
 .sub__label { color: var(--gray-600); }
 .agg-table tr.grand td { background: var(--gray-800); color: #fff; font-weight: 700; position: sticky; bottom: 0; }
 .agg-table tbody tr:not(.sub):not(.grand):hover { background: #fafbfc; }
-.erp-link { color: var(--teal-dark); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
-.erp-link:hover { background: var(--teal-pale); text-decoration-style: solid; }
-.metric-link, .logic-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.metric-link, .logic-link { color: var(--teal-dark); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 .metric-link:hover, .logic-link:hover { background: var(--teal-pale); text-decoration-style: solid; }
 
 .cols-reset {

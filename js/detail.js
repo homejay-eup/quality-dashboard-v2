@@ -8,15 +8,15 @@
  *   2. 分析表（#detail-slot）：完整欄位（含故障原因細項、維修/報廢分類），
  *      車機／鏡頭欄位不同（faultCols 依 deviceTab 動態插入），置於比率表下方。
  *
- * 逆查連結（2026-07-24 新增）：
- *   - 比率表的 ERP品號／分析表的 ERP品號 → 點擊鎖定彙整表的 ERP品號 篩選＋捲動過去。
+ * 逆查連結（2026-07-24 新增；ERP品號 欄位本身不可點，只有數量/分類欄位可點）：
  *   - 比率表的 良品數/不良品數/過保數/未歸類數 → 點擊讓分析表只顯示對應的分類明細欄位
- *     （見 METRIC_BUCKET_COLS；良品數/未歸類數的欄位加總不保證等於該數字，因為
- *     transform.js 的「已遺失」規則會覆寫良品/不良品/過保=false、未歸類=true，
- *     過保數則實測完全一致，見對話紀錄）。
+ *     （見 METRIC_BUCKET_COLS），並同時鎖定彙整表到該列的 ERP品號＋對應邏輯篩選
+ *     （見 METRIC_LOGIC，直接用 transform.js 算好的旗標比對，避免「已遺失」規則
+ *     覆寫良品/不良品/過保=false、未歸類=true 造成的欄位加總落差）。
  *   - 分析表的分類欄位（D/E/G/H/O/X/V/換貨/回廠QC/回廠報廢/其他(良品)/其他(回廠)，
  *     或合併欄位回廠良品數/回廠不良品數/回廠過保數/回廠人為數/回廠不良品數(全)）
- *     → 點擊讓彙整表依對應的 維修分類／QC 值（單一或多值 OR）篩選（見 ANALYSIS_COL_LOGIC）。
+ *     → 點擊讓彙整表依對應的 維修分類／QC 值（單一或多值 OR）＋該列 ERP品號 篩選
+ *     （見 ANALYSIS_COL_LOGIC）。
  *
  * 由 app.js 的 rerender() 呼叫 App.detail.onRerender(state)。
  */
@@ -211,13 +211,8 @@ App.detail = (() => {
         $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
       });
       $(ids.colsReset).addEventListener('click', resetColumns);
-      // 欄位下拉篩選按鈕／ERP品號 逆查連結／指標-分析欄連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
+      // 欄位下拉篩選按鈕／指標-分析欄連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
       $(ids.wrap).addEventListener('click', (e) => {
-        const erpCell = e.target.closest('.erp-link');
-        if (erpCell) {
-          if (App.rawtable && App.rawtable.focusERP) App.rawtable.focusERP(erpCell.dataset.erp);
-          return;
-        }
         const metricCell = e.target.closest('.metric-link');
         if (metricCell) {
           const key = metricCell.dataset.metric;
@@ -331,9 +326,6 @@ App.detail = (() => {
       const head = `<tr>${cols.map((c) => App.tablefilter.headerCellHTML(c, ui.colFilters)).join('')}</tr>`;
       const cell = (c, row) => {
         const v = cellVal(c, row);
-        if (c.key === 'ERP品號' && row.ERP品號) {
-          return `<td class="erp-link" data-erp="${esc(row.ERP品號)}" title="點擊查看彙整表原始資料">${v}</td>`;
-        }
         if (metricLinkKeys && metricLinkKeys.has(c.key)) {
           return `<td class="num metric-link" data-metric="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊只看分析表對應的分類欄位，並鎖定彙整表到這個品號">${v}</td>`;
         }

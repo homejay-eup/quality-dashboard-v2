@@ -6,10 +6,9 @@
  * 支援欄位顯示開關／拖曳排序（同比率表/分析表）＋逐欄 Excel 風格下拉篩選（App.tablefilter 共用）。
  *
  * 逆查連結（2026-07-24 新增，見 detail.js）：
- *   - focusERP(erp)：比率表/分析表點擊 ERP品號 → 鎖定 ERP品號 欄位篩選。
- *   - focusLogic(label, test)：分析表點擊分類欄位（如 D/停產報廢、回廠過保數）→ 依對應的
- *     維修分類／QC 邏輯（單一或多值 OR）篩選逐筆資料，疊加在既有欄位篩選之上，並顯示
- *     一個可清除的篩選提示列。
+ *   - focusERPAndLogic(erp, label, test)：比率表/分析表點擊數量或分類欄位時呼叫，
+ *     同時鎖定該列的 ERP品號 欄位篩選＋依對應的維修分類／QC 邏輯（單一或多值 OR）
+ *     篩選逐筆資料，兩者一起顯示在可清除的篩選提示列。
  *
  * 由 app.js 的 rerender() 呼叫 App.rawtable.onRerender(state)。
  */
@@ -171,19 +170,6 @@ App.rawtable = (() => {
   }
 
   /**
-   * 逆查：把彙整表的 ERP品號 欄位篩選鎖定到單一品號並捲動過去。
-   * 供比率表/分析表點擊 ERP品號 儲存格時呼叫（見 detail.js），三張表共用同一份
-   * 廠商/類型/ERP品號 篩選範圍，所以這裡只需再疊加一層「只看這一個品號」。
-   * @param {string} erp
-   */
-  function focusERP(erp) {
-    ui.colFilters = { 'ERP品號': new Set([erp]) };
-    logicFilter = null;
-    render();
-    if (built) $('raw-slot').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  /**
    * 逆查：依分析表分類欄位的邏輯（維修分類／QC 值，單一或多值 OR）篩選逐筆資料。
    * 疊加在既有欄位篩選（含 ERP品號）之上，不會清掉；只會取代上一個邏輯篩選。
    * @param {string} label - 顯示於篩選提示列的說明文字
@@ -214,5 +200,5 @@ App.rawtable = (() => {
     render();
   }
 
-  return { onRerender, focusERP, focusLogic, focusERPAndLogic, clearLogicFilter };
+  return { onRerender, focusLogic, focusERPAndLogic, clearLogicFilter };
 })();
