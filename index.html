@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>設備品質分析</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
 </head>
 <body>
   <!-- ── Header ─────────────────────────────────────── -->
@@ -46,8 +46,10 @@
       </div>
       <!-- 指標顯示 -->
       <div class="metric-toggle">
-        <span class="metric-toggle__label">指標顯示</span>
-        <div id="metric-chips" class="chips"></div>
+        <button type="button" class="cols-toggle" id="metric-toggle-btn">
+          指標顯示<span class="cols-toggle__arrow">▸</span>
+        </button>
+        <div id="metric-chips" class="chips" hidden></div>
       </div>
       <!-- 快照動作 -->
       <div class="controls__actions">
@@ -109,7 +111,7 @@
   <script src="js/advice.js?v=2"></script>
   <script src="js/report.js?v=7"></script>
   <script src="js/cloud.js?v=2"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/app.js?v=10"></script>
   <input type="file" id="snap-file" accept="application/json,.json" hidden />
 </body>
 </html>

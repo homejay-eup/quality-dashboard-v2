@@ -258,6 +258,7 @@ body {
 .metric-toggle { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--gray-200); padding-top: 12px; }
 .metric-toggle__label { font-size: 12px; font-weight: 600; color: var(--gray-500); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips[hidden] { display: none; }
 .chip {
   padding: 5px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 500;
   border: 1px solid var(--gray-200); background: #fff; color: var(--gray-500);

@@ -301,6 +301,11 @@ App.app = (() => {
   }
 
   function bindEvents() {
+    $('metric-toggle-btn').addEventListener('click', () => {
+      const open = $('metric-chips').hidden;
+      $('metric-chips').hidden = !open;
+      $('metric-toggle-btn').classList.toggle('cols-toggle--open', open);
+    });
     $('sel-current').addEventListener('change', (e) => {
       const v = e.target.value;
       if (v === '__snap__') return;
