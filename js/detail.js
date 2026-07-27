@@ -168,8 +168,9 @@ App.detail = (() => {
     const ids = {
       title: `${slotId}-title`, count: `${slotId}-count`, wrap: `${slotId}-wrap`,
       chips: `${slotId}-col-chips`, colsToggle: `${slotId}-cols-toggle`, colsReset: `${slotId}-cols-reset`,
-      groupName: `${slotId}-groupBy`, onlySub: `${slotId}-only-subtotal`,
+      groupName: `${slotId}-groupBy`, onlySub: `${slotId}-only-subtotal`, download: `${slotId}-download`,
     };
+    let lastExport = null; // { headers, rows } 依畫面目前顯示內容（欄位/排序/篩選/折疊皆已套用）
     const ui = {
       groupBy: '類型',
       onlySubtotal: false,
@@ -188,6 +189,7 @@ App.detail = (() => {
           <div class="detail__bar">
             <span class="detail__title" id="${ids.title}">${title}</span>
             <span class="detail__count" id="${ids.count}"></span>
+            <button type="button" class="btn-ghost detail__download" id="${ids.download}">📥 下載 CSV</button>
           </div>
           <div class="detail__opts">
             <div class="opt-row">
@@ -215,6 +217,11 @@ App.detail = (() => {
         $(ids.colsToggle).classList.toggle('cols-toggle--open', ui.colsPanelOpen);
       });
       $(ids.colsReset).addEventListener('click', resetColumns);
+      $(ids.download).addEventListener('click', () => {
+        if (!lastExport) return;
+        const st = App.app.state;
+        App.tablefilter.downloadCsv(`${title}_${st.deviceTab || ''}_${st.year}-Q${st.quarter}.csv`, lastExport.headers, lastExport.rows);
+      });
       // 欄位下拉篩選按鈕／指標-分析欄連結（事件委派：innerHTML 每次重建表格，監聽器掛在不變的容器上）
       $(ids.wrap).addEventListener('click', (e) => {
         const metricCell = e.target.closest('.metric-link');
@@ -340,21 +347,28 @@ App.detail = (() => {
       };
 
       let body = '';
+      const exportRows = [];
       for (const g of groups) {
         if (!ui.onlySubtotal) {
-          for (const r of g.rows) body += `<tr>${cols.map((c) => cell(c, r)).join('')}</tr>`;
+          for (const r of g.rows) {
+            body += `<tr>${cols.map((c) => cell(c, r)).join('')}</tr>`;
+            exportRows.push(cols.map((c) => cellVal(c, r)));
+          }
         }
         const subLabel = ui.onlySubtotal ? g.key : `${g.key} 小計`;
         body += `<tr class="sub">${cols.map((c, i) => {
           if (i === labelIdx) return `<td class="sub__label">${esc(subLabel)}</td>`;
           return `<td class="num">${c.num ? fmtCell(c, g.subtotal[c.key]) : ''}</td>`;
         }).join('')}</tr>`;
+        exportRows.push(cols.map((c, i) => (i === labelIdx ? subLabel : (c.num ? fmtCell(c, g.subtotal[c.key]) : ''))));
       }
       // 總計
       body += `<tr class="grand">${cols.map((c, i) => {
         if (i === labelIdx) return `<td>總計</td>`;
         return `<td class="num">${c.num ? fmtCell(c, grandTotal[c.key]) : ''}</td>`;
       }).join('')}</tr>`;
+      exportRows.push(cols.map((c, i) => (i === labelIdx ? '總計' : (c.num ? fmtCell(c, grandTotal[c.key]) : ''))));
+      lastExport = { headers: cols.map((c) => c.label), rows: exportRows };
 
       $(ids.wrap).innerHTML = `<table class="agg-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
       App.tablefilter.reposition();

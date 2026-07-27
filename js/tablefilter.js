@@ -174,5 +174,25 @@ App.tablefilter = (() => {
     };
   }
 
-  return { esc, uniqueOptions, matches, headerCellHTML, open, close, isOpenFor, reposition };
+  /**
+   * 把目前畫面上的表格（依可見欄位＋已套用的篩選/排序）匯出成 CSV 並觸發下載。
+   * @param {string} filename
+   * @param {string[]} headers - 欄位標題（依畫面顯示順序）
+   * @param {Array<Array<string|number>>} rows - 每列各欄的值（同 headers 順序）
+   */
+  function downloadCsv(filename, headers, rows) {
+    const cell = (v) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers, ...rows].map((r) => r.map(cell).join(','));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  return { esc, uniqueOptions, matches, headerCellHTML, open, close, isOpenFor, reposition, downloadCsv };
 })();

@@ -46,6 +46,7 @@ App.rawtable = (() => {
   let logicFilter = null; // { label, test(row) } | null
   let built = false;
   let lastOptionsByKey = {};
+  let lastExport = null; // { headers, rows } 依畫面目前顯示內容（欄位/篩選皆已套用，含被 500 筆上限截掉的部分）
 
   function cellVal(k, v) {
     if (k === '已使用年限') return fmtYear(v);
@@ -59,6 +60,7 @@ App.rawtable = (() => {
         <div class="detail__bar">
           <span class="detail__title" id="raw-title">彙整表</span>
           <span class="detail__count" id="raw-count"></span>
+          <button type="button" class="btn-ghost detail__download" id="raw-download">📥 下載 CSV</button>
         </div>
         <div class="detail__opts">
           <div class="opt-row opt-row--cols">
@@ -92,6 +94,11 @@ App.rawtable = (() => {
           render();
         },
       }, btn);
+    });
+    $('raw-download').addEventListener('click', () => {
+      if (!lastExport) return;
+      const st = App.app.state;
+      App.tablefilter.downloadCsv(`彙整表_${st.deviceTab || ''}_${st.year}-Q${st.quarter}.csv`, lastExport.headers, lastExport.rows);
     });
     built = true;
   }
@@ -162,6 +169,8 @@ App.rawtable = (() => {
     const body = shown.map((r) => `<tr>${cols.map((c) => `<td>${cellVal(c.key, r[c.key])}</td>`).join('')}</tr>`).join('');
     $('raw-wrap').innerHTML = `<table class="detail-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     App.tablefilter.reposition();
+    // 下載匯出完整篩選結果（不受畫面 500 筆顯示上限影響）
+    lastExport = { headers: cols.map((c) => c.label), rows: rows.map((r) => cols.map((c) => cellVal(c.key, r[c.key]))) };
   }
 
   function onRerender() {
