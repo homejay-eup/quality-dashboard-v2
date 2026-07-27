@@ -219,36 +219,45 @@ App.report = (() => {
     const rows = agg.groups.map((g) => {
       const s = g.subtotal;
       return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rInt(s.回廠量)}</td>
-        <td>${rInt(s.良品數)}（${rPct(s.再使用率)}）</td><td>${rInt(s.不良品數)}（${rPct(s.不良率)}）</td>
-        <td>${rInt(s.過保數)}（${rPct(s.過保率)}）</td><td class="hl">${rPct(s.整體不良率)}</td></tr>`;
+        <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${rInt(s.不良品數)}<span class="colRate">（${rPct(s.不良率)}）</span></td>
+        <td>${rInt(s.過保數)}<span class="colRate">（${rPct(s.過保率)}）</span></td>
+        <td class="hl">${rPct(s.整體不良率)}</td><td class="hl2">${rPct(s.整體過保率)}</td>
+        <td class="colUncat">${rInt(s.未歸類數)}<span class="colRate">（${rPct(s.未歸類率)}）</span></td></tr>`;
     }).join('');
     const gt = agg.grandTotal;
     const donutLabels = agg.groups.map((g) => g.key);
     const donutData = agg.groups.map((g) => g.subtotal.回廠量);
     return {
-      html: `<div class="sech">${icon} ${esc(deviceKey)}回廠量分析（依機型）</div>
+      html: `<div class="sech">${icon} 回廠量分析（${esc(deviceKey)}）</div>
       <div class="card">
-        <div class="chead"><div class="ct">${esc(deviceKey)}回廠量分析</div><div class="cs">依機型分類，共 ${agg.groups.length} 類｜資料來源：${esc(deviceKey)}_彙整總覽</div></div>
+        <div class="chead"><div class="chead-top"><div class="ct">${esc(deviceKey)}回廠量分析</div>
+          <div class="toggle-group">
+            <label class="uncat-toggle" title="顯示良品/不良品/過保比率"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-rate',this.checked)"><span class="uncat-icon">%</span></label>
+            <label class="uncat-toggle" title="顯示未歸類數"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-uncat',this.checked)"><span class="uncat-icon">▦</span></label>
+          </div>
+        </div></div>
         <div class="rlayout">
           <div><div class="donutbox"><canvas id="${chartId}"></canvas></div>
+            <div class="legendgrid">${agg.groups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
             <div class="donutlegend">${esc(deviceKey)}　｜　總上線量 ${rInt(gt.上線量)}</div></div>
           <div class="twrap"><div class="scroll">
             <table class="rtable">
-              <thead><tr><th rowspan="2">機型</th><th rowspan="2">上線量</th><th colspan="4">回廠量</th><th rowspan="2">設備不良比率*</th></tr>
-              <tr><th>回廠量</th><th>良品數/再使用率</th><th>不良品數</th><th>過保數</th></tr></thead>
+              <thead><tr><th rowspan="2">機型</th><th rowspan="2">上線量</th><th colspan="4">回廠量</th><th rowspan="2">整體不良率</th><th rowspan="2">整體過保率</th><th rowspan="2" class="colUncat">未歸類數</th></tr>
+              <tr><th>回廠量</th><th>良品數(再使用)</th><th>不良品數</th><th>過保數</th></tr></thead>
               <tbody>${rows}
                 <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rInt(gt.回廠量)}</td>
-                  <td>${rInt(gt.良品數)}（${rPct(gt.再使用率)}）</td><td>${rInt(gt.不良品數)}（${rPct(gt.不良率)}）</td>
-                  <td>${rInt(gt.過保數)}（${rPct(gt.過保率)}）</td><td class="hl">${rPct(gt.整體不良率)}</td></tr>
+                  <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${rInt(gt.不良品數)}<span class="colRate">（${rPct(gt.不良率)}）</span></td>
+                  <td>${rInt(gt.過保數)}<span class="colRate">（${rPct(gt.過保率)}）</span></td>
+                  <td class="hl">${rPct(gt.整體不良率)}</td><td class="hl2">${rPct(gt.整體過保率)}</td>
+                  <td class="colUncat">${rInt(gt.未歸類數)}<span class="colRate">（${rPct(gt.未歸類率)}）</span></td></tr>
               </tbody>
             </table>
           </div></div>
         </div>
-        <p class="note">*設備不良比率＝不良品數 ÷ 上線量（分母為在線設備總量，非回廠量）。</p>
       </div>`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
         data:{labels:${JSON.stringify(donutLabels)},datasets:[{data:${JSON.stringify(donutData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
-        options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},title:{display:true,text:'${esc(deviceKey)}回廠量依機型'}}}});`,
+        options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}});`,
     };
   }
 
@@ -302,6 +311,7 @@ App.report = (() => {
     const combinedCmp = (ctx.hasCmp && car.cmpKpi && lens.cmpKpi) ? combineKPI(car.cmpKpi, lens.cmpKpi) : null;
     const carSec = deviceTypeSectionHTML('車機', App.icons.car(), car, carSelection, 'ov-donut-car');
     const lensSec = deviceTypeSectionHTML('鏡頭', App.icons.camera(), lens, lensSelection, 'ov-donut-lens');
+    const trendSeries = buildQuarterSeries(ctx.state, '車機');
     const findings = (App.advice && App.advice.genFindings) ? App.advice.genFindings({ kpi: combined, cmpKpi: combinedCmp }) : [];
     const tone = combined.整體不良率 >= 0.03 ? 'bad' : combined.整體不良率 >= 0.01 ? 'warn' : 'good';
 
@@ -336,6 +346,10 @@ App.report = (() => {
           <div class="chead"><div class="ct">車機／鏡頭 數量與回廠量對比</div><div class="cs">${esc(periodText(ctx.state))}</div></div>
           <div class="g2"><div class="chartbox"><canvas id="ov-c1"></canvas></div><div class="chartbox"><canvas id="ov-c2"></canvas></div></div>
         </div>
+        <div class="card">
+          <div class="chead"><div class="ct">過保率／不良率 近${trendSeries.labels.length}季真實趨勢</div><div class="cs">車機　｜　${trendSeries.labels[0] || ''} ～ ${trendSeries.labels[trendSeries.labels.length - 1] || ''}</div></div>
+          <div class="chartbox"><canvas id="ov-trend1"></canvas></div>
+        </div>
         ${carSec.html}
         ${lensSec.html}
         ${vendorHighlightHTML('車機', car, carSelection)}
@@ -347,6 +361,11 @@ App.report = (() => {
           options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'總在線量對比'}},scales:{y:{beginAtZero:true}}}});
         new Chart(document.getElementById('ov-c2'),{type:'bar',data:{labels:['車機','鏡頭'],datasets:[{label:'期間回廠量',data:[${car.kpi.期間回廠量 || 0},${lens.kpi.期間回廠量 || 0}],backgroundColor:[TEAL,BLUE]}]},
           options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'期間回廠量對比'}},scales:{y:{beginAtZero:true}}}});
+        new Chart(document.getElementById('ov-trend1'),{type:'line',
+          data:{labels:${JSON.stringify(trendSeries.labels)},datasets:[
+            {label:'過保率%',data:${JSON.stringify(trendSeries.過保率)},borderColor:AMBER,backgroundColor:'rgba(224,142,0,.1)',fill:true,tension:.3,pointRadius:3},
+            {label:'不良率%',data:${JSON.stringify(trendSeries.不良率)},borderColor:RED,fill:false,tension:.3,pointRadius:3}
+          ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
         ${carSec.chartScript}
         ${lensSec.chartScript}`,
     };
@@ -366,7 +385,6 @@ App.report = (() => {
     const aggAll = App.metrics.aggregate(d.rows, d.online, selection, {});
     const gt = aggAll.grandTotal;
     const 人為佔比 = gt.回廠量 ? (gt.回廠人為數 || 0) / gt.回廠量 : 0;
-    const series = buildQuarterSeries(ctx.state, '車機');
     const vendorAgg = aggByVendor(d, selection);
     const vRows = vendorAgg.groups.map((g) => {
       const s = g.subtotal;
@@ -390,8 +408,8 @@ App.report = (() => {
           ${kcard('仍在線數', rInt(k.總線上量), hasCmp ? kpiDeltaHTML(k.總線上量, c.總線上量, 'int', null) : '')}
         </div>
         <div class="card">
-          <div class="chead"><div class="ct">車機回廠原因結構</div><div class="cs">${esc(periodText(ctx.state))}　｜　右圖為近 ${series.labels.length} 季真實趨勢</div></div>
-          <div class="g2"><div class="chartbox"><canvas id="car-c1"></canvas></div><div class="chartbox"><canvas id="car-c2"></canvas></div></div>
+          <div class="chead"><div class="ct">車機回廠原因結構</div><div class="cs">${esc(periodText(ctx.state))}</div></div>
+          <div class="chartbox"><canvas id="car-c1"></canvas></div>
         </div>
         <div class="card">
           <div class="chead"><div class="ct">車機_彙整總覽（依廠商）</div><div class="cs">${esc(periodText(ctx.state))}</div></div>
@@ -415,12 +433,7 @@ App.report = (() => {
       chartScript: `
         new Chart(document.getElementById('car-c1'),{type:'doughnut',
           data:{labels:['過保','不良品','人為','良品'],datasets:[{data:[${gt.過保數 || 0},${gt.不良品數 || 0},${gt.回廠人為數 || 0},${gt.良品數 || 0}],backgroundColor:[AMBER,RED,'#9AA0A6',GOOD]}]},
-          options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},title:{display:true,text:'回廠原因結構'}}}});
-        new Chart(document.getElementById('car-c2'),{type:'line',
-          data:{labels:${JSON.stringify(series.labels)},datasets:[
-            {label:'過保率%',data:${JSON.stringify(series.過保率)},borderColor:AMBER,backgroundColor:'rgba(224,142,0,.1)',fill:true,tension:.3,pointRadius:3},
-            {label:'不良率%',data:${JSON.stringify(series.不良率)},borderColor:RED,fill:false,tension:.3,pointRadius:3}
-          ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'過保率／不良率 近${series.labels.length}季真實趨勢'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});`,
+          options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},title:{display:true,text:'回廠原因結構'}}}});`,
     };
   }
 
@@ -729,14 +742,31 @@ tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 .vrow .k{color:var(--muted)}.vrow .v{font-weight:700}
 .rlayout{display:grid;grid-template-columns:230px 1fr;gap:22px;align-items:center}
 .donutbox{position:relative;height:220px}
+.legendgrid{display:flex;flex-direction:column;gap:5px;margin-top:10px;padding:0 4px}
+.legendgrid .litem{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink);white-space:nowrap}
+.legendgrid .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
 .donutlegend{margin-top:6px;font-size:11.5px;color:var(--muted);text-align:center}
 table.rtable{width:100%;border-collapse:collapse;font-size:12px}
 table.rtable th{background:#f4f4f5;color:#333;padding:7px 8px;text-align:center;border:1px solid var(--line);font-weight:700}
 table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
 table.rtable td.hl{background:#fff59d;font-weight:800;color:#7a5b00}
+table.rtable td.hl2{background:#ffe6b3;font-weight:800;color:#7a4d00}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 table.rtable tr.grand td.hl{background:var(--warn);color:#fff}
+table.rtable tr.grand td.hl2{background:#c77400;color:#fff}
+table.rtable .colUncat{display:none}
+.card.show-uncat table.rtable .colUncat{display:table-cell}
+table.rtable .colRate{display:none}
+.card.show-rate table.rtable .colRate{display:inline}
+.chead-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.toggle-group{display:flex;align-items:center;gap:6px}
+.uncat-toggle{position:relative;cursor:pointer;user-select:none;display:inline-flex}
+.uncat-toggle input{position:absolute;opacity:0;width:16px;height:16px;margin:0;cursor:pointer}
+.uncat-toggle .uncat-icon{font-size:13px;color:#c7cbd1;line-height:1;padding:2px;border-radius:4px;transition:color .15s,background .15s}
+.uncat-toggle:hover .uncat-icon{color:var(--muted);background:#f0f2f4}
+.uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e6f4f2}
+.uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 .pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:700}
 .pill.good{background:#e6f4ec;color:var(--good)}.pill.warn{background:#fdf1dd;color:#a86a00}.pill.bad{background:#fde7ea;color:var(--bad)}
 .cmp-note{font-size:11.5px;color:var(--muted);margin-top:8px}
