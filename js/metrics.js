@@ -254,6 +254,11 @@ App.metrics = (() => {
     const 不良品數   = 回廠Subset.filter(r => r.不良品).length;
     const 過保數     = 回廠Subset.filter(r => r.過保).length;
     const 未歸類數   = 回廠Subset.filter(r => r.未歸類).length;
+    // 未歸類桶的兩個子分類（供「整體總覽」拆分顯示；人為+其他未過＝未歸類，不影響既有四桶互斥關係）
+    const 人為數     = 回廠Subset.filter(r => r.維修分類 === 'H /人為報廢' || r.維修分類 === 'V /已完修 人為').length;
+    const 其他未過數 = 回廠Subset.filter(r => r.QC === '其他(未過)').length;
+    // 內部檢測（QC=回廠QC）：良品桶的子集，供「使用率」頁面的內部檢測數量／省下的成本使用
+    const 內部檢測數 = 回廠Subset.filter(r => r.QC === '回廠QC').length;
     const 總線上量   = filtered上線量.reduce((sum, r) => sum + (Number(r.上線量) || 0), 0);
     const 派工量     = filteredRows.length;
 
@@ -264,13 +269,21 @@ App.metrics = (() => {
       不良品數,
       過保數,
       未歸類數,
+      人為數,
+      其他未過數,
+      內部檢測數,
       總線上量,
-      再使用率:     safeDiv(良品數,   期間回廠量),
-      期間不良率:   safeDiv(不良品數, 期間回廠量),
-      期間過保率:   safeDiv(過保數,   期間回廠量),
-      期間未歸類率: safeDiv(未歸類數, 期間回廠量),
-      整體不良率:   safeDiv(不良品數, 總線上量),
-      整體過保率:   safeDiv(過保數,   總線上量),
+      再使用率:       safeDiv(良品數,   期間回廠量),
+      期間不良率:     safeDiv(不良品數, 期間回廠量),
+      期間過保率:     safeDiv(過保數,   期間回廠量),
+      期間未歸類率:   safeDiv(未歸類數, 期間回廠量),
+      期間人為率:     safeDiv(人為數,   期間回廠量),
+      期間其他未過率: safeDiv(其他未過數, 期間回廠量),
+      整體不良率:     safeDiv(不良品數, 總線上量),
+      整體過保率:     safeDiv(過保數,   總線上量),
+      整體人為率:     safeDiv(人為數,   總線上量),
+      整體其他未過率: safeDiv(其他未過數, 總線上量),
+      整體再使用率:   safeDiv(良品數,   總線上量),
     };
   }
 

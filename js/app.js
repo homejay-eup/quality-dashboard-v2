@@ -201,12 +201,13 @@ App.app = (() => {
   function dataForDevice(deviceKey) {
     const cur = resolveSource('current', deviceKey);
     const kpi = App.metrics.computeKPI(cur.rows, cur.online, state.selection);
-    let cmpKpi = null;
+    let cmpKpi = null, cmpRows = null, cmpOnline = null;
     if (state.cmp.on) {
       const c = resolveSource('compare', deviceKey);
       cmpKpi = App.metrics.computeKPI(c.rows, c.online, state.selection);
+      cmpRows = c.rows; cmpOnline = c.online;
     }
-    return { rows: cur.rows, online: cur.online, kpi, cmpKpi };
+    return { rows: cur.rows, online: cur.online, kpi, cmpKpi, cmpRows, cmpOnline };
   }
 
   function rerender() {
