@@ -133,7 +133,8 @@ App.report = (() => {
         rows = rows.filter((r) => r.設備類型 === scope.設備類型 && r.維護原因 === scope.維護原因);
         online = online.filter((o) => o.設備類型 === scope.設備類型);
       }
-      const kpi = App.metrics.computeKPI(rows, online, state.selection);
+      const sel = scope ? state.selectionByTab[scope.key] : state.selection;
+      const kpi = App.metrics.computeKPI(rows, online, sel);
       labels.push(`${p.year}-Q${p.quarter}`);
       不良率.push(+(kpi.期間不良率 * 100).toFixed(1));
       過保率.push(+(kpi.期間過保率 * 100).toFixed(1));
@@ -296,11 +297,11 @@ App.report = (() => {
   }
 
   function overviewPageHTML(ctx) {
-    const { car, lens, selection } = ctx;
+    const { car, lens, carSelection, lensSelection } = ctx;
     const combined = combineKPI(car.kpi, lens.kpi);
     const combinedCmp = (ctx.hasCmp && car.cmpKpi && lens.cmpKpi) ? combineKPI(car.cmpKpi, lens.cmpKpi) : null;
-    const carSec = deviceTypeSectionHTML('車機', App.icons.car(), car, selection, 'ov-donut-car');
-    const lensSec = deviceTypeSectionHTML('鏡頭', App.icons.camera(), lens, selection, 'ov-donut-lens');
+    const carSec = deviceTypeSectionHTML('車機', App.icons.car(), car, carSelection, 'ov-donut-car');
+    const lensSec = deviceTypeSectionHTML('鏡頭', App.icons.camera(), lens, lensSelection, 'ov-donut-lens');
     const findings = (App.advice && App.advice.genFindings) ? App.advice.genFindings({ kpi: combined, cmpKpi: combinedCmp }) : [];
     const tone = combined.整體不良率 >= 0.03 ? 'bad' : combined.整體不良率 >= 0.01 ? 'warn' : 'good';
 
@@ -337,8 +338,8 @@ App.report = (() => {
         </div>
         ${carSec.html}
         ${lensSec.html}
-        ${vendorHighlightHTML('車機', car, selection)}
-        ${vendorHighlightHTML('鏡頭', lens, selection)}
+        ${vendorHighlightHTML('車機', car, carSelection)}
+        ${vendorHighlightHTML('鏡頭', lens, lensSelection)}
         ${findings.length ? `<div class="callout ${tone}"><p class="big-quote">分析與說明</p><ul>${findings.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>` : ''}
       </section>`,
       chartScript: `
@@ -360,7 +361,7 @@ App.report = (() => {
   // 2. 車機分析
   // ════════════════════════════════════════════════════════════
   function carAnalysisPageHTML(ctx) {
-    const { car, selection } = ctx;
+    const { car, carSelection: selection } = ctx;
     const d = car, k = d.kpi, c = d.cmpKpi, hasCmp = ctx.hasCmp;
     const aggAll = App.metrics.aggregate(d.rows, d.online, selection, {});
     const gt = aggAll.grandTotal;
@@ -373,7 +374,9 @@ App.report = (() => {
         <td class="num">${rInt(s.過保數)}</td><td class="num">${rInt(s.不良品數)}</td>
         <td class="num">${rPct(s.過保率)}</td><td class="num">${rPct(s.不良率)}</td></tr>`;
     }).join('');
-    const advState = { ...ctx.state, rows: d.rows, kpi: k, cmpKpi: c };
+    // 明確用車機自己的 selection 蓋掉 ctx.state.selection（那只代表目前畫面停留的分頁，
+    // 產報告時使用者可能正停在鏡頭分頁，不能拿鏡頭的篩選當車機建議文字的依據）
+    const advState = { ...ctx.state, rows: d.rows, kpi: k, cmpKpi: c, selection };
     const advice = (App.advice && App.advice.getTexts) ? App.advice.getTexts(advState) : { 品管: '', 採購: '' };
     const findings = (App.advice && App.advice.genFindings) ? App.advice.genFindings({ kpi: k, cmpKpi: hasCmp ? c : null }) : [];
     const tone = k.整體不良率 >= 0.03 ? 'bad' : k.整體不良率 >= 0.01 ? 'warn' : 'good';
@@ -655,7 +658,7 @@ App.report = (() => {
     const car = App.app.dataForDevice('車機');
     const lens = App.app.dataForDevice('鏡頭');
     const hasCmp = !!(state.cmp.on && car.cmpKpi && lens.cmpKpi);
-    const ctx = { state, car, lens, selection: state.selection, hasCmp };
+    const ctx = { state, car, lens, carSelection: state.selectionByTab['車機'], lensSelection: state.selectionByTab['鏡頭'], hasCmp };
     const genAt = new Date().toLocaleString('zh-TW');
 
     const pages = [

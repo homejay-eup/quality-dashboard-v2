@@ -43,10 +43,21 @@ App.app = (() => {
     currentSnap: null,   // 目前期間若為載入的快照 bundle
     cmpSnap: null,       // 對比期間若為載入的快照 bundle
     snapTarget: null,    // 檔案選取要套到 'current' | 'compare'
-    selection: { 廠商: [], 類型: [], ERP品號: [] },
+    // 車機／鏡頭各自獨立保留篩選，切分頁不互相清空（見 renderDeviceTabs 的分頁按鈕事件）
+    selectionByTab: {
+      車機: { 廠商: [], 類型: [], ERP品號: [] },
+      鏡頭: { 廠商: [], 類型: [], ERP品號: [] },
+    },
     visible: new Set(METRICS.filter((m) => m.def).map((m) => m.key)),
     kpi: null, cmpKpi: null,
   };
+  // state.selection＝目前分頁的篩選（讀寫皆代理到 selectionByTab[deviceTab]），
+  // 讓 filters.js／detail.js／rawtable.js 既有的 state.selection 用法不必更動。
+  Object.defineProperty(state, 'selection', {
+    enumerable: true,
+    get() { return state.selectionByTab[state.deviceTab]; },
+    set(v) { state.selectionByTab[state.deviceTab] = v; },
+  });
 
   const $ = (id) => document.getElementById(id);
   const fmtInt = (v) => (Number(v) || 0).toLocaleString('en-US');
@@ -104,8 +115,7 @@ App.app = (() => {
       b.addEventListener('click', () => {
         const k = b.dataset.key;
         if (state.deviceTab === k) return;
-        state.deviceTab = k;
-        state.selection = { 廠商: [], 類型: [], ERP品號: [] };  // 切換分頁時清除舊範圍的篩選殘留
+        state.deviceTab = k;  // 篩選由 state.selection 的 getter 代理到各分頁自己的 selectionByTab[k]，切分頁不清空
         renderDeviceTabs();
         rerender();
       });
@@ -146,7 +156,10 @@ App.app = (() => {
     });
   }
 
+  const NO_DELTA_METRICS = new Set(['總線上量', '期間派工量', '期間回廠量']);
+
   function deltaMarkup(m) {
+    if (NO_DELTA_METRICS.has(m.key)) return '';
     if (!state.cmp.on || !state.cmpKpi) return '';
     const cur = m.get(state.kpi), prev = m.get(state.cmpKpi);
     let arrow = '→', cls = 'flat', text;
@@ -199,12 +212,15 @@ App.app = (() => {
   // 供落地頁報告使用：不論目前畫面停在哪個分頁，都能算出指定設備類型的完整資料
   // （rows/online/kpi/cmpKpi），讓報告能同時涵蓋車機＋鏡頭。
   function dataForDevice(deviceKey) {
+    // 報告需同時涵蓋車機＋鏡頭，故一律取該 deviceKey 自己的 selectionByTab，
+    // 不用 state.selection（那只代表目前畫面停留的分頁）。
+    const sel = state.selectionByTab[deviceKey];
     const cur = resolveSource('current', deviceKey);
-    const kpi = App.metrics.computeKPI(cur.rows, cur.online, state.selection);
+    const kpi = App.metrics.computeKPI(cur.rows, cur.online, sel);
     let cmpKpi = null, cmpRows = null, cmpOnline = null;
     if (state.cmp.on) {
       const c = resolveSource('compare', deviceKey);
-      cmpKpi = App.metrics.computeKPI(c.rows, c.online, state.selection);
+      cmpKpi = App.metrics.computeKPI(c.rows, c.online, sel);
       cmpRows = c.rows; cmpOnline = c.online;
     }
     return { rows: cur.rows, online: cur.online, kpi, cmpKpi, cmpRows, cmpOnline };
