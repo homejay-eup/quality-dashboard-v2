@@ -1379,7 +1379,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .kcard .d{font-size:17px;font-weight:700;margin-top:5px}
 .kcard .p{font-size:15.5px;color:var(--muted)}
 .kcard.good{border-top-color:var(--good)}
-.d-good{color:var(--good)}.d-bad{color:var(--bad)}.d-flat{color:var(--muted)}
+.d-good{color:var(--teal)}.d-bad{color:var(--teal)}.d-flat{color:var(--muted)}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .chead{margin-bottom:12px}
 .ct{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
@@ -1423,11 +1423,11 @@ table.rtable thead{position:sticky;top:0;z-index:2}
 table.rtable th{background:#f4f4f5;color:#333;padding:7px 8px;text-align:center;border:1px solid var(--line);font-weight:700}
 table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
-table.rtable td.hl{background:#fff59d;font-weight:800;color:#7a5b00}
-table.rtable td.hl2{background:#ffe6b3;font-weight:800;color:#7a4d00}
+table.rtable td.hl{background:#c7ecdf;font-weight:800;color:#04342c}
+table.rtable td.hl2{background:#a9dcd0;font-weight:800;color:#04342c}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
-table.rtable tr.grand td.hl{background:var(--warn);color:#fff}
-table.rtable tr.grand td.hl2{background:#c77400;color:#fff}
+table.rtable tr.grand td.hl{background:#085041;color:#fff}
+table.rtable tr.grand td.hl2{background:#04342c;color:#fff}
 table.rtable .colUncat{display:none}
 .card.show-uncat table.rtable .colUncat{display:table-cell}
 table.rtable .colRate{display:none}
@@ -1488,7 +1488,7 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .barrow .marker::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--marker)}
 .barrow .yr{font-size:16px;font-weight:800;color:var(--ink);text-align:left;display:flex;flex-direction:column;line-height:1.25}
 .barrow .yr .delta{font-size:14px;font-weight:700}
-.barrow .delta.up{color:var(--good)}.barrow .delta.down{color:var(--bad)}.barrow .delta.flat{color:var(--muted)}
+.barrow .delta.up{color:var(--teal)}.barrow .delta.down{color:var(--teal)}.barrow .delta.flat{color:var(--muted)}
 .medal{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#fff;font-size:10px;font-weight:800;margin-right:4px;flex:none}
 
 /* 已使用年限比較：可排序機型明細表 */
