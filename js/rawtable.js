@@ -147,7 +147,9 @@ App.rawtable = (() => {
       onlineByERP.set(e, (onlineByERP.get(e) || 0) + (Number(o.上線量) || 0));
     }
 
-    const allRows = App.metrics.applyFilter(st.rows, st.selection).map((r) => ({
+    // 無「替換前品項條碼」的列查不到維修/回廠/報廢 join，回廠狀態固定為「無記錄」、不計入任何比率，
+    // 彙整表（逐筆明細）不顯示這批空殼列（2026-07-28 使用者裁決；不影響比率表/分析表數字）。
+    const allRows = App.metrics.applyFilter(st.rows, st.selection).filter((r) => r.條碼).map((r) => ({
       ...r, _period: periodLabel, _上線量: onlineByERP.get(String(r.ERP品號 || '')) || 0,
     }));
 
