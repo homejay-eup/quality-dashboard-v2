@@ -190,8 +190,7 @@ App.report = (() => {
   const rDiff = (v) => (v > 0 ? `+${rInt(v)}` : rInt(v));
 
 
-  // 過保／不良品依機型排名表：前三名加名次徽章＋特殊底色
-  const RANK_BADGE = ['🥇', '🥈', '🥉'];
+  // 過保／不良品依機型排名表：前三名粗體＋底色標示
   function rankTableHTML(groups, countKey) {
     const total = groups.reduce((sum, g) => sum + g.subtotal[countKey], 0);
     const rows = groups.map((g, i) => {
@@ -199,7 +198,7 @@ App.report = (() => {
       const pct = total ? count / total : 0;
       const top3 = i < 3;
       return `<tr class="${top3 ? 'rank-top3' : ''}">
-        <td class="l">${top3 ? `<span class="rank-badge">${RANK_BADGE[i]}</span>` : ''}${esc(g.key)}</td>
+        <td class="l">${esc(g.key)}</td>
         <td class="num">${rInt(count)}</td><td class="num">${rPct(pct)}</td></tr>`;
     }).join('');
     return `<div class="twrap"><div class="scroll" style="max-height:220px">
@@ -231,7 +230,7 @@ App.report = (() => {
     const scrChartId = `${chartId}-scr`, badChartId = `${chartId}-bad`;
 
     return {
-      html: `<div class="sech">${icon} 回廠量分析（${esc(deviceKey)}）</div>
+      html: `<div class="sech sech-lg">${icon} 回廠量分析（${esc(deviceKey)}）</div>
       <div class="card">
         <div class="chead"><div class="chead-top"><div class="ct">${esc(deviceKey)}</div>
           <div class="toggle-group">
@@ -259,7 +258,7 @@ App.report = (() => {
         </div>
       </div>
       <div class="card">
-        <div class="chead"><div class="ct">${esc(deviceKey)}過保／不良品依機型占比</div><div class="cs">當季，各自依數量由大到小排序，前三名特別標示</div></div>
+        <div class="chead"><div class="ct">過保／不良品（${esc(deviceKey)}）</div><div class="cs">當季，各自依數量由大到小排序</div></div>
         <div class="g2-eq">
           <div class="rlayout3">
             <div class="legendgrid">${scrGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
@@ -348,7 +347,7 @@ App.report = (() => {
       const cmpDs = qseries.cmp ? `,{label:'${cmpLabel}',data:${JSON.stringify(pad(qseries.cmp[m.key], n))},borderColor:${m.color},borderDash:[5,4],fill:false,tension:.3,pointRadius:3}` : '';
       return `new Chart(document.getElementById('${m.id}'),{type:'line',
         data:{labels:${JSON.stringify(monthLabels)},datasets:[
-          {label:'${curLabel}',data:${curData},borderColor:${m.color},fill:false,tension:.3,pointRadius:3}${cmpDs}
+          {label:'${curLabel}',data:${curData},borderColor:${m.color},backgroundColor:${m.color}_BG,fill:true,tension:.3,pointRadius:3}${cmpDs}
         ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});`;
     }).join('\n      ');
     return {
@@ -379,15 +378,22 @@ App.report = (() => {
 
     return {
       html: `<section class="page on" id="page-overview">
-        <div class="ph"><div><span class="ph-l">📌 整體總覽</span><span class="ph-s">車機＋鏡頭　｜　期間：${esc(periodText(ctx.state))}</span></div></div>
-        <div class="sech">整體數值</div>
+        <div class="ph"><div><span class="ph-l">${App.icons.pin()} 整體總覽</span><span class="ph-s">車機＋鏡頭　｜　期間：${esc(periodText(ctx.state))}</span></div></div>
+        <div class="sech">整體數值 · 車機</div>
         <div class="krow">
           ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
-          ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
           ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(car.kpi.期間回廠量, car.cmpKpi.期間回廠量, 'int', null) : '')}
+          ${kcard('車機整體不良率', rPct(car.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體不良率, car.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
+          ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
+          ${kcard('車機再使用率', rPct(car.kpi.再使用率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.再使用率, car.cmpKpi.再使用率, 'pct', true) : '', 'good')}
+        </div>
+        <div class="sech">整體數值 · 鏡頭</div>
+        <div class="krow">
+          ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
           ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.期間回廠量, lens.cmpKpi.期間回廠量, 'int', null) : '')}
-          ${kcard('整體不良率', rPct(combined.整體不良率), combinedCmp ? kpiDeltaHTML(combined.整體不良率, combinedCmp.整體不良率, 'pct', false) : '', 'good')}
-          ${kcard('整體過保率', rPct(combined.整體過保率), combinedCmp ? kpiDeltaHTML(combined.整體過保率, combinedCmp.整體過保率, 'pct', false) : '', 'good')}
+          ${kcard('鏡頭整體不良率', rPct(lens.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體不良率, lens.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
+          ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
+          ${kcard('鏡頭再使用率', rPct(lens.kpi.再使用率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.再使用率, lens.cmpKpi.再使用率, 'pct', true) : '', 'good')}
         </div>
         ${carSec.html}
         ${lensSec.html}
@@ -501,7 +507,7 @@ App.report = (() => {
     ] : [];
     return {
       html: `<section class="page" id="page-usage">
-        <div class="ph"><div><span class="ph-l">🔄 再使用率</span><span class="ph-s">內部檢測與送修成本｜期間：${esc(periodText(state))}</span></div></div>
+        <div class="ph"><div><span class="ph-l">${App.icons.refresh()} 再使用率</span><span class="ph-s">內部檢測與送修成本｜期間：${esc(periodText(state))}</span></div></div>
         <div class="krow">
           ${kcard('車機內部檢測數量', rInt(car.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(car.kpi.內部檢測數, car.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
           ${kcard('鏡頭內部檢測數量', rInt(lens.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(lens.kpi.內部檢測數, lens.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
@@ -557,27 +563,29 @@ App.report = (() => {
             </div></div>
           </details>
         </div>
-        <div class="card">
-          <div class="chead"><div class="ct">省下的成本走勢</div><div class="cs">${esc(usageTrend.curLabel)} 1～${usageTrend.months.length}月${usageTrend.cmpLabel ? `　vs　${esc(usageTrend.cmpLabel)}` : ''}，隨上方分類／單位成本即時變化</div></div>
-          <div class="chartbox"><canvas id="usage-trend-chart"></canvas></div>
-          <div class="twrap" style="margin-top:14px"><table class="agg">
-            <thead><tr><th class="l">期間</th><th class="num">省下的成本合計（元）</th></tr></thead>
-            <tbody id="usage-yearly-tbody"></tbody>
-          </table></div>
+        <div class="${hasCmp ? 'g2-eq' : ''}">
+          <div class="card">
+            <div class="chead"><div class="ct">省下的成本走勢</div><div class="cs">${esc(usageTrend.curLabel)} 1～${usageTrend.months.length}月${usageTrend.cmpLabel ? `　vs　${esc(usageTrend.cmpLabel)}` : ''}，隨上方分類／單位成本即時變化</div></div>
+            <div class="chartbox"><canvas id="usage-trend-chart"></canvas></div>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">期間</th><th class="num">省下的成本合計（元）</th></tr></thead>
+              <tbody id="usage-yearly-tbody"></tbody>
+            </table></div>
+          </div>
+          ${hasCmp ? `<div class="card">
+            <div class="chead"><div class="ct">與去年同期比較</div><div class="cs">${esc(periodText(state))}</div></div>
+            <div class="twrap"><table class="agg">
+              <thead><tr><th class="l">指標</th><th class="num">對比期間</th><th class="num">目前期間</th><th class="num">差異</th></tr></thead>
+              <tbody>
+                <tr><td class="l">車機內部檢測數量（件）</td><td class="num">${rInt(car.cmpKpi.內部檢測數)}</td><td class="num">${rInt(car.kpi.內部檢測數)}</td><td class="num">${rDiff(car.kpi.內部檢測數 - car.cmpKpi.內部檢測數)}</td></tr>
+                <tr><td class="l">鏡頭內部檢測數量（件）</td><td class="num">${rInt(lens.cmpKpi.內部檢測數)}</td><td class="num">${rInt(lens.kpi.內部檢測數)}</td><td class="num">${rDiff(lens.kpi.內部檢測數 - lens.cmpKpi.內部檢測數)}</td></tr>
+                <tr><td class="l">送修運費（固定物流成本，元）</td><td class="num">${rInt(cmpFreight)}</td><td class="num">${rInt(freight)}</td><td class="num">${rDiff(freight - cmpFreight)}</td></tr>
+              </tbody>
+            </table></div>
+          </div>` : ''}
         </div>
         <div class="callout good"><p class="big-quote">整體建議說明</p><ul>${bullets1.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
-        ${hasCmp ? `<div class="card">
-          <div class="chead"><div class="ct">與去年同期比較</div><div class="cs">${esc(periodText(state))}</div></div>
-          <div class="twrap"><table class="agg">
-            <thead><tr><th class="l">指標</th><th class="num">對比期間</th><th class="num">目前期間</th><th class="num">差異</th></tr></thead>
-            <tbody>
-              <tr><td class="l">車機內部檢測數量（件）</td><td class="num">${rInt(car.cmpKpi.內部檢測數)}</td><td class="num">${rInt(car.kpi.內部檢測數)}</td><td class="num">${rDiff(car.kpi.內部檢測數 - car.cmpKpi.內部檢測數)}</td></tr>
-              <tr><td class="l">鏡頭內部檢測數量（件）</td><td class="num">${rInt(lens.cmpKpi.內部檢測數)}</td><td class="num">${rInt(lens.kpi.內部檢測數)}</td><td class="num">${rDiff(lens.kpi.內部檢測數 - lens.cmpKpi.內部檢測數)}</td></tr>
-              <tr><td class="l">送修運費（固定物流成本，元）</td><td class="num">${rInt(cmpFreight)}</td><td class="num">${rInt(freight)}</td><td class="num">${rDiff(freight - cmpFreight)}</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="callout good"><p class="big-quote">同期比較說明</p><ul>${bullets2.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>` : ''}
+        ${hasCmp ? `<div class="callout good"><p class="big-quote">同期比較說明</p><ul>${bullets2.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>` : ''}
       </section>`,
       chartScript: `
         window.__carModelQC=${JSON.stringify(carModelQC)};
@@ -715,7 +723,7 @@ App.report = (() => {
 
     return {
       html: `<section class="page" id="page-vendor">
-        <div class="ph"><div><span class="ph-l">🏭 重點廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
+        <div class="ph"><div><span class="ph-l">${App.icons.factory()} 重點廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
         <div class="sech">車機重點廠商</div>
         <div class="card">
           <details class="collapsible">
@@ -726,6 +734,10 @@ App.report = (() => {
         <div class="card">
           <div class="chead"><div class="ct">車機廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
           <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+          <div class="twrap" style="margin-top:14px"><table class="agg">
+            <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+            <tbody id="vendor-summary-car"></tbody>
+          </table></div>
         </div>
         <div class="g2" id="vendor-cards-car"></div>
 
@@ -739,6 +751,10 @@ App.report = (() => {
         <div class="card">
           <div class="chead"><div class="ct">鏡頭廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
           <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+          <div class="twrap" style="margin-top:14px"><table class="agg">
+            <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+            <tbody id="vendor-summary-lens"></tbody>
+          </table></div>
         </div>
         <div class="g2" id="vendor-cards-lens"></div>
       </section>`,
@@ -753,24 +769,26 @@ App.report = (() => {
             {label:'其他(未過)',cls:'',count:kpi.其他未過數},
           ];
         }
-        function __rd(v){ return (v>=0?'+':'')+Math.round(v).toLocaleString('en-US'); }
-        function __vendorCardHTML(name,kpi,cmpKpi){
+        function __vendorCardHTML(name,kpi){
           var rows=__vendorBucketRows(kpi);
-          var cmpRows=cmpKpi?__vendorBucketRows(cmpKpi):null;
-          var trs=rows.map(function(r,i){
-            var cmpCells=cmpRows?('<td class="num">'+Math.round(cmpRows[i].count).toLocaleString('en-US')+'</td><td class="num">'+__rd(r.count-cmpRows[i].count)+'</td>'):'';
-            return '<tr><td class="l"><span class="pill '+r.cls+'">'+r.label+'</span></td><td class="num">'+Math.round(r.count).toLocaleString('en-US')+'</td>'+cmpCells+'</tr>';
+          var trs=rows.map(function(r){
+            return '<tr><td class="l"><span class="pill '+r.cls+'">'+r.label+'</span></td><td class="num">'+Math.round(r.count).toLocaleString('en-US')+'</td></tr>';
           }).join('');
-          var head=cmpKpi?'　｜　去年同期 '+Math.round(cmpKpi.期間回廠量).toLocaleString('en-US')+'　｜　差異 '+__rd(kpi.期間回廠量-cmpKpi.期間回廠量):'';
-          return '<div class="card"><div class="chead"><div class="ct">'+name+'</div><div class="cs">回廠量 '+Math.round(kpi.期間回廠量).toLocaleString('en-US')+head+'</div></div>'+
-            '<div class="twrap"><table class="agg"><thead><tr><th class="l">分類</th><th class="num">數量</th>'+(cmpKpi?'<th class="num">去年同期</th><th class="num">差異</th>':'')+'</tr></thead>'+
+          return '<div class="card"><div class="chead"><div class="ct">'+name+'</div><div class="cs">回廠量 '+Math.round(kpi.期間回廠量).toLocaleString('en-US')+'</div></div>'+
+            '<div class="twrap"><table class="agg"><thead><tr><th class="l">分類</th><th class="num">數量</th></tr></thead>'+
             '<tbody>'+trs+'</tbody></table></div></div>';
+        }
+        function __vendorSummaryRowHTML(name,kpi){
+          return '<tr><td class="l">'+name+'</td><td class="num">'+Math.round(kpi.不良品數).toLocaleString('en-US')+'</td>'+
+            '<td class="num">'+Math.round(kpi.過保數).toLocaleString('en-US')+'</td><td class="num">'+Math.round(kpi.良品數).toLocaleString('en-US')+'</td></tr>';
         }
         window.__renderVendorSection=function(device){
           var checked=[].slice.call(document.querySelectorAll('.vp-'+device+':checked')).map(function(cb){return cb.value;});
           var all=window.__vendorAllData[device];
           var cardsEl=document.getElementById('vendor-cards-'+device);
-          cardsEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorCardHTML(v,rec.kpi,rec.cmpKpi):''; }).join('');
+          cardsEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorCardHTML(v,rec.kpi):''; }).join('');
+          var summaryEl=document.getElementById('vendor-summary-'+device);
+          if(summaryEl)summaryEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorSummaryRowHTML(v,rec.kpi):''; }).join('')||'<tr><td class="l" colspan="4">尚未選擇廠商</td></tr>';
           var canvas=document.getElementById('vendor-chart-'+device);
           var existing=Chart.getChart(canvas); if(existing)existing.destroy();
           var datasets=checked.map(function(v,i){
@@ -793,20 +811,20 @@ App.report = (() => {
   function logicPageHTML(ctx) {
     return {
       html: `<section class="page" id="page-logic">
-        <div class="ph"><div><span class="ph-l">📖 資料來源與邏輯說明</span><span class="ph-s">品質分析範圍與邏輯｜${esc(periodText(ctx.state))}</span></div></div>
+        <div class="ph"><div><span class="ph-l">${App.icons.book()} 資料來源與邏輯說明</span><span class="ph-s">品質分析範圍與邏輯｜${esc(periodText(ctx.state))}</span></div></div>
         <div class="sech">分析流程</div>
         <div class="card">
           <div class="flow">
-            <div class="flow-step">📋 派工</div><div class="flow-arrow">→</div>
-            <div class="flow-step">🏭 回廠</div><div class="flow-arrow">→</div>
-            <div class="flow-step">🔧 維修</div><div class="flow-arrow">→</div>
-            <div class="flow-step">🗑️ 報廢</div>
+            <div class="flow-step">${App.icons.clipboard()} 派工</div><div class="flow-arrow">→</div>
+            <div class="flow-step">${App.icons.inbox()} 回廠</div><div class="flow-arrow">→</div>
+            <div class="flow-step">${App.icons.wrench()} 維修</div><div class="flow-arrow">→</div>
+            <div class="flow-step">${App.icons.trash()} 報廢</div>
           </div>
           <p class="note" style="text-align:center;margin-top:10px">全部分析皆以「期間內」的派工→回廠→維修→報廢 完整處理鏈為基礎。</p>
         </div>
         <div class="sech">品質分析範圍</div>
         <div class="card"><div class="twrap"><table class="agg">
-          <thead><tr><th class="l">項目</th><th class="l">🚗 車機</th><th class="l">📷 鏡頭</th></tr></thead>
+          <thead><tr><th class="l">項目</th><th class="l">${App.icons.car()} 車機</th><th class="l">${App.icons.camera()} 鏡頭</th></tr></thead>
           <tbody>
             <tr><td class="l">產品類別</td><td class="l" colspan="2">車機、鏡頭</td></tr>
             <tr><td class="l">維護原因</td><td class="l">訊號異常</td><td class="l">影像異常(鏡頭)</td></tr>
@@ -824,10 +842,10 @@ App.report = (() => {
         </table></div></div>
         <div class="sech">各項比率（KPI）計算邏輯</div>
         <div class="card"><div class="formula-grid">
-          <div class="formula-card"><div class="fn">🔄 再使用率 (%)</div><div class="fx">良品數 ÷ 回廠量</div><div class="fd">回廠設備中，可直接再使用（整新／測試正常）的比例。</div></div>
-          <div class="formula-card"><div class="fn">⚠️ 不良率 (%)</div><div class="fx">不良品數 ÷ 回廠量</div><div class="fd">回廠設備中，確認故障需維修換貨的比例。</div></div>
-          <div class="formula-card"><div class="fn">📦 過保率 (%)</div><div class="fx">過保數 ÷ 回廠量</div><div class="fd">回廠設備中，因過保／停產／報廢無法檢修的比例。</div></div>
-          <div class="formula-card"><div class="fn">📊 整體不良率／過保率</div><div class="fx">不良品數(或過保數) ÷ 總上線量</div><div class="fd">以在線設備總量為分母，反映對整體機隊的影響程度。</div></div>
+          <div class="formula-card"><div class="fn">${App.icons.refresh()} 再使用率 (%)</div><div class="fx">良品數 ÷ 回廠量</div><div class="fd">回廠設備中，可直接再使用（整新／測試正常）的比例。</div></div>
+          <div class="formula-card"><div class="fn">${App.icons.alertTriangle()} 不良率 (%)</div><div class="fx">不良品數 ÷ 回廠量</div><div class="fd">回廠設備中，確認故障需維修換貨的比例。</div></div>
+          <div class="formula-card"><div class="fn">${App.icons.box()} 過保率 (%)</div><div class="fx">過保數 ÷ 回廠量</div><div class="fd">回廠設備中，因過保／停產／報廢無法檢修的比例。</div></div>
+          <div class="formula-card"><div class="fn">${App.icons.chart()} 整體不良率／過保率</div><div class="fx">不良品數(或過保數) ÷ 總上線量</div><div class="fd">以在線設備總量為分母，反映對整體機隊的影響程度。</div></div>
         </div></div>
         <div class="sech">資料來源與已知限制</div>
         <div class="card">
@@ -899,6 +917,8 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .sech{font-size:13.5px;font-weight:800;color:var(--teal-d);margin:26px 0 12px;display:flex;align-items:center;gap:8px}
 .sech::before{content:'';width:4px;height:15px;border-radius:3px;background:var(--teal);display:inline-block}
 .sech:first-child{margin-top:0}
+.sech-lg{font-size:17px}
+.sech-lg::before{height:18px}
 .krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px 17px;border-top:3px solid var(--teal);box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .kcard .l{font-size:12px;color:var(--muted)}
@@ -972,7 +992,6 @@ table.rtable .colRate{display:none}
 .uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e6f4f2}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
-.rank-badge{margin-right:4px}
 .chart-toggle-row{display:flex;justify-content:flex-end;margin:-6px 0 12px}
 .chart-toggle-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
 .chart-toggle-label input{cursor:pointer}
@@ -1016,14 +1035,14 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
 @media(max-width:900px){.topbar-inner{padding:10px 16px}.main{padding:16px}.g2,.g2-eq,.g3,.vendorgrid,.rlayout3{grid-template-columns:1fr}}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
-<div class="draftbar">✅ 已帶入真實資料庫數值（期間：${esc(periodText(state))}）｜ 省下的成本／送修運費為可編輯試算值，詳見「再使用率」頁備註</div>
+<div class="draftbar">${App.icons.checkCircle()} 已帶入真實資料庫數值（期間：${esc(periodText(state))}）｜ 省下的成本／送修運費為可編輯試算值，詳見「再使用率」頁備註</div>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand"><span class="t">📊 設備品質分析報告</span><span class="s">${esc(periodText(state))}　｜　製表：${esc(genAt)}</span></div>
+  <div class="brand"><span class="t">${App.icons.chart()} 設備品質分析報告</span><span class="s">${esc(periodText(state))}　｜　製表：${esc(genAt)}</span></div>
   <nav class="tabs">
-    <button class="tab-btn on" data-tab="overview">📌 整體總覽</button>
-    <button class="tab-btn" data-tab="vendor">🏭 重點廠商比較</button>
-    <button class="tab-btn" data-tab="usage">🔄 再使用率</button>
-    <button class="tab-btn" data-tab="logic">📖 資料來源與邏輯說明</button>
+    <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
+    <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 重點廠商比較</button>
+    <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用率</button>
+    <button class="tab-btn" data-tab="logic">${App.icons.book()} 資料來源與邏輯說明</button>
   </nav>
 </div></header>
 <main class="main">
@@ -1033,6 +1052,7 @@ ${pages.map((p) => p.html).join('\n')}
 <script>
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
+const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
 window.addEventListener('load',function(){
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
