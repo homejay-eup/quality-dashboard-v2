@@ -354,7 +354,7 @@ App.report = (() => {
           <div class="toggle-group">
             <label class="uncat-toggle" title="顯示良品/不良品/過保比率"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-rate',this.checked)"><span class="uncat-icon">%</span></label>
             <label class="uncat-toggle" title="顯示未歸類數"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-uncat',this.checked)"><span class="uncat-icon">▦</span></label>
-            <label class="uncat-toggle uc-merge-toggle" title="未歸類數併入不良品數"><input type="checkbox" class="uc-merge-checkbox"><span class="uncat-icon">⊕</span></label>
+            <label class="uncat-toggle uc-merge-toggle" title="未歸類數併入不良品數"><input type="checkbox" class="uc-merge-checkbox" checked><span class="uncat-icon">⊕</span></label>
           </div>
         </div></div>
         <div class="rlayout3">
@@ -1426,7 +1426,7 @@ ${pages.map((p) => p.html).join('\n')}
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
 const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
-window.__uncatMerged=false;
+window.__uncatMerged=true;
 window.addEventListener('load',function(){
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
@@ -1503,6 +1503,7 @@ window.addEventListener('load',function(){
       window.__ucApplyAll();
     });
   });
+  window.__ucApplyAll();
 });
 </script></body></html>`;
   }
