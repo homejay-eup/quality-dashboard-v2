@@ -227,36 +227,47 @@ App.report = (() => {
     return { badTop3, warrTop3, avgAge: agg.grandTotal.已使用年限 };
   }
 
-  // 整體總覽「分析與說明」：整體不良率／過保率是否改善、不良品與過保占比前三名、平均已使用年限 vs 預期使用年限
+  // 整體總覽「分析與說明」：給主管看的精簡結論——先講結論，再講重點機型與汰換建議，控制在4行內
   function overviewFindingsHTML(car, lens, carSelection, lensSelection, combined, combinedCmp, hasCmp) {
     const bullets = [];
-    const dr = combined.整體不良率;
-    bullets.push(`整體不良率 ${rPct(dr)}${hasCmp ? `（較對比期間 ${signedPP(dr, combinedCmp.整體不良率)}）` : ''}，${hasCmp ? (dr < combinedCmp.整體不良率 ? '較去年同期下降，品質有改善。' : dr > combinedCmp.整體不良率 ? '較去年同期上升，需留意。' : '與去年同期持平。') : '為當期狀況。'}`);
-    const sr = combined.整體過保率;
-    bullets.push(`整體過保率 ${rPct(sr)}${hasCmp ? `（較對比期間 ${signedPP(sr, combinedCmp.整體過保率)}）` : ''}，${hasCmp ? (sr < combinedCmp.整體過保率 ? '較去年同期下降，過保狀況有改善。' : sr > combinedCmp.整體過保率 ? '較去年同期上升，建議追蹤高過保品號的使用年限分佈。' : '與去年同期持平。') : '為當期狀況。'}`);
+    const dr = combined.整體不良率, sr = combined.整體過保率;
 
+    // 1. 結論先講：整體品質是變好還是變差，一句話講完，數字放後面佐證
+    if (hasCmp) {
+      const drUp = dr > combinedCmp.整體不良率, srUp = sr > combinedCmp.整體過保率;
+      const verdict = (!drUp && !srUp) ? '整體品質較去年同期改善'
+        : (drUp && srUp) ? '整體品質較去年同期下滑，須留意'
+          : '整體品質較去年同期互有增減';
+      bullets.push(`結論：${verdict}。不良率 ${rPct(dr)}（${signedPP(dr, combinedCmp.整體不良率)}），過保率 ${rPct(sr)}（${signedPP(sr, combinedCmp.整體過保率)}）。`);
+    } else {
+      bullets.push(`結論：本期整體不良率 ${rPct(dr)}、過保率 ${rPct(sr)}。`);
+    }
+
+    // 2. 重點機型：不良／過保集中在哪些機型，車機、鏡頭各一句講完
     const carSum = deviceQualitySummary(car, carSelection);
     const lensSum = deviceQualitySummary(lens, lensSelection);
-    if (carSum.badTop3.length) bullets.push(`車機不良品占比前三名：${carSum.badTop3.join('、')}。`);
-    if (lensSum.badTop3.length) bullets.push(`鏡頭不良品占比前三名：${lensSum.badTop3.join('、')}。`);
-    if (carSum.warrTop3.length) bullets.push(`車機過保占比前三名：${carSum.warrTop3.join('、')}。`);
-    if (lensSum.warrTop3.length) bullets.push(`鏡頭過保占比前三名：${lensSum.warrTop3.join('、')}。`);
+    const spotlightLine = (label, sum) => {
+      const parts = [];
+      if (sum.badTop3.length) parts.push(`不良集中在${sum.badTop3.slice(0, 2).join('、')}`);
+      if (sum.warrTop3.length) parts.push(`過保集中在${sum.warrTop3.slice(0, 2).join('、')}`);
+      return parts.length ? `${label}重點機型：${parts.join('；')}，建議優先追蹤。` : null;
+    };
+    const carSpotlight = spotlightLine('車機', carSum);
+    const lensSpotlight = spotlightLine('鏡頭', lensSum);
+    if (carSpotlight) bullets.push(carSpotlight);
+    if (lensSpotlight) bullets.push(lensSpotlight);
 
-    const ageBullet = (label, avgAge) => {
+    // 3. 汰換建議：車機／鏡頭平均使用年限 vs 預期年限，合併成一句好懂的划算判斷
+    const ageVerdict = (label, avgAge) => {
       if (avgAge == null) return null;
       const baseline = EXPECTED_LIFE_YEARS[label];
       const diff = avgAge - baseline;
-      const verdict = diff > 0
-        ? `已超出預期使用年限 ${diff.toFixed(1)} 年，屬於延壽使用，划算。`
-        : diff < 0
-          ? `尚未達預期使用年限，理論上還有 ${Math.abs(diff).toFixed(1)} 年可用。`
-          : '恰好達預期使用年限。';
-      return `${label}（有報廢資訊的設備）平均已使用 ${avgAge.toFixed(1)} 年，預期使用年限 ${baseline} 年，${verdict}`;
+      if (diff > 0) return `${label}已用滿${avgAge.toFixed(1)}年（超出預期${diff.toFixed(1)}年），划算，暫無汰換壓力`;
+      if (diff < 0) return `${label}已用${avgAge.toFixed(1)}年，尚未達預期年限，還可再用${Math.abs(diff).toFixed(1)}年`;
+      return `${label}已用${avgAge.toFixed(1)}年，剛好達預期年限`;
     };
-    const carAgeBullet = ageBullet('車機', carSum.avgAge);
-    const lensAgeBullet = ageBullet('鏡頭', lensSum.avgAge);
-    if (carAgeBullet) bullets.push(carAgeBullet);
-    if (lensAgeBullet) bullets.push(lensAgeBullet);
+    const ageParts = [ageVerdict('車機', carSum.avgAge), ageVerdict('鏡頭', lensSum.avgAge)].filter(Boolean);
+    if (ageParts.length) bullets.push(`設備汰換：${ageParts.join('；')}。`);
 
     return bullets;
   }
@@ -390,8 +401,8 @@ App.report = (() => {
             ${rankTableHTML(badGroups, '不良品數', `${badChartId}-rank`)}
           </div>
         </div>
-        ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}
-      </div>`,
+      </div>
+      ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
         data:{labels:${JSON.stringify(donutLabels)},datasets:[{data:${JSON.stringify(donutData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
         options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}});
@@ -536,14 +547,14 @@ App.report = (() => {
         <div class="sech">整體數值 · 車機</div>
         <div class="krow">
           ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
-          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(car.kpi.期間回廠量, car.cmpKpi.期間回廠量, 'int', null) : '')}
+          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), '')}
           ${kcardUncatRate('車機整體不良率', car.kpi, car.cmpKpi, ctx.hasCmp)}
           ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
         <div class="sech">整體數值 · 鏡頭</div>
         <div class="krow">
           ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
-          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.期間回廠量, lens.cmpKpi.期間回廠量, 'int', null) : '')}
+          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), '')}
           ${kcardUncatRate('鏡頭整體不良率', lens.kpi, lens.cmpKpi, ctx.hasCmp)}
           ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
@@ -869,9 +880,13 @@ App.report = (() => {
   function vendorSpotlightPageHTML(ctx) {
     const { car, lens, state } = ctx, hasCmp = ctx.hasCmp;
 
-    // 所有出現過的廠商（不篩選），依回廠量由大到小，供 checkbox 清單使用
-    const allCarVendors = [...aggByVendor(car, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key);
-    const allLensVendors = [...aggByVendor(lens, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key);
+    // 出現過的廠商，依回廠量由大到小，並依主畫面「廠商」篩選面板目前的勾選收斂範圍（未勾選＝不限制）
+    const carVendorSel = state.selectionByTab.車機.廠商;
+    const lensVendorSel = state.selectionByTab.鏡頭.廠商;
+    const allCarVendors = [...aggByVendor(car, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key)
+      .filter((v) => !carVendorSel.length || carVendorSel.includes(v));
+    const allLensVendors = [...aggByVendor(lens, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key)
+      .filter((v) => !lensVendorSel.length || lensVendorSel.includes(v));
 
     const buildVendorData = (d, vendors) => {
       const out = {};
@@ -942,7 +957,6 @@ App.report = (() => {
     const ageCardHTML = (device, deviceLabel, grouped) => `<div class="card">
       <div class="chead">
         <div class="ct">已使用年限比較（${esc(deviceLabel)}）</div>
-        <div class="cs">${grouped ? '依「一般定位／影像」分組，組內由已使用年限高到低排序' : '依已使用年限高到低排序'}</div>
       </div>
       <div class="vage-top3" id="vage-top3-${device}"></div>
       <div class="vage-legend" id="vage-legend-${device}" style="display:none">
@@ -961,47 +975,34 @@ App.report = (() => {
           <tbody id="vage-tbody-${device}"></tbody>
         </table>
       </div>
-      ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
-      ${device === 'car' ? `<details class="lowkey-toggle">
-        <summary>${App.icons.settings()} 車機機型分類設定（僅供本卡使用，與「再使用」頁籤各自獨立）</summary>
-        <div class="lowkey-toggle-body">
-          <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
-          <div class="twrap"><div class="scroll">
-            <table class="agg" id="vage-class-table">
-              <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
-              <tbody>
-                ${carAllModels.map((g) => {
-                  const key = g.key;
-                  const qc = g.subtotal['回廠QC'] || 0;
-                  const isGeneral = CAR_GENERAL_MODELS_DEFAULT.includes(key);
-                  const isImaging = CAR_IMAGING_MODELS_DEFAULT.includes(key);
-                  return `<tr><td class="l">${esc(key)}</td><td class="num">${rInt(qc)}</td>
-                    <td class="num"><input type="checkbox" class="vage-cls-general" data-model="${esc(key)}" ${isGeneral ? 'checked' : ''}></td>
-                    <td class="num"><input type="checkbox" class="vage-cls-imaging" data-model="${esc(key)}" ${isImaging ? 'checked' : ''}></td></tr>`;
-                }).join('')}
-              </tbody>
-            </table>
-          </div></div>
-        </div>
-      </details>` : ''}
-    </div>`;
+    </div>
+    ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
+    ${device === 'car' ? `<details class="lowkey-toggle icon-collapse">
+      <summary title="車機機型分類設定">${App.icons.settings()}<span class="lowkey-toggle-text">車機機型分類設定</span></summary>
+      <div class="lowkey-toggle-body">
+        <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
+        <div class="twrap"><div class="scroll">
+          <table class="agg" id="vage-class-table">
+            <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
+            <tbody>
+              ${carAllModels.map((g) => {
+                const key = g.key;
+                const qc = g.subtotal['回廠QC'] || 0;
+                const isGeneral = CAR_GENERAL_MODELS_DEFAULT.includes(key);
+                const isImaging = CAR_IMAGING_MODELS_DEFAULT.includes(key);
+                return `<tr><td class="l">${esc(key)}</td><td class="num">${rInt(qc)}</td>
+                  <td class="num"><input type="checkbox" class="vage-cls-general" data-model="${esc(key)}" ${isGeneral ? 'checked' : ''}></td>
+                  <td class="num"><input type="checkbox" class="vage-cls-imaging" data-model="${esc(key)}" ${isImaging ? 'checked' : ''}></td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div></div>
+      </div>
+    </details>` : ''}`;
 
     const pickerHTML = (device, vendors, defaults) => vendors.map((v) =>
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
     ).join('');
-
-    // 重點廠商分析與說明：以預設勾選的廠商為準（靜態產生，不隨勾選即時變動，與本報告其他建議說明區塊一致）
-    const vendorFindingsHTML = (id, vendorData, vendors) => {
-      const rows = vendors.filter((v) => vendorData[v]).map((v) => ({ v, k: vendorData[v].kpi }));
-      if (!rows.length) return '';
-      const bullets = rows.map((r) => `${r.v}：不良率 ${rPct(r.k.期間不良率)}、過保率 ${rPct(r.k.期間過保率)}、再使用率 ${rPct(r.k.再使用率)}。`);
-      if (rows.length > 1) {
-        const worstBad = rows.reduce((a, b) => (b.k.期間不良率 > a.k.期間不良率 ? b : a));
-        const bestReuse = rows.reduce((a, b) => (b.k.再使用率 > a.k.再使用率 ? b : a));
-        bullets.push(`${worstBad.v} 不良率相對較高，建議列入品質追蹤重點；${bestReuse.v} 再使用率表現較佳。`);
-      }
-      return adviceCalloutHTML(id, '分析與說明', bullets);
-    };
 
     return {
       html: `<section class="page" id="page-vendor">
@@ -1010,7 +1011,6 @@ App.report = (() => {
           <div>
             <div class="sech">車機</div>
             ${ageCardHTML('car', '車機', true)}
-            ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle icon-collapse">
               <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
               <div class="lowkey-toggle-body">
@@ -1032,7 +1032,6 @@ App.report = (() => {
           <div>
             <div class="sech">鏡頭</div>
             ${ageCardHTML('lens', '鏡頭', false)}
-            ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle icon-collapse">
               <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
               <div class="lowkey-toggle-body">
@@ -1098,8 +1097,8 @@ App.report = (() => {
           if(hasCmp){
             var diff=item.year-item.yearCmp;
             if(Math.abs(diff)<0.05)deltaHTML='<span class="delta flat">－ 持平</span>';
-            else if(diff>0)deltaHTML='<span class="delta up">▲ '+diff.toFixed(1)+'年</span>';
-            else deltaHTML='<span class="delta down">▼ '+Math.abs(diff).toFixed(1)+'年</span>';
+            else if(diff>0)deltaHTML='<span class="delta up">▲ '+diff.toFixed(1)+'</span>';
+            else deltaHTML='<span class="delta down">▼ '+Math.abs(diff).toFixed(1)+'</span>';
           }
           return '<div class="barrow">'+
             '<div class="lbl">'+item.model+'<span class="vd">'+item.vendor+'</span></div>'+
@@ -1110,7 +1109,7 @@ App.report = (() => {
         }
         function __vageGroupHTML(label,cls,list,maxVal,rankMap){
           var rows=list.map(function(it){ return __vageBarRowHTML(it,rankMap.get(it.vendor+'|'+it.model)||99,maxVal,cls); }).join('');
-          return (label?'<span class="grp-label '+cls+'">'+label+' <span class="cnt">・'+list.length+' 機型</span></span>':'')+rows;
+          return (label?'<span class="grp-label '+cls+'">'+label+'</span>':'')+rows;
         }
 
         window.__renderVendorAge=function(device){
@@ -1134,7 +1133,7 @@ App.report = (() => {
           if(top3El){
             top3El.innerHTML=top3.map(function(it,i){
               var cat=grouped?catOf(it.model):null;
-              return '<div class="top3-item"><div class="top3-rank"><span class="num">'+(i+1)+'</span>最划算 TOP'+(i+1)+'</div>'+
+              return '<div class="top3-item"><div class="top3-rank"><span class="num">'+(i+1)+'</span>TOP'+(i+1)+'</div>'+
                 '<div class="top3-name">'+it.model+'</div>'+
                 '<div class="top3-vendor">'+it.vendor+(cat?'・'+__vageCatLabel(cat):'')+'</div>'+
                 '<div class="top3-years">'+it.year.toFixed(1)+' 年</div></div>';
@@ -1395,7 +1394,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .kcard .d{font-size:17px;font-weight:700;margin-top:5px}
 .kcard .p{font-size:15.5px;color:var(--muted)}
 .kcard.good{border-top-color:var(--good)}
-.d-good{color:var(--good)}.d-bad{color:var(--bad)}.d-flat{color:var(--muted)}
+.d-good{color:var(--teal)}.d-bad{color:var(--teal)}.d-flat{color:var(--muted)}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .chead{margin-bottom:12px}
 .ct{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
@@ -1439,11 +1438,11 @@ table.rtable thead{position:sticky;top:0;z-index:2}
 table.rtable th{background:#f4f4f5;color:#333;padding:7px 8px;text-align:center;border:1px solid var(--line);font-weight:700}
 table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
-table.rtable td.hl{background:#fff59d;font-weight:800;color:#7a5b00}
-table.rtable td.hl2{background:#ffe6b3;font-weight:800;color:#7a4d00}
+table.rtable td.hl{background:#c7ecdf;font-weight:800;color:#04342c}
+table.rtable td.hl2{background:#a9dcd0;font-weight:800;color:#04342c}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
-table.rtable tr.grand td.hl{background:var(--warn);color:#fff}
-table.rtable tr.grand td.hl2{background:#c77400;color:#fff}
+table.rtable tr.grand td.hl{background:#085041;color:#fff}
+table.rtable tr.grand td.hl2{background:#04342c;color:#fff}
 table.rtable .colUncat{display:none}
 .card.show-uncat table.rtable .colUncat{display:table-cell}
 table.rtable .colRate{display:none}
@@ -1491,7 +1490,6 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .grp-label{display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:800;color:#fff;padding:2px 10px;border-radius:20px;margin-bottom:9px}
 .grp-label.general{background:var(--bar-general)}
 .grp-label.imaging{background:var(--bar-imaging)}
-.grp-label .cnt{opacity:.85;font-weight:700}
 .barrow{display:grid;grid-template-columns:170px 1fr 84px;align-items:center;gap:8px;margin-bottom:8px}
 .barrow .lbl{font-size:16px;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .barrow .lbl .vd{display:block;font-size:14px;color:var(--muted);font-weight:600}
@@ -1504,7 +1502,7 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .barrow .marker::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--marker)}
 .barrow .yr{font-size:16px;font-weight:800;color:var(--ink);text-align:left;display:flex;flex-direction:column;line-height:1.25}
 .barrow .yr .delta{font-size:14px;font-weight:700}
-.barrow .delta.up{color:var(--good)}.barrow .delta.down{color:var(--bad)}.barrow .delta.flat{color:var(--muted)}
+.barrow .delta.up{color:var(--teal)}.barrow .delta.down{color:var(--teal)}.barrow .delta.flat{color:var(--muted)}
 .medal{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#fff;font-size:10px;font-weight:800;margin-right:4px;flex:none}
 
 /* 已使用年限比較：可排序機型明細表 */
@@ -1558,7 +1556,6 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
   <nav class="tabs">
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
-    <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用</button>
     <button class="tab-btn" data-tab="kpi">${App.icons.chart()} KPI</button>
   </nav>
 </div></header>
