@@ -385,7 +385,6 @@ App.report = (() => {
           ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(car.kpi.期間回廠量, car.cmpKpi.期間回廠量, 'int', null) : '')}
           ${kcard('車機整體不良率', rPct(car.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體不良率, car.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
           ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
-          ${kcard('車機再使用率', rPct(car.kpi.再使用率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.再使用率, car.cmpKpi.再使用率, 'pct', true) : '', 'good')}
         </div>
         <div class="sech">整體數值 · 鏡頭</div>
         <div class="krow">
@@ -393,7 +392,6 @@ App.report = (() => {
           ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.期間回廠量, lens.cmpKpi.期間回廠量, 'int', null) : '')}
           ${kcard('鏡頭整體不良率', rPct(lens.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體不良率, lens.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
           ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
-          ${kcard('鏡頭再使用率', rPct(lens.kpi.再使用率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.再使用率, lens.cmpKpi.再使用率, 'pct', true) : '', 'good')}
         </div>
         ${carSec.html}
         ${lensSec.html}
@@ -652,7 +650,7 @@ App.report = (() => {
           options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v.toLocaleString('en-US');}}}}}});
         ${hasCmp ? `new Chart(document.getElementById('usage-yoy-chart'),{type:'bar',
           data:{labels:['車機','鏡頭'],datasets:[
-            {label:'${esc(usageTrend.cmpLabel || '去年同期')}',data:[${Math.round(car.cmpKpi.內部檢測數) || 0},${Math.round(lens.cmpKpi.內部檢測數) || 0}],backgroundColor:'#9AA0A6'},
+            {label:'${esc(usageTrend.cmpLabel || '去年同期')}',data:[${Math.round(car.cmpKpi.內部檢測數) || 0},${Math.round(lens.cmpKpi.內部檢測數) || 0}],backgroundColor:'rgba(26,156,83,.35)'},
             {label:'${esc(usageTrend.curLabel)}',data:[${Math.round(car.kpi.內部檢測數) || 0},${Math.round(lens.kpi.內部檢測數) || 0}],backgroundColor:GOOD}
           ]},
           options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});` : ''}
@@ -716,6 +714,19 @@ App.report = (() => {
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
     ).join('');
 
+    // 重點廠商分析與說明：以預設勾選的廠商為準（靜態產生，不隨勾選即時變動，與本報告其他建議說明區塊一致）
+    const vendorFindingsHTML = (vendorData, vendors) => {
+      const rows = vendors.filter((v) => vendorData[v]).map((v) => ({ v, k: vendorData[v].kpi }));
+      if (!rows.length) return '';
+      const bullets = rows.map((r) => `${esc(r.v)}：不良率 ${rPct(r.k.期間不良率)}、過保率 ${rPct(r.k.期間過保率)}、再使用率 ${rPct(r.k.再使用率)}。`);
+      if (rows.length > 1) {
+        const worstBad = rows.reduce((a, b) => (b.k.期間不良率 > a.k.期間不良率 ? b : a));
+        const bestReuse = rows.reduce((a, b) => (b.k.再使用率 > a.k.再使用率 ? b : a));
+        bullets.push(`${esc(worstBad.v)} 不良率相對較高，建議列入品質追蹤重點；${esc(bestReuse.v)} 再使用率表現較佳。`);
+      }
+      return `<div class="callout good"><p class="big-quote">分析與說明</p><ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul></div>`;
+    };
+
     return {
       html: `<section class="page" id="page-vendor">
         <div class="ph"><div><span class="ph-l">${App.icons.factory()} 重點廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
@@ -736,6 +747,7 @@ App.report = (() => {
                 <tbody id="vendor-summary-car"></tbody>
               </table></div>
             </div>
+            ${vendorFindingsHTML(carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
           </div>
           <div>
             <div class="sech">鏡頭重點廠商</div>
@@ -753,6 +765,7 @@ App.report = (() => {
                 <tbody id="vendor-summary-lens"></tbody>
               </table></div>
             </div>
+            ${vendorFindingsHTML(lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
           </div>
         </div>
       </section>`,
@@ -988,7 +1001,6 @@ table.cmp td.l{text-align:left;color:var(--muted);font-weight:600;white-space:no
 table.cmp tbody tr:nth-child(even) td{background:#fafafa}
 table.cmp tr.hl td{background:#e6f4f2;font-weight:700}
 .cost-input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:12.5px}
-.draftbar{background:#e6f4ec;color:#0f5132;text-align:center;font-size:12.5px;font-weight:700;padding:6px 10px;border-bottom:1px solid #b7dfc7}
 .flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0;padding:6px 0 4px}
 .flow-step{background:var(--teal);color:#fff;padding:12px 26px;border-radius:10px;font-weight:800;font-size:14.5px;box-shadow:0 2px 6px rgba(0,0,0,.15);white-space:nowrap}
 .flow-arrow{font-size:20px;color:var(--muted);padding:0 14px;font-weight:700}
@@ -1013,7 +1025,6 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
 @media(max-width:900px){.topbar-inner{padding:10px 16px}.main{padding:16px}.g2,.g2-eq,.g3,.vendorgrid,.rlayout3{grid-template-columns:1fr}}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
-<div class="draftbar">${App.icons.checkCircle()} 已帶入真實資料庫數值（期間：${esc(periodText(state))}）｜ 省下的成本／送修運費為可編輯試算值，詳見「再使用率」頁備註</div>
 <header class="topbar"><div class="topbar-inner">
   <div class="brand"><span class="t">${App.icons.chart()} 設備品質分析報告</span><span class="s">${esc(periodText(state))}　｜　製表：${esc(genAt)}</span></div>
   <nav class="tabs">
