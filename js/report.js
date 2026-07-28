@@ -1286,18 +1286,24 @@ App.report = (() => {
     const [mainUnit, accessory, qc, exportQc] = rows;
     const stableTotal = accessory.y115 + qc.y115;
 
-    // 配件類鏡頭整新數量（使用者提供的補充明細，非彙總常數可推得，故獨立列出）
+    // 配件類鏡頭整新數量／主機類影像主機台數（使用者提供的補充明細，非彙總常數可推得，故獨立列出）
     const LENS_QTY = { y114: 841, y115: 782 };
     const lensQtyDiff = LENS_QTY.y115 - LENS_QTY.y114;
+    const MAIN_UNIT_QTY = { y114: 57, y115: 200 };
+    const mainUnitQtyDiff = MAIN_UNIT_QTY.y115 - MAIN_UNIT_QTY.y114;
 
-    // 配件類金額差異補充說明（獨立於 AI 建議說明，放在明細表旁的說明欄；
-    // 僅在配件115年金額低於114年時顯示，避免跟未來資料對不上）
-    const ACCESSORY_NOTES = accessory.diff < 0
-      ? [
-          `「${esc(accessory.label)}」114年同期金額較高，主要因當年度執行 Mobileye ADAS(AM)、DMS控制盒(CM) 等大型整新專案；115年無同等規模之一次性整新案，故整體金額相對降低。`,
-          `配件類差異亦反映在鏡頭整新數量：114年1–6月共整新 ${rInt(LENS_QTY.y114)} 顆，115年同期 ${rInt(LENS_QTY.y115)} 顆，減少 ${rInt(Math.abs(lensQtyDiff))} 顆，與金額端變化方向一致。`,
-        ]
-      : [];
+    // 金額差異補充說明（獨立於 AI 建議說明，放在明細表旁的說明欄）；
+    // 配件兩點僅在配件115年金額低於114年時顯示、主機一點僅在主機115年金額高於114年時顯示，
+    // 各自獨立判斷，避免跟未來資料方向不一致時說明文字對不上
+    const ACCESSORY_NOTES = [
+      ...(accessory.diff < 0 ? [
+        `「${esc(accessory.label)}」114年同期金額較高，主要因當年度執行 Mobileye ADAS(AM)、DMS控制盒(CM) 等大型整新專案；115年無同等規模之一次性整新案，故整體金額相對降低。`,
+        `配件類差異亦反映在鏡頭整新數量：114年1–6月共整新 ${rInt(LENS_QTY.y114)} 顆，115年同期 ${rInt(LENS_QTY.y115)} 顆，減少 ${rInt(Math.abs(lensQtyDiff))} 顆，與金額端變化方向一致。`,
+      ] : []),
+      ...(mainUnit.diff > 0 ? [
+        `「${esc(mainUnit.label)}」成長主要來自影像主機台數增加：114年1–6月共 ${rInt(MAIN_UNIT_QTY.y114)} 台，115年同期 ${rInt(MAIN_UNIT_QTY.y115)} 台，成長 ${rInt(mainUnitQtyDiff)} 台，是主機整新費用大幅成長的主要因素。`,
+      ] : []),
+    ];
 
     const bullets = [
       `115年1–6月整新循環總價值達 ${rInt(total115)} 元，較114年同期增加 ${rDiff(totalDiff)} 元（${kpiGrowthLabel(totalGrowth)}），相當於再為公司省下同等金額的外部採購／維修支出。`,
@@ -1332,7 +1338,8 @@ App.report = (() => {
           ${ACCESSORY_NOTES.length ? `<div class="card">
             <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
             <ul>${ACCESSORY_NOTES.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
-            <div class="chartbox sm"><canvas id="kpi-c2"></canvas></div>
+            ${accessory.diff < 0 ? '<div class="chartbox sm"><canvas id="kpi-c2"></canvas></div>' : ''}
+            ${mainUnit.diff > 0 ? '<div class="chartbox sm"><canvas id="kpi-c3"></canvas></div>' : ''}
           </div>` : ''}
         </div>
         <div class="callout good"><p class="big-quote">AI 建議說明</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
@@ -1364,7 +1371,7 @@ App.report = (() => {
               ctx.restore();
             }
           }]});
-        ${ACCESSORY_NOTES.length ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
+        ${accessory.diff < 0 ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
           data:{labels:['114年1-6月','115年1-6月'],
             datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
           options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'配件類鏡頭整新數量（顆）'}},scales:{y:{beginAtZero:true}}},
@@ -1379,6 +1386,25 @@ App.report = (() => {
               ctx.textBaseline='bottom';
               chart.getDatasetMeta(0).data.forEach((bar,i)=>{
                 ctx.fillText(chart.data.datasets[0].data[i]+' 顆',bar.x,bar.y-4);
+              });
+              ctx.restore();
+            }
+          }]});` : ''}
+        ${mainUnit.diff > 0 ? `new Chart(document.getElementById('kpi-c3'),{type:'bar',
+          data:{labels:['114年1-6月','115年1-6月'],
+            datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'主機類影像主機台數（台）'}},scales:{y:{beginAtZero:true}}},
+          plugins:[{
+            id:'mainUnitQtyValueLabels',
+            afterDatasetsDraw(chart){
+              const ctx=chart.ctx;
+              ctx.save();
+              ctx.fillStyle='#1F2535';
+              ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
+              ctx.textAlign='center';
+              ctx.textBaseline='bottom';
+              chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+                ctx.fillText(chart.data.datasets[0].data[i]+' 台',bar.x,bar.y-4);
               });
               ctx.restore();
             }
