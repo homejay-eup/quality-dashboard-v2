@@ -385,6 +385,26 @@ App.report = (() => {
     return {
       html: `<section class="page on" id="page-overview">
         <div class="ph"><div><span class="ph-l">${App.icons.pin()} 整體總覽</span><span class="ph-s">車機＋鏡頭　｜　期間：${esc(periodText(ctx.state))}</span></div></div>
+        <details class="lowkey-toggle">
+          <summary>${App.icons.book()} 分析流程與品質分析範圍</summary>
+          <div class="lowkey-toggle-body">
+            <div class="flow">
+              <div class="flow-step">${App.icons.clipboard()} 派工</div><div class="flow-arrow">→</div>
+              <div class="flow-step">${App.icons.inbox()} 回廠</div><div class="flow-arrow">→</div>
+              <div class="flow-step">${App.icons.wrench()} 維修</div><div class="flow-arrow">→</div>
+              <div class="flow-step">${App.icons.trash()} 報廢</div>
+            </div>
+            <p class="note" style="text-align:center;margin-top:10px">全部分析皆以「期間內」的派工→回廠→維修→報廢 完整處理鏈為基礎。</p>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">項目</th><th class="l">${App.icons.car()} 車機</th><th class="l">${App.icons.camera()} 鏡頭</th></tr></thead>
+              <tbody>
+                <tr><td class="l">產品類別</td><td class="l" colspan="2">車機、鏡頭</td></tr>
+                <tr><td class="l">維護原因</td><td class="l">訊號異常</td><td class="l">影像異常(鏡頭)</td></tr>
+                <tr><td class="l">故障原因</td><td class="l">AB點、失聯、定位異常、訊號異常</td><td class="l">黑畫面、進水/模糊、水波紋、時有時無</td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </details>
         <div class="sech">整體數值 · 車機</div>
         <div class="krow">
           ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
@@ -538,9 +558,10 @@ App.report = (() => {
           </div>` : ''}
         </div>
         ${adviceCalloutHTML('advice-usage', '整體建議說明', bullets1.concat(bullets2))}
-        <div class="card">
-          <details class="collapsible">
-            <summary class="chead"><div class="ct">車機機型分類設定</div><div class="cs">勾選「一般定位」或「影像」，決定下方成本試算與趨勢圖如何加總；同一機型只能勾一邊，都不勾視為未分類（不計入試算）</div></summary>
+        <details class="lowkey-toggle">
+          <summary>${App.icons.settings()} 車機機型分類設定</summary>
+          <div class="lowkey-toggle-body">
+            <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定下方成本試算與趨勢圖如何加總；同一機型只能勾一邊，都不勾視為未分類（不計入試算）</p>
             <div class="twrap"><div class="scroll">
               <table class="agg" id="usage-class-table">
                 <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
@@ -557,11 +578,12 @@ App.report = (() => {
                 </tbody>
               </table>
             </div></div>
-          </details>
-        </div>
-        <div class="card">
-          <details class="collapsible">
-            <summary class="chead"><div class="ct">省下的成本試算（可編輯）</div><div class="cs">內部檢測數量（QC=回廠QC）× 單位成本；車機依上方分類設定分兩類，鏡頭單位成本可另外調整，預設一般定位2,000元、影像7,000元、鏡頭2,000元</div></summary>
+          </div>
+        </details>
+        <details class="lowkey-toggle">
+          <summary>${App.icons.calculator()} 省下的成本試算（可編輯）</summary>
+          <div class="lowkey-toggle-body">
+            <p class="lowkey-toggle-desc">內部檢測數量（QC=回廠QC）× 單位成本；車機依上方分類設定分兩類，鏡頭單位成本可另外調整，預設一般定位2,000元、影像7,000元、鏡頭2,000元</p>
             <div class="twrap"><div class="scroll">
               <table class="agg" id="usage-cost-table">
                 <thead><tr><th class="l">設備</th><th class="num">內部檢測數量（件）</th><th class="num">單位成本（元）</th><th class="num">省下的成本（元）</th></tr></thead>
@@ -585,8 +607,8 @@ App.report = (() => {
                 <tfoot><tr class="grand"><td class="l" colspan="3">總計</td><td class="num" id="usage-saved-total">0</td></tr></tfoot>
               </table>
             </div></div>
-          </details>
-        </div>
+          </div>
+        </details>
       </section>`,
       chartScript: `
         window.__carModelQC=${JSON.stringify(carModelQC)};
@@ -747,13 +769,7 @@ App.report = (() => {
           <div>
             <div class="sech">車機重點廠商</div>
             <div class="card">
-              <details class="collapsible">
-                <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
-                <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-              </details>
-            </div>
-            <div class="card">
-              <div class="chead"><div class="ct">車機廠商品質比較</div></div>
+              <div class="chead"><div class="ct">廠商品質比較（車機）</div></div>
               <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
               <div class="twrap" style="margin-top:14px"><table class="agg">
                 <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
@@ -761,17 +777,18 @@ App.report = (() => {
               </table></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
+            <details class="lowkey-toggle">
+              <summary>${App.icons.filter()} 選擇要比較的廠商</summary>
+              <div class="lowkey-toggle-body">
+                <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+                <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+              </div>
+            </details>
           </div>
           <div>
             <div class="sech">鏡頭重點廠商</div>
             <div class="card">
-              <details class="collapsible">
-                <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
-                <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-              </details>
-            </div>
-            <div class="card">
-              <div class="chead"><div class="ct">鏡頭廠商品質比較</div></div>
+              <div class="chead"><div class="ct">廠商品質比較（鏡頭）</div></div>
               <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
               <div class="twrap" style="margin-top:14px"><table class="agg">
                 <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
@@ -779,6 +796,13 @@ App.report = (() => {
               </table></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
+            <details class="lowkey-toggle">
+              <summary>${App.icons.filter()} 選擇要比較的廠商</summary>
+              <div class="lowkey-toggle-body">
+                <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+                <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+              </div>
+            </details>
           </div>
         </div>
       </section>`,
@@ -816,25 +840,6 @@ App.report = (() => {
     return {
       html: `<section class="page" id="page-logic">
         <div class="ph"><div><span class="ph-l">${App.icons.book()} 資料來源與邏輯說明</span><span class="ph-s">品質分析範圍與邏輯｜${esc(periodText(ctx.state))}</span></div></div>
-        <div class="sech">分析流程</div>
-        <div class="card">
-          <div class="flow">
-            <div class="flow-step">${App.icons.clipboard()} 派工</div><div class="flow-arrow">→</div>
-            <div class="flow-step">${App.icons.inbox()} 回廠</div><div class="flow-arrow">→</div>
-            <div class="flow-step">${App.icons.wrench()} 維修</div><div class="flow-arrow">→</div>
-            <div class="flow-step">${App.icons.trash()} 報廢</div>
-          </div>
-          <p class="note" style="text-align:center;margin-top:10px">全部分析皆以「期間內」的派工→回廠→維修→報廢 完整處理鏈為基礎。</p>
-        </div>
-        <div class="sech">品質分析範圍</div>
-        <div class="card"><div class="twrap"><table class="agg">
-          <thead><tr><th class="l">項目</th><th class="l">${App.icons.car()} 車機</th><th class="l">${App.icons.camera()} 鏡頭</th></tr></thead>
-          <tbody>
-            <tr><td class="l">產品類別</td><td class="l" colspan="2">車機、鏡頭</td></tr>
-            <tr><td class="l">維護原因</td><td class="l">訊號異常</td><td class="l">影像異常(鏡頭)</td></tr>
-            <tr><td class="l">故障原因</td><td class="l">AB點、失聯、定位異常、訊號異常</td><td class="l">黑畫面、進水/模糊、水波紋、時有時無</td></tr>
-          </tbody>
-        </table></div></div>
         <div class="sech">良品／不良品／過保 判斷（依現行分類規則）</div>
         <div class="card"><div class="twrap"><table class="agg">
           <thead><tr><th class="l">分類</th><th class="l">說明</th></tr></thead>
@@ -939,11 +944,6 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .cs{font-size:11.5px;color:var(--muted);margin-top:2px;margin-left:12px}
 .trend-device{font-size:14px;font-weight:800;color:var(--ink)}
 .mini-title{font-size:12px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:6px}
-.collapsible summary{cursor:pointer;list-style:none}
-.collapsible summary::-webkit-details-marker{display:none}
-.collapsible summary .ct::after{content:'▾';margin-left:8px;font-size:11px;color:var(--muted);transition:transform .15s}
-.collapsible:not([open]) summary .ct::after{content:'▸'}
-.collapsible:not([open]) summary{margin-bottom:0}
 .g2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;min-width:0}
 .g2>*{min-width:0}
 .g2-eq{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
@@ -1000,6 +1000,12 @@ table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .chart-toggle-row{display:flex;justify-content:flex-end;margin:-6px 0 12px}
 .chart-toggle-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
 .chart-toggle-label input{cursor:pointer}
+.lowkey-toggle{margin:10px 2px 0}
+.lowkey-toggle summary{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;list-style:none}
+.lowkey-toggle summary::-webkit-details-marker{display:none}
+.lowkey-toggle summary:hover{color:var(--teal-d)}
+.lowkey-toggle-body{margin-top:10px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:8px}
+.lowkey-toggle-desc{font-size:12px;color:var(--muted);margin:0 0 10px}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
 .vp-item{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;user-select:none}
 .vp-item input{cursor:pointer}
