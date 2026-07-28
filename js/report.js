@@ -390,8 +390,8 @@ App.report = (() => {
             ${rankTableHTML(badGroups, '不良品數', `${badChartId}-rank`)}
           </div>
         </div>
-        ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}
-      </div>`,
+      </div>
+      ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
         data:{labels:${JSON.stringify(donutLabels)},datasets:[{data:${JSON.stringify(donutData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
         options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}});
@@ -942,7 +942,6 @@ App.report = (() => {
     const ageCardHTML = (device, deviceLabel, grouped) => `<div class="card">
       <div class="chead">
         <div class="ct">已使用年限比較（${esc(deviceLabel)}）</div>
-        <div class="cs">${grouped ? '依「一般定位／影像」分組，組內由已使用年限高到低排序' : '依已使用年限高到低排序'}</div>
       </div>
       <div class="vage-top3" id="vage-top3-${device}"></div>
       <div class="vage-legend" id="vage-legend-${device}" style="display:none">
@@ -961,30 +960,30 @@ App.report = (() => {
           <tbody id="vage-tbody-${device}"></tbody>
         </table>
       </div>
-      ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
-      ${device === 'car' ? `<details class="lowkey-toggle">
-        <summary>${App.icons.settings()} 車機機型分類設定（僅供本卡使用，與「再使用」頁籤各自獨立）</summary>
-        <div class="lowkey-toggle-body">
-          <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
-          <div class="twrap"><div class="scroll">
-            <table class="agg" id="vage-class-table">
-              <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
-              <tbody>
-                ${carAllModels.map((g) => {
-                  const key = g.key;
-                  const qc = g.subtotal['回廠QC'] || 0;
-                  const isGeneral = CAR_GENERAL_MODELS_DEFAULT.includes(key);
-                  const isImaging = CAR_IMAGING_MODELS_DEFAULT.includes(key);
-                  return `<tr><td class="l">${esc(key)}</td><td class="num">${rInt(qc)}</td>
-                    <td class="num"><input type="checkbox" class="vage-cls-general" data-model="${esc(key)}" ${isGeneral ? 'checked' : ''}></td>
-                    <td class="num"><input type="checkbox" class="vage-cls-imaging" data-model="${esc(key)}" ${isImaging ? 'checked' : ''}></td></tr>`;
-                }).join('')}
-              </tbody>
-            </table>
-          </div></div>
-        </div>
-      </details>` : ''}
-    </div>`;
+    </div>
+    ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
+    ${device === 'car' ? `<details class="lowkey-toggle">
+      <summary>${App.icons.settings()} 車機機型分類設定（與「再使用」頁籤各自獨立）</summary>
+      <div class="lowkey-toggle-body">
+        <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
+        <div class="twrap"><div class="scroll">
+          <table class="agg" id="vage-class-table">
+            <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
+            <tbody>
+              ${carAllModels.map((g) => {
+                const key = g.key;
+                const qc = g.subtotal['回廠QC'] || 0;
+                const isGeneral = CAR_GENERAL_MODELS_DEFAULT.includes(key);
+                const isImaging = CAR_IMAGING_MODELS_DEFAULT.includes(key);
+                return `<tr><td class="l">${esc(key)}</td><td class="num">${rInt(qc)}</td>
+                  <td class="num"><input type="checkbox" class="vage-cls-general" data-model="${esc(key)}" ${isGeneral ? 'checked' : ''}></td>
+                  <td class="num"><input type="checkbox" class="vage-cls-imaging" data-model="${esc(key)}" ${isImaging ? 'checked' : ''}></td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div></div>
+      </div>
+    </details>` : ''}`;
 
     const pickerHTML = (device, vendors, defaults) => vendors.map((v) =>
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
@@ -1098,8 +1097,8 @@ App.report = (() => {
           if(hasCmp){
             var diff=item.year-item.yearCmp;
             if(Math.abs(diff)<0.05)deltaHTML='<span class="delta flat">－ 持平</span>';
-            else if(diff>0)deltaHTML='<span class="delta up">▲ '+diff.toFixed(1)+'年</span>';
-            else deltaHTML='<span class="delta down">▼ '+Math.abs(diff).toFixed(1)+'年</span>';
+            else if(diff>0)deltaHTML='<span class="delta up">▲ '+diff.toFixed(1)+'</span>';
+            else deltaHTML='<span class="delta down">▼ '+Math.abs(diff).toFixed(1)+'</span>';
           }
           return '<div class="barrow">'+
             '<div class="lbl">'+item.model+'<span class="vd">'+item.vendor+'</span></div>'+
@@ -1134,7 +1133,7 @@ App.report = (() => {
           if(top3El){
             top3El.innerHTML=top3.map(function(it,i){
               var cat=grouped?catOf(it.model):null;
-              return '<div class="top3-item"><div class="top3-rank"><span class="num">'+(i+1)+'</span>最划算 TOP'+(i+1)+'</div>'+
+              return '<div class="top3-item"><div class="top3-rank"><span class="num">'+(i+1)+'</span>TOP'+(i+1)+'</div>'+
                 '<div class="top3-name">'+it.model+'</div>'+
                 '<div class="top3-vendor">'+it.vendor+(cat?'・'+__vageCatLabel(cat):'')+'</div>'+
                 '<div class="top3-years">'+it.year.toFixed(1)+' 年</div></div>';
@@ -1558,7 +1557,6 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
   <nav class="tabs">
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
-    <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用</button>
     <button class="tab-btn" data-tab="kpi">${App.icons.chart()} KPI</button>
   </nav>
 </div></header>
