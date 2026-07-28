@@ -739,6 +739,33 @@ App.report = (() => {
     const carVendorData = buildVendorData(car, allCarVendors);
     const lensVendorData = buildVendorData(lens, allLensVendors);
 
+    // 已使用年限比較：廠商 → 機型 → 平均已使用年限（依回廠量由大到小排序，null（無報廢資訊）不列入）
+    const buildAgeData = (d, vendors) => {
+      const out = {};
+      vendors.forEach((v) => {
+        const agg = aggByType(d, { 廠商: [v] });
+        const models = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量);
+        const list = models.filter((g) => g.subtotal.已使用年限 != null).map((g) => ({ m: g.key, y: g.subtotal.已使用年限 }));
+        if (list.length) out[v] = list;
+      });
+      return out;
+    };
+    const carAgeData = buildAgeData(car, allCarVendors);
+    const lensAgeData = buildAgeData(lens, allLensVendors);
+    const ageSlotDefault = (ageData, vendors) => {
+      for (const v of vendors) { if (ageData[v] && ageData[v].length) return { v, m: ageData[v][0].m }; }
+      return null;
+    };
+    const carAgeDefaults = [ageSlotDefault(carAgeData, [CAR_SPOTLIGHT_VENDORS_DEFAULT[0]]), ageSlotDefault(carAgeData, [CAR_SPOTLIGHT_VENDORS_DEFAULT[1]])];
+    const lensAgeDefaults = [ageSlotDefault(lensAgeData, [LENS_SPOTLIGHT_VENDORS_DEFAULT[0]]), ageSlotDefault(lensAgeData, [LENS_SPOTLIGHT_VENDORS_DEFAULT[1]])];
+    const ageSlotHTML = (device, idx, vendors, def) => `<div class="age-slot">
+      <select class="age-vendor" data-idx="${idx}" data-device="${device}">
+        <option value="">－ 不比較 －</option>
+        ${vendors.map((v) => `<option value="${esc(v)}" ${def && def.v === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+      </select>
+      <select class="age-model" data-idx="${idx}" data-device="${device}"><option value="">（先選廠商）</option></select>
+    </div>`;
+
     const pickerHTML = (device, vendors, defaults) => vendors.map((v) =>
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
     ).join('');
@@ -762,13 +789,25 @@ App.report = (() => {
         <div class="g2-eq">
           <div>
             <div class="sech">車機</div>
+            <details class="lowkey-toggle">
+              <summary>${App.icons.chart()} 顯示不良率／過保率／再使用率比較</summary>
+              <div class="lowkey-toggle-body">
+                <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+                <div class="twrap" style="margin-top:14px"><table class="agg">
+                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                  <tbody id="vendor-summary-car"></tbody>
+                </table></div>
+              </div>
+            </details>
             <div class="card">
-              <div class="chead"><div class="ct">廠商品質比較（車機）</div></div>
-              <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
-              <div class="twrap" style="margin-top:14px"><table class="agg">
-                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                <tbody id="vendor-summary-car"></tbody>
-              </table></div>
+              <div class="chead"><div class="ct">已使用年限比較（車機）</div><div class="cs">各自選擇廠商＋機型，比較平均已使用年限</div></div>
+              <div class="age-slots">
+                ${ageSlotHTML('car', 0, allCarVendors, carAgeDefaults[0])}
+                ${ageSlotHTML('car', 1, allCarVendors, carAgeDefaults[1])}
+                ${ageSlotHTML('car', 2, allCarVendors, null)}
+                ${ageSlotHTML('car', 3, allCarVendors, null)}
+              </div>
+              <div class="chartbox"><canvas id="age-chart-car"></canvas></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle">
@@ -781,13 +820,25 @@ App.report = (() => {
           </div>
           <div>
             <div class="sech">鏡頭</div>
+            <details class="lowkey-toggle">
+              <summary>${App.icons.chart()} 顯示不良率／過保率／再使用率比較</summary>
+              <div class="lowkey-toggle-body">
+                <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+                <div class="twrap" style="margin-top:14px"><table class="agg">
+                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                  <tbody id="vendor-summary-lens"></tbody>
+                </table></div>
+              </div>
+            </details>
             <div class="card">
-              <div class="chead"><div class="ct">廠商品質比較（鏡頭）</div></div>
-              <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
-              <div class="twrap" style="margin-top:14px"><table class="agg">
-                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                <tbody id="vendor-summary-lens"></tbody>
-              </table></div>
+              <div class="chead"><div class="ct">已使用年限比較（鏡頭）</div><div class="cs">各自選擇廠商＋機型，比較平均已使用年限</div></div>
+              <div class="age-slots">
+                ${ageSlotHTML('lens', 0, allLensVendors, lensAgeDefaults[0])}
+                ${ageSlotHTML('lens', 1, allLensVendors, lensAgeDefaults[1])}
+                ${ageSlotHTML('lens', 2, allLensVendors, null)}
+                ${ageSlotHTML('lens', 3, allLensVendors, null)}
+              </div>
+              <div class="chartbox"><canvas id="age-chart-lens"></canvas></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle">
@@ -823,7 +874,48 @@ App.report = (() => {
         document.querySelectorAll('.vp-car').forEach(function(cb){cb.addEventListener('change',function(){window.__renderVendorSection('car');});});
         document.querySelectorAll('.vp-lens').forEach(function(cb){cb.addEventListener('change',function(){window.__renderVendorSection('lens');});});
         window.__renderVendorSection('car');
-        window.__renderVendorSection('lens');`,
+        window.__renderVendorSection('lens');
+
+        window.__ageAllData={car:${JSON.stringify(carAgeData)},lens:${JSON.stringify(lensAgeData)}};
+        window.__ageDefaults={car:${JSON.stringify(carAgeDefaults)},lens:${JSON.stringify(lensAgeDefaults)}};
+        window.__renderAgeModelOptions=function(device,idx,selectedModel){
+          var vSel=document.querySelector('.age-vendor[data-device="'+device+'"][data-idx="'+idx+'"]');
+          var mSel=document.querySelector('.age-model[data-device="'+device+'"][data-idx="'+idx+'"]');
+          var vendor=vSel.value;
+          var list=vendor?(window.__ageAllData[device][vendor]||[]):[];
+          mSel.innerHTML=list.length?list.map(function(r){return '<option value="'+r.m+'"'+(r.m===selectedModel?' selected':'')+'>'+r.m+'（'+r.y+' 年）</option>';}).join(''):'<option value="">（先選廠商）</option>';
+        };
+        window.__renderAgeChart=function(device){
+          var canvas=document.getElementById('age-chart-'+device);
+          var existing=Chart.getChart(canvas); if(existing)existing.destroy();
+          var labels=[],data=[],colors=[];
+          [0,1,2,3].forEach(function(idx,i){
+            var vSel=document.querySelector('.age-vendor[data-device="'+device+'"][data-idx="'+idx+'"]');
+            var mSel=document.querySelector('.age-model[data-device="'+device+'"][data-idx="'+idx+'"]');
+            if(!vSel.value||!mSel.value)return;
+            var rec=(window.__ageAllData[device][vSel.value]||[]).find(function(r){return r.m===mSel.value;});
+            if(!rec)return;
+            labels.push(vSel.value+'・'+mSel.value); data.push(rec.y); colors.push(PAL[i%PAL.length]);
+          });
+          new Chart(canvas,{type:'bar',data:{labels:labels,datasets:[{label:'已使用年限（年）',data:data,backgroundColor:colors}]},
+            options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+' 年';}}}}}});
+        };
+        ['car','lens'].forEach(function(device){
+          var defs=window.__ageDefaults[device];
+          [0,1,2,3].forEach(function(idx){
+            window.__renderAgeModelOptions(device,idx,defs[idx]?defs[idx].m:null);
+          });
+          document.querySelectorAll('.age-vendor[data-device="'+device+'"]').forEach(function(sel){
+            sel.addEventListener('change',function(){
+              window.__renderAgeModelOptions(device,this.dataset.idx,null);
+              window.__renderAgeChart(device);
+            });
+          });
+          document.querySelectorAll('.age-model[data-device="'+device+'"]').forEach(function(sel){
+            sel.addEventListener('change',function(){ window.__renderAgeChart(device); });
+          });
+          window.__renderAgeChart(device);
+        });`,
     };
   }
 
@@ -950,6 +1042,9 @@ table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle-body{margin-top:10px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:8px}
 .lowkey-toggle-desc{font-size:12px;color:var(--muted);margin:0 0 10px}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
+.age-slots{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px}
+.age-slot{display:flex;gap:6px;align-items:center}
+.age-slot select{border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12.5px;max-width:180px}
 .vp-item{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;user-select:none}
 .vp-item input{cursor:pointer}
 .pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:700}
