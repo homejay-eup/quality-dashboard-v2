@@ -425,9 +425,9 @@ App.report = (() => {
           ${carQoYSec.html}
           ${lensQoYSec.html}
         </div>
-        <button type="button" class="lowkey-btn" id="qoy-reuse-toggle">${App.icons.chart()} 顯示再使用率（月度同期比較）</button>
-        <details class="lowkey-toggle">
-          <summary>${App.icons.chart()} 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</summary>
+        <button type="button" class="lowkey-btn icon-collapse" id="qoy-reuse-toggle" title="顯示再使用率（月度同期比較）">${App.icons.chart()}<span class="lowkey-toggle-text">顯示再使用率（月度同期比較）</span></button>
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）">${App.icons.chart()}<span class="lowkey-toggle-text">顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</span></summary>
           <div class="lowkey-toggle-body">
             <div class="g2-eq">
               ${carTrendSec.html}
@@ -448,6 +448,7 @@ App.report = (() => {
           var btn=document.getElementById('qoy-reuse-toggle');
           if(!btn)return;
           var on=false;
+          var textEl=btn.querySelector('.lowkey-toggle-text');
           btn.addEventListener('click',function(){
             on=!on;
             document.querySelectorAll('.qoy-reuse-panel').forEach(function(el){
@@ -455,7 +456,9 @@ App.report = (() => {
               if(on){ var c=Chart.getChart(el.querySelector('canvas')); if(c)c.resize(); }
             });
             document.querySelectorAll('.qoy-reuse-title-suffix').forEach(function(el){ el.style.display=on?'inline':'none'; });
-            btn.innerHTML=(on?'${App.icons.chart()} 隱藏再使用率（月度同期比較）':'${App.icons.chart()} 顯示再使用率（月度同期比較）');
+            btn.classList.toggle('is-on',on);
+            var label=on?'隱藏再使用率（月度同期比較）':'顯示再使用率（月度同期比較）';
+            textEl.textContent=label; btn.title=label;
           });
         })();`,
     };
@@ -804,16 +807,6 @@ App.report = (() => {
         <div class="g2-eq">
           <div>
             <div class="sech">車機</div>
-            <details class="lowkey-toggle">
-              <summary>${App.icons.chart()} 顯示不良率／過保率／再使用率比較</summary>
-              <div class="lowkey-toggle-body">
-                <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
-                <div class="twrap" style="margin-top:14px"><table class="agg">
-                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                  <tbody id="vendor-summary-car"></tbody>
-                </table></div>
-              </div>
-            </details>
             <div class="card">
               <div class="chead"><div class="ct">已使用年限比較（車機）</div><div class="cs">各自選擇廠商＋機型，比較平均已使用年限</div></div>
               <div class="age-slots">
@@ -825,6 +818,16 @@ App.report = (() => {
               <div class="chartbox"><canvas id="age-chart-car"></canvas></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
+            <details class="lowkey-toggle icon-collapse">
+              <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
+              <div class="lowkey-toggle-body">
+                <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+                <div class="twrap" style="margin-top:14px"><table class="agg">
+                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                  <tbody id="vendor-summary-car"></tbody>
+                </table></div>
+              </div>
+            </details>
             <details class="lowkey-toggle">
               <summary>${App.icons.filter()} 比較廠商</summary>
               <div class="lowkey-toggle-body">
@@ -835,16 +838,6 @@ App.report = (() => {
           </div>
           <div>
             <div class="sech">鏡頭</div>
-            <details class="lowkey-toggle">
-              <summary>${App.icons.chart()} 顯示不良率／過保率／再使用率比較</summary>
-              <div class="lowkey-toggle-body">
-                <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
-                <div class="twrap" style="margin-top:14px"><table class="agg">
-                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                  <tbody id="vendor-summary-lens"></tbody>
-                </table></div>
-              </div>
-            </details>
             <div class="card">
               <div class="chead"><div class="ct">已使用年限比較（鏡頭）</div><div class="cs">各自選擇廠商＋機型，比較平均已使用年限</div></div>
               <div class="age-slots">
@@ -856,6 +849,16 @@ App.report = (() => {
               <div class="chartbox"><canvas id="age-chart-lens"></canvas></div>
             </div>
             ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
+            <details class="lowkey-toggle icon-collapse">
+              <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
+              <div class="lowkey-toggle-body">
+                <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+                <div class="twrap" style="margin-top:14px"><table class="agg">
+                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                  <tbody id="vendor-summary-lens"></tbody>
+                </table></div>
+              </div>
+            </details>
             <details class="lowkey-toggle">
               <summary>${App.icons.filter()} 比較廠商</summary>
               <div class="lowkey-toggle-body">
@@ -1058,6 +1061,9 @@ table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle-desc{font-size:12px;color:var(--muted);margin:0 0 10px}
 .lowkey-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;background:none;border:none;padding:0;margin:8px 2px 0;font-family:inherit}
 .lowkey-btn:hover{color:var(--teal-d)}
+.icon-collapse .lowkey-toggle-text{display:none}
+details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
+.lowkey-btn.icon-collapse.is-on .lowkey-toggle-text{display:inline}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
 .age-slots{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px}
 .age-slot{display:flex;gap:6px;align-items:center}
