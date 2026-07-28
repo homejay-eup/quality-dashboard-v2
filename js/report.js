@@ -1438,15 +1438,15 @@ App.report = (() => {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--teal:#009688;--teal-d:#00695C;--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F;
---gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:#009688;--bar-imaging:#5c6bc0;--marker:#8b95a8}
+--gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:#1E88E5;--bar-imaging:#9AA0A6;--marker:#5c6470}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-weight:700;font-size:16px}
 .icon{vertical-align:-0.15em;flex-shrink:0}
 .topbar{position:sticky;top:0;z-index:20;background:var(--teal-d);color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .topbar-inner{max-width:1520px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.brand .t{font-size:20.5px;font-weight:800;white-space:nowrap}
-.brand .s{font-size:15.5px;opacity:.85;white-space:nowrap}
+.brand .t{font-size:25px;font-weight:800;white-space:nowrap}
+.brand .s{font-size:19px;font-weight:700;opacity:.9;white-space:nowrap}
 .tabs{display:flex;flex-wrap:wrap;gap:8px}
 .tab-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:17.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s}
 .tab-btn:hover{background:rgba(255,255,255,.24)}
