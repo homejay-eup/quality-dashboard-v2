@@ -189,32 +189,6 @@ App.report = (() => {
   // ════════════════════════════════════════════════════════════
   const rDiff = (v) => (v > 0 ? `+${rInt(v)}` : rInt(v));
 
-  // 回廠結果五桶（過保／不良／人為／仍在線＝良品／其他(未過)）＋佔回廠量／佔總上線量
-  function bucketRows(kpi) {
-    return [
-      { label: '過保',          cls: 'warn', count: kpi.過保數,     period: kpi.期間過保率,     overall: kpi.整體過保率 },
-      { label: '不良',          cls: 'bad',  count: kpi.不良品數,   period: kpi.期間不良率,     overall: kpi.整體不良率 },
-      { label: '人為',          cls: '',     count: kpi.人為數,     period: kpi.期間人為率,     overall: kpi.整體人為率 },
-      { label: '仍在線（良品）', cls: 'good', count: kpi.良品數,     period: kpi.再使用率,       overall: kpi.整體再使用率 },
-      { label: '其他(未過)',    cls: '',     count: kpi.其他未過數, period: kpi.期間其他未過率, overall: kpi.整體其他未過率 },
-    ];
-  }
-
-  function bucketBreakdownHTML(deviceKey, kpi, cmpKpi) {
-    const rows = bucketRows(kpi);
-    const cmpRows = cmpKpi ? bucketRows(cmpKpi) : null;
-    const trs = rows.map((r, i) => {
-      const cmpCell = cmpRows ? `<td class="num">${rDiff(r.count - cmpRows[i].count)}</td>` : '';
-      return `<tr><td class="l"><span class="pill ${r.cls}">${esc(r.label)}</span></td><td class="num">${rInt(r.count)}</td><td class="num">${rPct(r.period)}</td><td class="num">${rPct(r.overall)}</td>${cmpCell}</tr>`;
-    }).join('');
-    return `<div class="card">
-      <div class="chead"><div class="ct">${esc(deviceKey)}回廠結果分類</div><div class="cs">佔回廠量／佔總上線量${cmpKpi ? '　｜　含同期差異' : ''}</div></div>
-      <div class="twrap"><table class="agg">
-        <thead><tr><th class="l">分類</th><th class="num">數量</th><th class="num">佔回廠量</th><th class="num">佔總上線量</th>${cmpKpi ? '<th class="num">同期差異</th>' : ''}</tr></thead>
-        <tbody>${trs}</tbody>
-      </table></div>
-    </div>`;
-  }
 
   // 過保／不良品依機型排名表：前三名加名次徽章＋特殊底色
   const RANK_BADGE = ['🥇', '🥈', '🥉'];
@@ -286,15 +260,17 @@ App.report = (() => {
       </div>
       <div class="card">
         <div class="chead"><div class="ct">${esc(deviceKey)}過保／不良品依機型占比</div><div class="cs">當季，各自依數量由大到小排序，前三名特別標示</div></div>
-        <div class="rlayout3">
-          <div class="legendgrid">${scrGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
-          <div class="chartbox pie"><canvas id="${scrChartId}"></canvas></div>
-          ${rankTableHTML(scrGroups, '過保數')}
-        </div>
-        <div class="rlayout3" style="margin-top:20px">
-          <div class="legendgrid">${badGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
-          <div class="chartbox pie"><canvas id="${badChartId}"></canvas></div>
-          ${rankTableHTML(badGroups, '不良品數')}
+        <div class="g2-eq">
+          <div class="rlayout3">
+            <div class="legendgrid">${scrGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
+            <div class="chartbox pie"><canvas id="${scrChartId}"></canvas></div>
+            ${rankTableHTML(scrGroups, '過保數')}
+          </div>
+          <div class="rlayout3">
+            <div class="legendgrid">${badGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
+            <div class="chartbox pie"><canvas id="${badChartId}"></canvas></div>
+            ${rankTableHTML(badGroups, '不良品數')}
+          </div>
         </div>
       </div>`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
@@ -415,11 +391,6 @@ App.report = (() => {
         </div>
         ${carSec.html}
         ${lensSec.html}
-        <div class="sech">回廠結果分類佔比（過保／不良／人為／仍在線／其他未過）</div>
-        <div class="g2">
-          ${bucketBreakdownHTML('車機', car.kpi, ctx.hasCmp ? car.cmpKpi : null)}
-          ${bucketBreakdownHTML('鏡頭', lens.kpi, ctx.hasCmp ? lens.cmpKpi : null)}
-        </div>
         <div class="chart-toggle-row">
           <label class="chart-toggle-label"><input type="checkbox" id="toggle-ov-trend"> 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</label>
         </div>
