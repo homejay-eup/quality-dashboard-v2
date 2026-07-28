@@ -288,6 +288,40 @@ App.report = (() => {
     </div></div>`;
   }
 
+  // 單一設備類型（車機／鏡頭）「回廠量分析」＋「過保／不良品」的分析與說明：
+  // 整體不良率／過保率、不良品與過保占比前三名機型、平均已使用年限 vs 預期使用年限，最後一句總結。
+  function deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups) {
+    const bullets = [];
+    bullets.push(`本期${deviceKey}回廠 ${rInt(gt.回廠量)} 台，其中不良品 ${rInt(gt.不良品數)} 台、過保 ${rInt(gt.過保數)} 台；以總上線量 ${rInt(gt.上線量)} 台為基準，整體不良率 ${rPct(gt.整體不良率)}、整體過保率 ${rPct(gt.整體過保率)}。`);
+
+    const totalBad = badGroups.reduce((s, g) => s + g.subtotal.不良品數, 0);
+    const totalWarr = scrGroups.reduce((s, g) => s + g.subtotal.過保數, 0);
+    const badTop3 = badGroups.slice(0, 3).map((g) => `${g.key}（${rPct(totalBad ? g.subtotal.不良品數 / totalBad : 0)}）`);
+    const warrTop3 = scrGroups.slice(0, 3).map((g) => `${g.key}（${rPct(totalWarr ? g.subtotal.過保數 / totalWarr : 0)}）`);
+    if (badTop3.length) bullets.push(`不良品以 ${badTop3.join('、')} 為主。`);
+    if (warrTop3.length) bullets.push(`過保以 ${warrTop3.join('、')} 為主。`);
+
+    const baseline = EXPECTED_LIFE_YEARS[deviceKey];
+    if (gt.已使用年限 != null && baseline != null) {
+      const diff = gt.已使用年限 - baseline;
+      const verdict = diff > 0
+        ? `已超出預期使用年限 ${diff.toFixed(1)} 年，屬於延壽使用，划算。`
+        : diff < 0
+          ? `尚未達預期使用年限，理論上還有 ${Math.abs(diff).toFixed(1)} 年可用。`
+          : '恰好達預期使用年限。';
+      bullets.push(`${deviceKey}（有報廢資訊的設備）平均已使用 ${gt.已使用年限.toFixed(1)} 年，預期使用年限 ${baseline} 年，${verdict}`);
+    }
+
+    const badLeader = badTop3[0] ? badTop3[0].split('（')[0] : null;
+    const warrLeader = warrTop3[0] ? warrTop3[0].split('（')[0] : null;
+    const summaryParts = [`${deviceKey}整體品質狀況：不良率 ${rPct(gt.整體不良率)}、過保率 ${rPct(gt.整體過保率)}`];
+    if (badLeader) summaryParts.push(`不良品集中在 ${badLeader}`);
+    if (warrLeader) summaryParts.push(`過保集中在 ${warrLeader}`);
+    bullets.push(`總結：${summaryParts.join('，')}，建議優先關注上述機型的品質與後續汰換規劃。`);
+
+    return bullets;
+  }
+
   function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId) {
     const agg = aggByType(d, selection);
     agg.groups = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量); // 比照 draft：依回廠量由大到小
@@ -320,7 +354,7 @@ App.report = (() => {
           <div class="toggle-group">
             <label class="uncat-toggle" title="顯示良品/不良品/過保比率"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-rate',this.checked)"><span class="uncat-icon">%</span></label>
             <label class="uncat-toggle" title="顯示未歸類數"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-uncat',this.checked)"><span class="uncat-icon">▦</span></label>
-            <label class="uncat-toggle uc-merge-toggle" title="未歸類數併入不良品數"><input type="checkbox" class="uc-merge-checkbox"><span class="uncat-icon">⊕</span></label>
+            <label class="uncat-toggle uc-merge-toggle" title="未歸類數併入不良品數"><input type="checkbox" class="uc-merge-checkbox" checked><span class="uncat-icon">⊕</span></label>
           </div>
         </div></div>
         <div class="rlayout3">
@@ -356,6 +390,7 @@ App.report = (() => {
             ${rankTableHTML(badGroups, '不良品數', `${badChartId}-rank`)}
           </div>
         </div>
+        ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}
       </div>`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
         data:{labels:${JSON.stringify(donutLabels)},datasets:[{data:${JSON.stringify(donutData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
@@ -1222,24 +1257,26 @@ App.report = (() => {
     const totalDiff = total115 - total114;
     const totalGrowth = total114 ? totalDiff / total114 : 0;
     const best = [...rows].sort((a, b) => b.growth - a.growth)[0];
-    const worst = [...rows].sort((a, b) => a.growth - b.growth)[0];
 
     const tableRows = rows.map((r) => `<tr><td class="l">${esc(r.label)}</td>
         <td class="num">${rInt(r.y114)}</td><td class="num">${rInt(r.y115)}</td>
         <td class="num">${rDiff(r.diff)}</td>
         <td class="num"><span class="pill ${kpiGrowthPillCls(r.growth)}">${kpiGrowthLabel(r.growth)}</span></td></tr>`).join('');
 
-    // 配件類衰退細項（使用者提供的品號級明細，非彙總常數可推得，故獨立列出；
-    // 僅在「整新品循環/配件」確實是本期最大衰退分類時帶出，避免跟彙總數字對不上）
-    const ACCESSORY_DECLINE_DETAIL = worst.label === '整新品循環/配件'
-      ? `「${esc(worst.label)}」衰退主因為單一品號掛零：Mobileye ADAS(AM)（-162,000 元，衰退最大單項）、DMS控制盒(CM)（-124,000 元）、Smart Box（-111,500 元），加上 HS毫米波、FUHO 4G GPS天線等114年有量、115年掛零的品項；同期 CR-鏡頭(整新) 新增 215,280 元，部分抵銷跌幅。`
-      : `唯一明顯衰退的是「${esc(worst.label)}」，變化 ${kpiGrowthLabel(worst.growth)}（${rDiff(worst.diff)} 元），建議檢視回收管道或市場需求是否改變，避免長期侵蝕整體效益。`;
+    const [mainUnit, accessory, qc, exportQc] = rows;
+    const stableTotal = accessory.y115 + qc.y115;
+
+    // 配件類金額差異補充說明（獨立於 AI 建議說明，放在明細表旁的說明欄；
+    // 僅在配件115年金額低於114年時顯示，避免跟未來資料對不上）
+    const ACCESSORY_NOTE = accessory.diff < 0
+      ? `「${esc(accessory.label)}」114年同期金額較高，主要因當年度執行 Mobileye ADAS(AM)、DMS控制盒(CM) 等大型整新專案；115年無同等規模之一次性整新案，故整體金額相對降低。`
+      : '';
 
     const bullets = [
-      `114年1–6月分類總計 ${rInt(total114)} 元，115年同期成長至 ${rInt(total115)} 元，成長 ${kpiGrowthLabel(totalGrowth)}（${rDiff(totalDiff)} 元），整體回收整新價值呈上升趨勢。`,
-      `成長最多的是「${esc(best.label)}」，成長 ${kpiGrowthLabel(best.growth)}（${rDiff(best.diff)} 元），是本期成長的主要動能，建議確認是否為特定機型回收量增加或整新單位價值提升所致，並留意整新品質是否穩定。`,
-      worst.growth < 0 ? ACCESSORY_DECLINE_DETAIL : `四個分類皆為正成長，其中「${esc(worst.label)}」成長幅度最小（${kpiGrowthLabel(worst.growth)}），可列為後續觀察項目。`,
-      `主機端的成長已抵銷配件／QC端的波動，帶動總體淨成長 ${kpiGrowthLabel(totalGrowth)}；後續建議針對衰退分類進行根因分析，並持續追蹤成長分類是否可延續。`,
+      `115年1–6月整新循環總價值達 ${rInt(total115)} 元，較114年同期增加 ${rDiff(totalDiff)} 元（${kpiGrowthLabel(totalGrowth)}），相當於再為公司省下同等金額的外部採購／維修支出。`,
+      `主機整新是最具優勢的一環：115年整新價值 ${rInt(mainUnit.y115)} 元，較114年成長 ${rDiff(mainUnit.diff)} 元（${kpiGrowthLabel(mainUnit.growth)}），是本期效益提升的主要動能。`,
+      `出口QC同步成長 ${kpiGrowthLabel(exportQc.growth)}（${rDiff(exportQc.diff)} 元）；配件與內部QC合計仍創造 ${rInt(stableTotal)} 元的115年整新價值，持續支撐整新循環的穩定基礎。`,
+      `整體而言，115年整新循環為公司帶來逾 ${rInt(total115)} 元的成本節省效益；建議將主機端的整新流程優勢複製到其他分類，進一步擴大整體節省規模。`,
     ];
 
     return {
@@ -1255,14 +1292,20 @@ App.report = (() => {
           <div class="chead"><div class="ct">分類金額對比（114 vs 115，1–6月）</div><div class="cs">單位：元</div></div>
           <div class="chartbox"><canvas id="kpi-c1"></canvas></div>
         </div>
-        <div class="card">
-          <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元</div></div>
-          <div class="twrap"><table class="agg">
-            <thead><tr><th class="l">分類</th><th class="num">114年1-6月</th><th class="num">115年1-6月</th><th class="num">差異(115-114)</th><th class="num">成長率</th></tr></thead>
-            <tbody>${tableRows}
-              <tr class="grand"><td class="l">總計</td><td class="num">${rInt(total114)}</td><td class="num">${rInt(total115)}</td><td class="num">${rDiff(totalDiff)}</td><td class="num">${kpiGrowthLabel(totalGrowth)}</td></tr>
-            </tbody>
-          </table></div>
+        <div class="g2">
+          <div class="card">
+            <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元</div></div>
+            <div class="twrap"><table class="agg">
+              <thead><tr><th class="l">分類</th><th class="num">114年1-6月</th><th class="num">115年1-6月</th><th class="num">差異(115-114)</th><th class="num">成長率</th></tr></thead>
+              <tbody>${tableRows}
+                <tr class="grand"><td class="l">總計</td><td class="num">${rInt(total114)}</td><td class="num">${rInt(total115)}</td><td class="num">${rDiff(totalDiff)}</td><td class="num">${kpiGrowthLabel(totalGrowth)}</td></tr>
+              </tbody>
+            </table></div>
+          </div>
+          ${ACCESSORY_NOTE ? `<div class="card">
+            <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
+            <p>${esc(ACCESSORY_NOTE)}</p>
+          </div>` : ''}
         </div>
         <div class="callout good"><p class="big-quote">AI 建議說明</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
       </section>`,
@@ -1324,42 +1367,42 @@ App.report = (() => {
 :root{--teal:#009688;--teal-d:#00695C;--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F;
 --gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:#009688;--bar-imaging:#5c6bc0;--marker:#8b95a8}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-weight:700}
+body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-weight:700;font-size:16px}
 .icon{vertical-align:-0.15em;flex-shrink:0}
 .topbar{position:sticky;top:0;z-index:20;background:var(--teal-d);color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .topbar-inner{max-width:1520px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.brand .t{font-size:17px;font-weight:800;white-space:nowrap}
-.brand .s{font-size:13px;opacity:.85;white-space:nowrap}
+.brand .t{font-size:20.5px;font-weight:800;white-space:nowrap}
+.brand .s{font-size:15.5px;opacity:.85;white-space:nowrap}
 .tabs{display:flex;flex-wrap:wrap;gap:8px}
-.tab-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s}
+.tab-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:17.5px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s}
 .tab-btn:hover{background:rgba(255,255,255,.24)}
 .tab-btn.on{background:#fff;color:var(--teal-d);box-shadow:0 2px 6px rgba(0,0,0,.18)}
 .main{max-width:1520px;margin:0 auto;padding:24px 24px 80px;min-width:0}
 .page{display:none}.page.on{display:block}
 .ph{border-bottom:2px solid var(--line);padding-bottom:12px;margin-bottom:20px;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px}
-.ph-l{font-size:22px;font-weight:800;color:var(--teal-d)}
-.ph-s{font-size:14.5px;color:var(--muted);margin-left:10px;font-weight:700}
-.sech{font-size:15.5px;font-weight:800;color:var(--teal-d);margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+.ph-l{font-size:26.5px;font-weight:800;color:var(--teal-d)}
+.ph-s{font-size:17.5px;color:var(--muted);margin-left:10px;font-weight:700}
+.sech{font-size:18.5px;font-weight:800;color:var(--teal-d);margin:26px 0 12px;display:flex;align-items:center;gap:8px}
 .sech::before{content:'';width:4px;height:15px;border-radius:3px;background:var(--teal);display:inline-block}
 .sech:first-child{margin-top:0}
-.sech-lg{font-size:19.5px}
+.sech-lg{font-size:23.5px}
 .sech-lg::before{height:18px}
 .krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px 17px;border-top:3px solid var(--teal);box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.kcard .l{font-size:14px;color:var(--muted)}
-.kcard .v{font-size:28px;font-weight:800;margin-top:2px}
-.kcard .d{font-size:14px;font-weight:700;margin-top:5px}
-.kcard .p{font-size:13px;color:var(--muted)}
+.kcard .l{font-size:17px;color:var(--muted)}
+.kcard .v{font-size:33.5px;font-weight:800;margin-top:2px}
+.kcard .d{font-size:17px;font-weight:700;margin-top:5px}
+.kcard .p{font-size:15.5px;color:var(--muted)}
 .kcard.good{border-top-color:var(--good)}
 .d-good{color:var(--good)}.d-bad{color:var(--bad)}.d-flat{color:var(--muted)}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .chead{margin-bottom:12px}
-.ct{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ct{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
 .ct::before{content:'';width:4px;height:15px;border-radius:3px;background:var(--teal);display:inline-block;flex-shrink:0}
-.cs{font-size:13.5px;color:var(--muted);margin-top:2px;margin-left:12px}
-.trend-device{font-size:16px;font-weight:800;color:var(--ink)}
-.mini-title{font-size:14px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:6px}
+.cs{font-size:16px;color:var(--muted);margin-top:2px;margin-left:12px}
+.trend-device{font-size:19px;font-weight:800;color:var(--ink)}
+.mini-title{font-size:17px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:6px}
 .g2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;min-width:0}
 .g2>*{min-width:0}
 .g2-eq{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
@@ -1373,7 +1416,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .chartbox.pie{height:260px}
 .twrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .scroll{overflow:auto;max-height:420px}
-table.agg{border-collapse:collapse;width:100%;font-size:14.5px}
+table.agg{border-collapse:collapse;width:100%;font-size:17.5px}
 table.agg th{background:var(--teal);color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;position:sticky;top:0}
 table.agg th.num,table.agg td.num{text-align:right}
 table.agg td.l{text-align:left}
@@ -1382,16 +1425,16 @@ tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 .vendorgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .vcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .vcard .vh{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #eef2f7;padding-bottom:8px;margin-bottom:10px}
-.vcard .vh .nm{font-size:16px;font-weight:800;color:var(--ink)}
-.vrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #eee;font-size:14.5px}
+.vcard .vh .nm{font-size:19px;font-weight:800;color:var(--ink)}
+.vrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #eee;font-size:17.5px}
 .vrow:last-child{border-bottom:none}
 .vrow .k{color:var(--muted)}.vrow .v{font-weight:700}
 .donutbox{position:relative;height:220px}
 .legendgrid{display:flex;flex-direction:column;gap:5px;margin-top:10px;padding:0 4px}
-.legendgrid .litem{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink);white-space:nowrap}
+.legendgrid .litem{display:flex;align-items:center;gap:7px;font-size:16px;color:var(--ink);white-space:nowrap}
 .legendgrid .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
-.donutlegend{margin-top:6px;font-size:13.5px;color:var(--muted);text-align:center}
-table.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.donutlegend{margin-top:6px;font-size:16px;color:var(--muted);text-align:center}
+table.rtable{width:100%;border-collapse:collapse;font-size:17px}
 table.rtable thead{position:sticky;top:0;z-index:2}
 table.rtable th{background:#f4f4f5;color:#333;padding:7px 8px;text-align:center;border:1px solid var(--line);font-weight:700}
 table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
@@ -1409,35 +1452,34 @@ table.rtable .colRate{display:none}
 .toggle-group{display:flex;align-items:center;gap:6px}
 .uncat-toggle{position:relative;cursor:pointer;user-select:none;display:inline-flex}
 .uncat-toggle input{position:absolute;opacity:0;width:16px;height:16px;margin:0;cursor:pointer}
-.uncat-toggle .uncat-icon{font-size:15px;color:#c7cbd1;line-height:1;padding:2px;border-radius:4px;transition:color .15s,background .15s}
+.uncat-toggle .uncat-icon{font-size:18px;color:#c7cbd1;line-height:1;padding:2px;border-radius:4px;transition:color .15s,background .15s}
 .uncat-toggle:hover .uncat-icon{color:var(--muted);background:#f0f2f4}
 .uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e6f4f2}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle{margin:10px 2px 0}
-.lowkey-toggle summary{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;user-select:none;list-style:none}
+.lowkey-toggle summary{display:flex;align-items:center;gap:6px;font-size:17px;color:var(--muted);cursor:pointer;user-select:none;list-style:none}
 .lowkey-toggle summary::-webkit-details-marker{display:none}
 .lowkey-toggle summary:hover{color:var(--teal-d)}
 .lowkey-toggle-body{margin-top:10px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:8px}
-.lowkey-toggle-desc{font-size:14px;color:var(--muted);margin:0 0 10px}
-.lowkey-btn{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;user-select:none;background:none;border:none;padding:0;margin:8px 2px 0;font-family:inherit}
+.lowkey-toggle-desc{font-size:17px;color:var(--muted);margin:0 0 10px}
+.lowkey-btn{display:inline-flex;align-items:center;gap:6px;font-size:17px;color:var(--muted);cursor:pointer;user-select:none;background:none;border:none;padding:0;margin:8px 2px 0;font-family:inherit}
 .lowkey-btn:hover{color:var(--teal-d)}
 .icon-collapse .lowkey-toggle-text{display:none}
 details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .lowkey-btn.icon-collapse.is-on .lowkey-toggle-text{display:inline}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
-
 /* 已使用年限比較：Top3 排行 */
 .vage-top3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .top3-item{border-radius:10px;padding:10px 12px;background:var(--gold-bg);border:1px solid var(--gold);display:flex;flex-direction:column;gap:4px}
-.top3-rank{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:800;color:var(--gold)}
-.top3-rank .num{width:18px;height:18px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:none}
-.top3-name{font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top3-vendor{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top3-years{font-size:14px;font-weight:800;color:var(--gold)}
+.top3-rank{display:inline-flex;align-items:center;gap:5px;font-size:15.5px;font-weight:800;color:var(--gold)}
+.top3-rank .num{width:18px;height:18px;border-radius:50%;background:var(--gold);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.top3-name{font-size:17px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top3-vendor{font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top3-years{font-size:17px;font-weight:800;color:var(--gold)}
 
 /* 已使用年限比較：去年同期圖例 */
-.vage-legend{display:flex;align-items:center;gap:16px;font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+.vage-legend{display:flex;align-items:center;gap:16px;font-size:15.5px;color:var(--muted);margin:2px 0 14px}
 .vage-legend .li{display:flex;align-items:center;gap:5px}
 .vage-legend .sw{width:16px;height:11px;border-radius:2px;background:linear-gradient(90deg,var(--bar-general),color-mix(in srgb,var(--bar-general) 75%,white))}
 .vage-legend .mk{width:2px;height:13px;background:var(--marker);position:relative}
@@ -1446,13 +1488,13 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 /* 已使用年限比較：分組橫條圖 */
 .grp{margin-bottom:16px}
 .grp:last-child{margin-bottom:0}
-.grp-label{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#fff;padding:2px 10px;border-radius:20px;margin-bottom:9px}
+.grp-label{display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:800;color:#fff;padding:2px 10px;border-radius:20px;margin-bottom:9px}
 .grp-label.general{background:var(--bar-general)}
 .grp-label.imaging{background:var(--bar-imaging)}
 .grp-label .cnt{opacity:.85;font-weight:700}
-.barrow{display:grid;grid-template-columns:160px 1fr 74px;align-items:center;gap:8px;margin-bottom:8px}
-.barrow .lbl{font-size:13px;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.barrow .lbl .vd{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.barrow{display:grid;grid-template-columns:170px 1fr 84px;align-items:center;gap:8px;margin-bottom:8px}
+.barrow .lbl{font-size:16px;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barrow .lbl .vd{display:block;font-size:14px;color:var(--muted);font-weight:600}
 .barrow .track{background:var(--bg);border-radius:5px;height:22px;position:relative;border:1px solid var(--line)}
 .barrow .fill{height:100%;border-radius:5px 0 0 5px;display:flex;align-items:center;position:relative;overflow:hidden}
 .barrow .fill.general{background:linear-gradient(90deg,var(--bar-general),color-mix(in srgb,var(--bar-general) 75%,white))}
@@ -1460,54 +1502,54 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .barrow .fill.rank{outline:2px solid var(--gold);outline-offset:-2px}
 .barrow .marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--marker);z-index:2}
 .barrow .marker::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--marker)}
-.barrow .yr{font-size:13px;font-weight:800;color:var(--ink);text-align:left;display:flex;flex-direction:column;line-height:1.25}
-.barrow .yr .delta{font-size:11px;font-weight:700}
+.barrow .yr{font-size:16px;font-weight:800;color:var(--ink);text-align:left;display:flex;flex-direction:column;line-height:1.25}
+.barrow .yr .delta{font-size:14px;font-weight:700}
 .barrow .delta.up{color:var(--good)}.barrow .delta.down{color:var(--bad)}.barrow .delta.flat{color:var(--muted)}
 .medal{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#fff;font-size:10px;font-weight:800;margin-right:4px;flex:none}
 
 /* 已使用年限比較：可排序機型明細表 */
 table.agg.vage-table th{cursor:pointer;user-select:none}
 table.agg.vage-table th .arrows{display:inline-flex;flex-direction:column;margin-left:3px;vertical-align:middle;line-height:.6}
-table.agg.vage-table th .arrows span{font-size:8px;color:rgba(255,255,255,.5)}
+table.agg.vage-table th .arrows span{font-size:9px;color:rgba(255,255,255,.5)}
 table.agg.vage-table th .arrows span.active{color:#fff;text-shadow:0 0 2px rgba(0,0,0,.4)}
-.catchip{font-size:11px;font-weight:800;color:#fff;padding:1px 8px;border-radius:20px}
+.catchip{font-size:14px;font-weight:800;color:#fff;padding:1px 8px;border-radius:20px}
 .catchip.general{background:var(--bar-general)}
 .catchip.imaging{background:var(--bar-imaging)}
-.vp-item{display:flex;align-items:center;gap:6px;font-size:14.5px;cursor:pointer;user-select:none}
+.vp-item{display:flex;align-items:center;gap:6px;font-size:17.5px;cursor:pointer;user-select:none}
 .vp-item input{cursor:pointer}
-.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:14px;font-weight:700}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:17px;font-weight:700}
 .pill.good{background:#e6f4ec;color:var(--good)}.pill.warn{background:#fdf1dd;color:#a86a00}.pill.bad{background:#fde7ea;color:var(--bad)}
-.cmp-note{font-size:13.5px;color:var(--muted);margin-top:8px}
+.cmp-note{font-size:16px;color:var(--muted);margin-top:8px}
 .cmp-wrap{border-radius:10px;overflow:hidden;border:1px solid var(--line);overflow-x:auto}
-table.cmp{width:100%;border-collapse:collapse;font-size:15px}
+table.cmp{width:100%;border-collapse:collapse;font-size:18px}
 table.cmp th{background:var(--teal-d);color:#fff;padding:10px 12px;text-align:center;font-weight:700;white-space:nowrap}
 table.cmp th:first-child{text-align:left}
 table.cmp td{padding:9px 12px;text-align:center;border-bottom:1px solid var(--line)}
 table.cmp td.l{text-align:left;color:var(--muted);font-weight:700;white-space:nowrap}
 table.cmp tbody tr:nth-child(even) td{background:#fafafa}
 table.cmp tr.hl td{background:#e6f4f2;font-weight:700}
-.cost-input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:14.5px}
+.cost-input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:17.5px}
 .flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0;padding:6px 0 4px}
-.flow-step{background:var(--teal);color:#fff;padding:12px 26px;border-radius:10px;font-weight:800;font-size:17px;box-shadow:0 2px 6px rgba(0,0,0,.15);white-space:nowrap}
-.flow-arrow{font-size:23px;color:var(--muted);padding:0 14px;font-weight:700}
+.flow-step{background:var(--teal);color:#fff;padding:12px 26px;border-radius:10px;font-weight:800;font-size:20.5px;box-shadow:0 2px 6px rgba(0,0,0,.15);white-space:nowrap}
+.flow-arrow{font-size:27.5px;color:var(--muted);padding:0 14px;font-weight:700}
 @media(max-width:640px){.flow-arrow{transform:rotate(90deg);padding:4px 0}}
-td.cond{text-align:left;font-size:14px;color:var(--ink)}
+td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .formula-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .formula-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.formula-card .fn{font-size:15px;font-weight:800;color:var(--teal-d);margin-bottom:8px;display:flex;align-items:center;gap:6px}
-.formula-card .fx{font-family:"DM Mono",Consolas,monospace;font-size:15.5px;background:#f7f9fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;text-align:center;line-height:1.7;color:var(--ink)}
-.formula-card .fd{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.7}
+.formula-card .fn{font-size:18px;font-weight:800;color:var(--teal-d);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.formula-card .fx{font-family:"DM Mono",Consolas,monospace;font-size:18.5px;background:#f7f9fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;text-align:center;line-height:1.7;color:var(--ink)}
+.formula-card .fd{font-size:16px;color:var(--muted);margin-top:8px;line-height:1.7}
 .callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 0 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .callout.bad{border-left-color:var(--bad);background:#fff8f9}
 .callout.warn{border-left-color:var(--warn);background:#fffcf5}
 .callout.good{border-left-color:var(--good);background:#f6fbf8}
-.callout ul{margin:8px 0 0 20px}.callout li{margin:5px 0;font-size:15.5px}
-.big-quote{font-size:17px;font-weight:700;color:var(--teal-d)}
-.note{font-size:14px;color:var(--muted);margin:4px 0 10px}
-.advice-edit{white-space:pre-wrap;font-size:15.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
+.callout ul{margin:8px 0 0 20px}.callout li{margin:5px 0;font-size:18.5px}
+.big-quote{font-size:20.5px;font-weight:700;color:var(--teal-d)}
+.note{font-size:17px;color:var(--muted);margin:4px 0 10px}
+.advice-edit{white-space:pre-wrap;font-size:18.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
 .save-bar{text-align:center;margin-top:10px}
-.save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:15.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
-.foot{color:var(--muted);font-size:14px;margin-top:14px;text-align:center}
+.save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
+.foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
 @media(max-width:900px){.topbar-inner{padding:10px 16px}.main{padding:16px}.g2,.g2-eq,.g3,.vendorgrid,.rlayout3{grid-template-columns:1fr}}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
@@ -1527,7 +1569,7 @@ ${pages.map((p) => p.html).join('\n')}
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
 const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
-window.__uncatMerged=false;
+window.__uncatMerged=true;
 window.addEventListener('load',function(){
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
@@ -1604,6 +1646,7 @@ window.addEventListener('load',function(){
       window.__ucApplyAll();
     });
   });
+  window.__ucApplyAll();
 });
 </script></body></html>`;
   }
