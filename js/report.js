@@ -184,7 +184,7 @@ App.report = (() => {
     return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${deltaHTML || ''}</div>`;
   }
 
-  // 可編輯的核心發現／建議區塊：文字放進 textarea，配合頁尾「另存編輯版」按鈕存回文字內容
+  // 可編輯的核心發現／建議區塊：文字放進 textarea，供瀏覽時直接調整/複製
   function adviceCalloutHTML(id, title, bullets, tone) {
     if (!bullets.length) return '';
     return `<div class="callout ${tone || 'good'}"><p class="big-quote">${esc(title)}</p><textarea class="advice-edit" id="${id}">${esc(bullets.join('\n'))}</textarea></div>`;
@@ -398,7 +398,6 @@ App.report = (() => {
             <div class="twrap" style="margin-top:14px"><table class="agg">
               <thead><tr><th class="l">項目</th><th class="l">${App.icons.car()} 車機</th><th class="l">${App.icons.camera()} 鏡頭</th></tr></thead>
               <tbody>
-                <tr><td class="l">產品類別</td><td class="l" colspan="2">車機、鏡頭</td></tr>
                 <tr><td class="l">維護原因</td><td class="l">訊號異常</td><td class="l">影像異常(鏡頭)</td></tr>
                 <tr><td class="l">故障原因</td><td class="l">AB點、失聯、定位異常、訊號異常</td><td class="l">黑畫面、進水/模糊、水波紋、時有時無</td></tr>
               </tbody>
@@ -764,10 +763,10 @@ App.report = (() => {
 
     return {
       html: `<section class="page" id="page-vendor">
-        <div class="ph"><div><span class="ph-l">${App.icons.factory()} 重點廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
+        <div class="ph"><div><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
         <div class="g2-eq">
           <div>
-            <div class="sech">車機重點廠商</div>
+            <div class="sech">車機</div>
             <div class="card">
               <div class="chead"><div class="ct">廠商品質比較（車機）</div></div>
               <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
@@ -778,7 +777,7 @@ App.report = (() => {
             </div>
             ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle">
-              <summary>${App.icons.filter()} 選擇要比較的廠商</summary>
+              <summary>${App.icons.filter()} 比較廠商</summary>
               <div class="lowkey-toggle-body">
                 <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
                 <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
@@ -786,7 +785,7 @@ App.report = (() => {
             </details>
           </div>
           <div>
-            <div class="sech">鏡頭重點廠商</div>
+            <div class="sech">鏡頭</div>
             <div class="card">
               <div class="chead"><div class="ct">廠商品質比較（鏡頭）</div></div>
               <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
@@ -797,7 +796,7 @@ App.report = (() => {
             </div>
             ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle">
-              <summary>${App.icons.filter()} 選擇要比較的廠商</summary>
+              <summary>${App.icons.filter()} 比較廠商</summary>
               <div class="lowkey-toggle-body">
                 <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
                 <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
@@ -833,53 +832,6 @@ App.report = (() => {
     };
   }
 
-  // ════════════════════════════════════════════════════════════
-  // 5. 資料來源與邏輯說明（規則性說明文字，沿用草稿內容；期間動態帶入）
-  // ════════════════════════════════════════════════════════════
-  function logicPageHTML(ctx) {
-    return {
-      html: `<section class="page" id="page-logic">
-        <div class="ph"><div><span class="ph-l">${App.icons.book()} 資料來源與邏輯說明</span><span class="ph-s">品質分析範圍與邏輯｜${esc(periodText(ctx.state))}</span></div></div>
-        <div class="sech">良品／不良品／過保 判斷（依現行分類規則）</div>
-        <div class="card"><div class="twrap"><table class="agg">
-          <thead><tr><th class="l">分類</th><th class="l">說明</th></tr></thead>
-          <tbody>
-            <tr><td class="l"><span class="pill good">良品</span></td><td class="cond">測試正常／回廠QC／其他(良品) — 可直接再使用</td></tr>
-            <tr><td class="l"><span class="pill bad">不良品</span></td><td class="cond">評估後退修／已完修／維修換貨＋換貨條碼 — 確認故障</td></tr>
-            <tr><td class="l"><span class="pill warn">過保</span></td><td class="cond">停產報廢／過保報廢／回廠報廢 — 過保或停產無法檢修</td></tr>
-            <tr><td class="l">人為</td><td class="cond">人為報廢</td></tr>
-          </tbody>
-        </table></div></div>
-        <div class="sech">各項比率（KPI）計算邏輯</div>
-        <div class="card"><div class="formula-grid">
-          <div class="formula-card"><div class="fn">${App.icons.refresh()} 再使用率 (%)</div><div class="fx">良品數 ÷ 回廠量</div><div class="fd">回廠設備中，可直接再使用（整新／測試正常）的比例。</div></div>
-          <div class="formula-card"><div class="fn">${App.icons.alertTriangle()} 不良率 (%)</div><div class="fx">不良品數 ÷ 回廠量</div><div class="fd">回廠設備中，確認故障需維修換貨的比例。</div></div>
-          <div class="formula-card"><div class="fn">${App.icons.box()} 過保率 (%)</div><div class="fx">過保數 ÷ 回廠量</div><div class="fd">回廠設備中，因過保／停產／報廢無法檢修的比例。</div></div>
-          <div class="formula-card"><div class="fn">${App.icons.chart()} 整體不良率／過保率</div><div class="fx">不良品數(或過保數) ÷ 總上線量</div><div class="fd">以在線設備總量為分母，反映對整體機隊的影響程度。</div></div>
-        </div></div>
-        <div class="sech">資料來源與已知限制</div>
-        <div class="card">
-          <div class="twrap"><table class="agg">
-            <thead><tr><th class="l">頁面</th><th class="l">資料來源</th></tr></thead>
-            <tbody>
-              <tr><td class="l">整體總覽／車機分析（KPI、機型、廠商）</td><td class="l">雲端 Google Sheet「設備品質分析_來源」，逐 ERP品號、依季彙整（App.metrics.aggregate）</td></tr>
-              <tr><td class="l">再使用</td><td class="l">再使用率＝上述彙整資料（真實）；節省金額試算為可編輯試算工具（時薪／運費／工時／整新單價／新購參考單價皆可手動輸入），數字為使用者輸入值，非正式資料源</td></tr>
-              <tr><td class="l">同期比較</td><td class="l">逐季重算（App.transform.buildDetail 逐季呼叫），非預先彙整快照，故任何歷史季度都可即時算出；節省金額 YoY 比較尚未實作（需雙期間各自試算）</td></tr>
-            </tbody>
-          </table></div>
-          <div class="callout warn" style="margin-top:14px">
-            <p class="big-quote">已知限制</p>
-            <ul>
-              <li>「新購參考單價」「整新單價」在公司內部成本資料中從未系統性填寫，「再使用」頁改為可編輯試算工具，預設 0、可手動輸入比較，尚未接上正式資料源，數字僅供試算參考。</li>
-              <li>本報告「不良率／過保率」等 KPI 僅涵蓋定義範圍內的維護原因（車機＝訊號異常、鏡頭＝影像異常），與其他統計口徑不同，數字不直接可比。</li>
-              <li>BI 資料庫為前一日備份，非即時資料。</li>
-            </ul>
-          </div>
-        </div>
-      </section>`,
-      chartScript: '',
-    };
-  }
 
   // ════════════════════════════════════════════════════════════
   // 組裝
@@ -898,7 +850,6 @@ App.report = (() => {
       overviewPageHTML(ctx),
       vendorSpotlightPageHTML(ctx),
       reuseUsagePageHTML(ctx),
-      logicPageHTML(ctx),
     ];
 
     return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"/>
@@ -1049,10 +1000,8 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
   <div class="brand"><span class="t">${App.icons.chart()} 設備品質分析報告</span><span class="s">${esc(periodText(state))}　｜　製表：${esc(genAt)}</span></div>
   <nav class="tabs">
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
-    <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 重點廠商比較</button>
+    <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
     <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用</button>
-    <button class="tab-btn" data-tab="logic">${App.icons.book()} 資料來源與邏輯說明</button>
-    <button class="tab-btn" id="save-edited" title="核心發現／建議文字可於框內直接編輯，按此另存為新的 html 檔">${App.icons.save()} 另存編輯版</button>
   </nav>
 </div></header>
 <main class="main">
@@ -1073,17 +1022,6 @@ window.addEventListener('load',function(){
     });
   });
   if(typeof Chart!=='undefined'){${pages.map((p) => p.chartScript).join('\n')}}
-  var btn=document.getElementById('save-edited');
-  if(btn)btn.addEventListener('click',function(){
-    document.querySelectorAll('textarea.advice-edit').forEach(function(t){t.textContent=t.value;});
-    document.querySelectorAll('input.cost-input').forEach(function(i){i.setAttribute('value',i.value);});
-    var html='<!DOCTYPE html>'+document.documentElement.outerHTML;
-    var blob=new Blob([html],{type:'text/html;charset=utf-8'});
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='設備品質分析報告_已編輯_'+new Date().toISOString().slice(0,10)+'.html';
-    a.click();
-  });
 });
 </script></body></html>`;
   }
