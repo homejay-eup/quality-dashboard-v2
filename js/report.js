@@ -184,6 +184,12 @@ App.report = (() => {
     return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${deltaHTML || ''}</div>`;
   }
 
+  // 可編輯的核心發現／建議區塊：文字放進 textarea，配合頁尾「另存編輯版」按鈕存回文字內容
+  function adviceCalloutHTML(id, title, bullets, tone) {
+    if (!bullets.length) return '';
+    return `<div class="callout ${tone || 'good'}"><p class="big-quote">${esc(title)}</p><textarea class="advice-edit" id="${id}">${esc(bullets.join('\n'))}</textarea></div>`;
+  }
+
   // ════════════════════════════════════════════════════════════
   // 1. 整體總覽
   // ════════════════════════════════════════════════════════════
@@ -406,7 +412,7 @@ App.report = (() => {
           ${carQoYSec.html}
           ${lensQoYSec.html}
         </div>
-        ${findings.length ? `<div class="callout ${tone}"><p class="big-quote">分析與說明</p><ul>${findings.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>` : ''}
+        ${adviceCalloutHTML('advice-overview', '分析與說明', findings, tone)}
       </section>`,
       chartScript: `
         ${carTrendSec.chartScript}
@@ -524,7 +530,7 @@ App.report = (() => {
             <div class="chartbox"><canvas id="usage-yoy-chart"></canvas></div>
           </div>` : ''}
         </div>
-        <div class="callout good"><p class="big-quote">整體建議說明</p><ul>${bullets1.concat(bullets2).map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
+        ${adviceCalloutHTML('advice-usage', '整體建議說明', bullets1.concat(bullets2))}
         <div class="card">
           <details class="collapsible">
             <summary class="chead"><div class="ct">車機機型分類設定</div><div class="cs">勾選「一般定位」或「影像」，決定下方成本試算與趨勢圖如何加總；同一機型只能勾一邊，都不勾視為未分類（不計入試算）</div></summary>
@@ -715,16 +721,16 @@ App.report = (() => {
     ).join('');
 
     // 重點廠商分析與說明：以預設勾選的廠商為準（靜態產生，不隨勾選即時變動，與本報告其他建議說明區塊一致）
-    const vendorFindingsHTML = (vendorData, vendors) => {
+    const vendorFindingsHTML = (id, vendorData, vendors) => {
       const rows = vendors.filter((v) => vendorData[v]).map((v) => ({ v, k: vendorData[v].kpi }));
       if (!rows.length) return '';
-      const bullets = rows.map((r) => `${esc(r.v)}：不良率 ${rPct(r.k.期間不良率)}、過保率 ${rPct(r.k.期間過保率)}、再使用率 ${rPct(r.k.再使用率)}。`);
+      const bullets = rows.map((r) => `${r.v}：不良率 ${rPct(r.k.期間不良率)}、過保率 ${rPct(r.k.期間過保率)}、再使用率 ${rPct(r.k.再使用率)}。`);
       if (rows.length > 1) {
         const worstBad = rows.reduce((a, b) => (b.k.期間不良率 > a.k.期間不良率 ? b : a));
         const bestReuse = rows.reduce((a, b) => (b.k.再使用率 > a.k.再使用率 ? b : a));
-        bullets.push(`${esc(worstBad.v)} 不良率相對較高，建議列入品質追蹤重點；${esc(bestReuse.v)} 再使用率表現較佳。`);
+        bullets.push(`${worstBad.v} 不良率相對較高，建議列入品質追蹤重點；${bestReuse.v} 再使用率表現較佳。`);
       }
-      return `<div class="callout good"><p class="big-quote">分析與說明</p><ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul></div>`;
+      return adviceCalloutHTML(id, '分析與說明', bullets);
     };
 
     return {
@@ -747,7 +753,7 @@ App.report = (() => {
                 <tbody id="vendor-summary-car"></tbody>
               </table></div>
             </div>
-            ${vendorFindingsHTML(carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
+            ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
           </div>
           <div>
             <div class="sech">鏡頭重點廠商</div>
@@ -765,7 +771,7 @@ App.report = (() => {
                 <tbody id="vendor-summary-lens"></tbody>
               </table></div>
             </div>
-            ${vendorFindingsHTML(lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
+            ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
           </div>
         </div>
       </section>`,
@@ -1032,11 +1038,11 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 重點廠商比較</button>
     <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用率</button>
     <button class="tab-btn" data-tab="logic">${App.icons.book()} 資料來源與邏輯說明</button>
+    <button class="tab-btn" id="save-edited" title="核心發現／建議文字可於框內直接編輯，按此另存為新的 html 檔">${App.icons.save()} 另存編輯版</button>
   </nav>
 </div></header>
 <main class="main">
 ${pages.map((p) => p.html).join('\n')}
-<div class="foot">本報告由「設備品質分析工具」自動生成，核心發現／建議文字可於框內直接編輯後按頁內按鈕另存。EUP 弋揚科技</div>
 </main>
 <script>
 const PAL=${JSON.stringify(PAL)};
