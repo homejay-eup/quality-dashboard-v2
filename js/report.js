@@ -977,8 +977,8 @@ App.report = (() => {
       </div>
     </div>
     ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
-    ${device === 'car' ? `<details class="lowkey-toggle">
-      <summary>${App.icons.settings()} 車機機型分類設定</summary>
+    ${device === 'car' ? `<details class="lowkey-toggle icon-collapse">
+      <summary title="車機機型分類設定">${App.icons.settings()}<span class="lowkey-toggle-text">車機機型分類設定</span></summary>
       <div class="lowkey-toggle-body">
         <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
         <div class="twrap"><div class="scroll">
