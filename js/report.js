@@ -753,7 +753,7 @@ App.report = (() => {
               </details>
             </div>
             <div class="card">
-              <div class="chead"><div class="ct">車機廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
+              <div class="chead"><div class="ct">車機廠商品質比較</div></div>
               <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
               <div class="twrap" style="margin-top:14px"><table class="agg">
                 <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
@@ -771,7 +771,7 @@ App.report = (() => {
               </details>
             </div>
             <div class="card">
-              <div class="chead"><div class="ct">鏡頭廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
+              <div class="chead"><div class="ct">鏡頭廠商品質比較</div></div>
               <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
               <div class="twrap" style="margin-top:14px"><table class="agg">
                 <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
