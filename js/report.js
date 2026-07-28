@@ -883,7 +883,7 @@ App.report = (() => {
 body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
 .icon{vertical-align:-0.15em;flex-shrink:0}
 .topbar{position:sticky;top:0;z-index:20;background:var(--teal-d);color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15)}
-.topbar-inner{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.topbar-inner{max-width:1520px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .brand .t{font-size:14.5px;font-weight:800;white-space:nowrap}
 .brand .s{font-size:11px;opacity:.85;white-space:nowrap}
@@ -891,7 +891,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .tab-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s}
 .tab-btn:hover{background:rgba(255,255,255,.24)}
 .tab-btn.on{background:#fff;color:var(--teal-d);box-shadow:0 2px 6px rgba(0,0,0,.18)}
-.main{max-width:1240px;margin:0 auto;padding:24px 24px 80px;min-width:0}
+.main{max-width:1520px;margin:0 auto;padding:24px 24px 80px;min-width:0}
 .page{display:none}.page.on{display:block}
 .ph{border-bottom:2px solid var(--line);padding-bottom:12px;margin-bottom:20px;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px}
 .ph-l{font-size:19px;font-weight:800;color:var(--teal-d)}
