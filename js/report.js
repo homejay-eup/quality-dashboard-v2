@@ -291,7 +291,7 @@ App.report = (() => {
         <td class="l">${esc(g.key)}</td>
         <td class="num">${countCell}</td><td class="num">${pctCell}</td></tr>`;
     }).join('');
-    return `<div class="twrap"><div class="scroll" style="max-height:220px">
+    return `<div class="twrap"><div class="scroll scroll--full">
       <table class="agg ranktable">
         <thead><tr><th class="l">機型</th><th class="num">數量</th><th class="num">占比</th></tr></thead>
         <tbody>${rows || `<tr><td class="l" colspan="3">本期無資料</td></tr>`}</tbody>
@@ -372,7 +372,7 @@ App.report = (() => {
           <div class="legendgrid">${agg.groups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
           <div><div class="donutbox"><canvas id="${chartId}"></canvas></div>
             <div class="donutlegend">${esc(deviceKey)}　｜　總上線量 ${rInt(gt.上線量)}</div></div>
-          <div class="twrap"><div class="scroll">
+          <div class="twrap"><div class="scroll scroll--full">
             <table class="rtable">
               <thead><tr><th rowspan="2">機型</th><th rowspan="2">上線量</th><th colspan="4">回廠量</th><th rowspan="2">整體不良率</th><th rowspan="2">整體過保率</th><th rowspan="2">平均已使用年限</th><th rowspan="2" class="colUncat">未歸類數</th></tr>
               <tr><th>回廠量</th><th>良品數(再使用)</th><th>不良品數</th><th>過保數</th></tr></thead>
@@ -1415,6 +1415,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .chartbox.pie{height:260px}
 .twrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .scroll{overflow:auto;max-height:420px}
+.scroll--full{max-height:none;overflow-x:auto;overflow-y:visible}
 table.agg{border-collapse:collapse;width:100%;font-size:17.5px}
 table.agg th{background:var(--teal);color:#fff;padding:8px 10px;text-align:left;white-space:nowrap;position:sticky;top:0}
 table.agg th.num,table.agg td.num{text-align:right}
@@ -1541,8 +1542,8 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .callout.bad{border-left-color:var(--bad);background:#fff8f9}
 .callout.warn{border-left-color:var(--warn);background:#fffcf5}
 .callout.good{border-left-color:var(--good);background:#f6fbf8}
-.callout ul{margin:8px 0 0 20px}.callout li{margin:5px 0;font-size:18.5px}
-.big-quote{font-size:20.5px;font-weight:700;color:var(--teal-d)}
+.callout ul{margin:8px 0 0 20px}.callout li{margin:6px 0;font-size:21px;font-weight:700}
+.big-quote{font-size:23px;font-weight:800;color:var(--teal-d)}
 .note{font-size:17px;color:var(--muted);margin:4px 0 10px}
 .advice-edit{white-space:pre-wrap;font-size:18.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
 .save-bar{text-align:center;margin-top:10px}
