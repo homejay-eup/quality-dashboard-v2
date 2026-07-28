@@ -1327,7 +1327,7 @@ App.report = (() => {
         </div>
         <div class="g2">
           <div class="card">
-            <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元</div></div>
+            <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元｜金額皆以車機成本計算</div></div>
             <div class="twrap"><table class="agg">
               <thead><tr><th class="l">分類</th><th class="num">114年1-6月</th><th class="num">115年1-6月</th><th class="num">差異(115-114)</th><th class="num">成長率</th></tr></thead>
               <tbody>${tableRows}
@@ -1338,8 +1338,10 @@ App.report = (() => {
           ${ACCESSORY_NOTES.length ? `<div class="card">
             <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
             <ul>${ACCESSORY_NOTES.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
-            ${accessory.diff < 0 ? '<div class="chartbox sm"><canvas id="kpi-c2"></canvas></div>' : ''}
-            ${mainUnit.diff > 0 ? '<div class="chartbox sm"><canvas id="kpi-c3"></canvas></div>' : ''}
+            <div class="minichart-row">
+              ${accessory.diff < 0 ? `<div><div class="minichart-title">配件類鏡頭整新數量（顆）</div><div class="chartbox xs"><canvas id="kpi-c2"></canvas></div></div>` : ''}
+              ${mainUnit.diff > 0 ? `<div><div class="minichart-title">主機類影像主機台數（台）</div><div class="chartbox xs"><canvas id="kpi-c3"></canvas></div></div>` : ''}
+            </div>
           </div>` : ''}
         </div>
         <div class="callout good"><p class="big-quote">AI 建議說明</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
@@ -1371,10 +1373,10 @@ App.report = (() => {
               ctx.restore();
             }
           }]});
-        ${accessory.diff < 0 ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
+        ${accessory.diff < 0 ? `new Chart(document.getElementById('kpi-c2'),{type:'line',
           data:{labels:['114年1-6月','115年1-6月'],
-            datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
-          options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'配件類鏡頭整新數量（顆）'}},scales:{y:{beginAtZero:true}}},
+            datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],borderColor:TREND,backgroundColor:'rgba(30,136,229,.12)',fill:true,tension:0,pointRadius:4,pointBackgroundColor:TREND,pointBorderColor:'#fff',pointBorderWidth:1.5,borderWidth:2}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'lensQtyValueLabels',
             afterDatasetsDraw(chart){
@@ -1384,16 +1386,16 @@ App.report = (() => {
               ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
               ctx.textAlign='center';
               ctx.textBaseline='bottom';
-              chart.getDatasetMeta(0).data.forEach((bar,i)=>{
-                ctx.fillText(chart.data.datasets[0].data[i]+' 顆',bar.x,bar.y-4);
+              chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+                ctx.fillText(chart.data.datasets[0].data[i]+' 顆',pt.x,pt.y-8);
               });
               ctx.restore();
             }
           }]});` : ''}
-        ${mainUnit.diff > 0 ? `new Chart(document.getElementById('kpi-c3'),{type:'bar',
+        ${mainUnit.diff > 0 ? `new Chart(document.getElementById('kpi-c3'),{type:'line',
           data:{labels:['114年1-6月','115年1-6月'],
-            datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
-          options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'主機類影像主機台數（台）'}},scales:{y:{beginAtZero:true}}},
+            datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],borderColor:TREND,backgroundColor:'rgba(30,136,229,.12)',fill:true,tension:0,pointRadius:4,pointBackgroundColor:TREND,pointBorderColor:'#fff',pointBorderWidth:1.5,borderWidth:2}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'mainUnitQtyValueLabels',
             afterDatasetsDraw(chart){
@@ -1403,8 +1405,8 @@ App.report = (() => {
               ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
               ctx.textAlign='center';
               ctx.textBaseline='bottom';
-              chart.getDatasetMeta(0).data.forEach((bar,i)=>{
-                ctx.fillText(chart.data.datasets[0].data[i]+' 台',bar.x,bar.y-4);
+              chart.getDatasetMeta(0).data.forEach((pt,i)=>{
+                ctx.fillText(chart.data.datasets[0].data[i]+' 台',pt.x,pt.y-8);
               });
               ctx.restore();
             }
@@ -1487,6 +1489,9 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .chartbox{position:relative;height:280px}
 .chartbox.sm{height:220px}
 .chartbox.pie{height:260px}
+.chartbox.xs{height:150px}
+.minichart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.minichart-row .minichart-title{font-size:13px;color:var(--muted);text-align:center;margin-bottom:4px}
 .twrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .scroll{overflow:auto;max-height:420px}
 .scroll--full{max-height:none;overflow-x:auto;overflow-y:visible}
