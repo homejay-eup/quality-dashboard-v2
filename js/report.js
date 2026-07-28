@@ -509,7 +509,7 @@ App.report = (() => {
     ] : [];
     return {
       html: `<section class="page" id="page-usage">
-        <div class="ph"><div><span class="ph-l">${App.icons.refresh()} 再使用率</span><span class="ph-s">內部檢測與送修成本｜期間：${esc(periodText(state))}</span></div></div>
+        <div class="ph"><div><span class="ph-l">${App.icons.refresh()} 再使用</span><span class="ph-s">內部檢測與送修成本｜期間：${esc(periodText(state))}</span></div></div>
         <div class="krow">
           ${kcard('車機內部檢測數量', rInt(car.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(car.kpi.內部檢測數, car.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
           ${kcard('鏡頭內部檢測數量', rInt(lens.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(lens.kpi.內部檢測數, lens.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
@@ -528,6 +528,13 @@ App.report = (() => {
           ${hasCmp ? `<div class="card">
             <div class="chead"><div class="ct">與去年同期比較</div><div class="cs">${esc(periodText(state))}　｜　內部檢測數量（件）</div></div>
             <div class="chartbox"><canvas id="usage-yoy-chart"></canvas></div>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">指標</th><th class="num">對比期間</th><th class="num">目前期間</th><th class="num">差異</th></tr></thead>
+              <tbody>
+                <tr><td class="l">車機內部檢測數量（件）</td><td class="num">${rInt(car.cmpKpi.內部檢測數)}</td><td class="num">${rInt(car.kpi.內部檢測數)}</td><td class="num">${rDiff(car.kpi.內部檢測數 - car.cmpKpi.內部檢測數)}</td></tr>
+                <tr><td class="l">鏡頭內部檢測數量（件）</td><td class="num">${rInt(lens.cmpKpi.內部檢測數)}</td><td class="num">${rInt(lens.kpi.內部檢測數)}</td><td class="num">${rDiff(lens.kpi.內部檢測數 - lens.cmpKpi.內部檢測數)}</td></tr>
+              </tbody>
+            </table></div>
           </div>` : ''}
         </div>
         ${adviceCalloutHTML('advice-usage', '整體建議說明', bullets1.concat(bullets2))}
@@ -825,6 +832,7 @@ App.report = (() => {
           <tbody>
             <tr><td class="l">產品類別</td><td class="l" colspan="2">車機、鏡頭</td></tr>
             <tr><td class="l">維護原因</td><td class="l">訊號異常</td><td class="l">影像異常(鏡頭)</td></tr>
+            <tr><td class="l">故障原因</td><td class="l">AB點、失聯、定位異常、訊號異常</td><td class="l">黑畫面、進水/模糊、水波紋、時有時無</td></tr>
           </tbody>
         </table></div></div>
         <div class="sech">良品／不良品／過保 判斷（依現行分類規則）</div>
@@ -850,14 +858,14 @@ App.report = (() => {
             <thead><tr><th class="l">頁面</th><th class="l">資料來源</th></tr></thead>
             <tbody>
               <tr><td class="l">整體總覽／車機分析（KPI、機型、廠商）</td><td class="l">雲端 Google Sheet「設備品質分析_來源」，逐 ERP品號、依季彙整（App.metrics.aggregate）</td></tr>
-              <tr><td class="l">再使用率</td><td class="l">再使用率＝上述彙整資料（真實）；節省金額試算為可編輯試算工具（時薪／運費／工時／整新單價／新購參考單價皆可手動輸入），數字為使用者輸入值，非正式資料源</td></tr>
+              <tr><td class="l">再使用</td><td class="l">再使用率＝上述彙整資料（真實）；節省金額試算為可編輯試算工具（時薪／運費／工時／整新單價／新購參考單價皆可手動輸入），數字為使用者輸入值，非正式資料源</td></tr>
               <tr><td class="l">同期比較</td><td class="l">逐季重算（App.transform.buildDetail 逐季呼叫），非預先彙整快照，故任何歷史季度都可即時算出；節省金額 YoY 比較尚未實作（需雙期間各自試算）</td></tr>
             </tbody>
           </table></div>
           <div class="callout warn" style="margin-top:14px">
             <p class="big-quote">已知限制</p>
             <ul>
-              <li>「新購參考單價」「整新單價」在公司內部成本資料中從未系統性填寫，「再使用率」頁改為可編輯試算工具，預設 0、可手動輸入比較，尚未接上正式資料源，數字僅供試算參考。</li>
+              <li>「新購參考單價」「整新單價」在公司內部成本資料中從未系統性填寫，「再使用」頁改為可編輯試算工具，預設 0、可手動輸入比較，尚未接上正式資料源，數字僅供試算參考。</li>
               <li>本報告「不良率／過保率」等 KPI 僅涵蓋定義範圍內的維護原因（車機＝訊號異常、鏡頭＝影像異常），與其他統計口徑不同，數字不直接可比。</li>
               <li>BI 資料庫為前一日備份，非即時資料。</li>
             </ul>
@@ -1036,7 +1044,7 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
   <nav class="tabs">
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 重點廠商比較</button>
-    <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用率</button>
+    <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用</button>
     <button class="tab-btn" data-tab="logic">${App.icons.book()} 資料來源與邏輯說明</button>
     <button class="tab-btn" id="save-edited" title="核心發現／建議文字可於框內直接編輯，按此另存為新的 html 檔">${App.icons.save()} 另存編輯版</button>
   </nav>
