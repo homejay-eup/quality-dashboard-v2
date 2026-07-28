@@ -547,14 +547,14 @@ App.report = (() => {
         <div class="sech">整體數值 · 車機</div>
         <div class="krow">
           ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
-          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(car.kpi.期間回廠量, car.cmpKpi.期間回廠量, 'int', null) : '')}
+          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), '')}
           ${kcardUncatRate('車機整體不良率', car.kpi, car.cmpKpi, ctx.hasCmp)}
           ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
         <div class="sech">整體數值 · 鏡頭</div>
         <div class="krow">
           ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
-          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.期間回廠量, lens.cmpKpi.期間回廠量, 'int', null) : '')}
+          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), '')}
           ${kcardUncatRate('鏡頭整體不良率', lens.kpi, lens.cmpKpi, ctx.hasCmp)}
           ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
