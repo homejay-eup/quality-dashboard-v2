@@ -420,30 +420,24 @@ App.report = (() => {
         </div>
         ${carSec.html}
         ${lensSec.html}
-        <div class="chart-toggle-row">
-          <label class="chart-toggle-label"><input type="checkbox" id="toggle-ov-trend"> 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</label>
-        </div>
-        <div class="g2-eq" id="ov-trend-wrap">
-          ${carTrendSec.html}
-          ${lensTrendSec.html}
-        </div>
         <div class="g2-eq">
           ${carQoYSec.html}
           ${lensQoYSec.html}
         </div>
+        <details class="lowkey-toggle">
+          <summary>${App.icons.chart()} 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</summary>
+          <div class="lowkey-toggle-body">
+            <div class="g2-eq">
+              ${carTrendSec.html}
+              ${lensTrendSec.html}
+            </div>
+          </div>
+        </details>
         ${adviceCalloutHTML('advice-overview', '分析與說明', findings, tone)}
       </section>`,
       chartScript: `
         ${carTrendSec.chartScript}
         ${lensTrendSec.chartScript}
-        (function(){
-          var wrap=document.getElementById('ov-trend-wrap');
-          var chk=document.getElementById('toggle-ov-trend');
-          if(wrap&&chk){
-            wrap.style.display=chk.checked?'':'none';
-            chk.addEventListener('change',function(){ wrap.style.display=this.checked?'':'none'; });
-          }
-        })();
         ${carQoYSec.chartScript}
         ${lensQoYSec.chartScript}
         ${carSec.chartScript}
@@ -948,9 +942,6 @@ table.rtable .colRate{display:none}
 .uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e6f4f2}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
-.chart-toggle-row{display:flex;justify-content:flex-end;margin:-6px 0 12px}
-.chart-toggle-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
-.chart-toggle-label input{cursor:pointer}
 .lowkey-toggle{margin:10px 2px 0}
 .lowkey-toggle summary{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;list-style:none}
 .lowkey-toggle summary::-webkit-details-marker{display:none}
