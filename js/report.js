@@ -345,7 +345,8 @@ App.report = (() => {
     const metrics = [
       { key: '過保率', color: 'AMBER', id: `${chartId}-scr` },
       { key: '不良率', color: 'RED', id: `${chartId}-bad` },
-      { key: '再使用率', color: 'TREND', id: `${chartId}-reuse` },
+      // 再使用率先隱藏（保留資料與程式碼，之後要恢復顯示只需取消註解）
+      // { key: '再使用率', color: 'TREND', id: `${chartId}-reuse` },
     ];
     const panels = metrics.map((m) => `<div><div class="mini-title">${esc(m.key)}</div><div class="chartbox sm"><canvas id="${m.id}"></canvas></div></div>`).join('');
     const chartCalls = metrics.map((m) => {
@@ -358,7 +359,7 @@ App.report = (() => {
     }).join('\n      ');
     return {
       html: `<div class="card">
-        <div class="chead"><div class="ct">過保率／不良率／再使用率（月度同期比較）</div><div class="cs"><span class="trend-device">${esc(deviceKey)}</span>　｜　1～${n}月，${curLabel}${cmpLabel ? `　vs　${cmpLabel}` : ''}</div></div>
+        <div class="chead"><div class="ct">過保率／不良率（月度同期比較）</div><div class="cs"><span class="trend-device">${esc(deviceKey)}</span>　｜　1～${n}月，${curLabel}${cmpLabel ? `　vs　${cmpLabel}` : ''}</div></div>
         <div class="g3">${panels}</div>
       </div>`,
       chartScript: chartCalls,
@@ -895,7 +896,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .g2-eq>*{min-width:0}
 .rlayout3{display:grid;grid-template-columns:140px 220px 1fr;gap:18px;align-items:center;min-width:0}
 .rlayout3>*{min-width:0}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;min-width:0}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:14px;min-width:0}
 .g3>*{min-width:0}
 .chartbox{position:relative;height:280px}
 .chartbox.sm{height:220px}
