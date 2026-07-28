@@ -986,6 +986,86 @@ App.report = (() => {
 
 
   // ════════════════════════════════════════════════════════════
+  // KPI 分類彙總（114 vs 115 年 1–6月比較）— 獨立頁籤，不影響其他頁
+  // 來源：使用者提供的 KPI_分類彙總.xlsx／分頁「114vs115比較」，屬人工整理的
+  // 半年度金額彙總，不在 App.sheets 的即時資料源之內，故以常數方式內嵌；
+  // 差異／成長率／建議文字皆由這組常數即時算出，不是寫死的敘述。
+  // ════════════════════════════════════════════════════════════
+  const KPI_CATEGORY_COMPARISON = [
+    { label: '整新品循環/主機', y114: 1985310, y115: 2920950 },
+    { label: '整新品循環/配件', y114: 1246545, y115: 845380 },
+    { label: '內部QC',         y114: 1455560, y115: 1435430 },
+    { label: '整新循環/出口QC', y114: 139080,  y115: 193760 },
+  ];
+
+  function kpiCategoryRow(row) {
+    const diff = row.y115 - row.y114;
+    const growth = row.y114 ? diff / row.y114 : 0;
+    return { ...row, diff, growth };
+  }
+  function kpiGrowthPillCls(growth) {
+    if (Math.abs(growth) < 0.02) return '';
+    return growth > 0 ? 'good' : 'bad';
+  }
+  function kpiGrowthLabel(growth) { return `${growth >= 0 ? '+' : ''}${(growth * 100).toFixed(1)}%`; }
+
+  function kpiPageHTML() {
+    const rows = KPI_CATEGORY_COMPARISON.map(kpiCategoryRow);
+    const total114 = rows.reduce((s, r) => s + r.y114, 0);
+    const total115 = rows.reduce((s, r) => s + r.y115, 0);
+    const totalDiff = total115 - total114;
+    const totalGrowth = total114 ? totalDiff / total114 : 0;
+    const best = [...rows].sort((a, b) => b.growth - a.growth)[0];
+    const worst = [...rows].sort((a, b) => a.growth - b.growth)[0];
+
+    const tableRows = rows.map((r) => `<tr><td class="l">${esc(r.label)}</td>
+        <td class="num">${rInt(r.y114)}</td><td class="num">${rInt(r.y115)}</td>
+        <td class="num">${rDiff(r.diff)}</td>
+        <td class="num"><span class="pill ${kpiGrowthPillCls(r.growth)}">${kpiGrowthLabel(r.growth)}</span></td></tr>`).join('');
+
+    const bullets = [
+      `114年1–6月分類總計 ${rInt(total114)} 元，115年同期成長至 ${rInt(total115)} 元，成長 ${kpiGrowthLabel(totalGrowth)}（${rDiff(totalDiff)} 元），整體回收整新價值呈上升趨勢。`,
+      `成長最多的是「${esc(best.label)}」，成長 ${kpiGrowthLabel(best.growth)}（${rDiff(best.diff)} 元），是本期成長的主要動能，建議確認是否為特定機型回收量增加或整新單位價值提升所致，並留意整新品質是否穩定。`,
+      `${worst.growth < 0 ? `唯一明顯衰退的是「${esc(worst.label)}」，變化 ${kpiGrowthLabel(worst.growth)}（${rDiff(worst.diff)} 元），建議檢視回收管道或市場需求是否改變，避免長期侵蝕整體效益。` : `四個分類皆為正成長，其中「${esc(worst.label)}」成長幅度最小（${kpiGrowthLabel(worst.growth)}），可列為後續觀察項目。`}`,
+      `主機端的成長已抵銷配件／QC端的波動，帶動總體淨成長 ${kpiGrowthLabel(totalGrowth)}；後續建議針對衰退分類進行根因分析，並持續追蹤成長分類是否可延續。`,
+    ];
+
+    return {
+      html: `<section class="page" id="page-kpi">
+        <div class="ph"><div><span class="ph-l">${App.icons.chart()} KPI 分類彙總</span><span class="ph-s">114年 vs 115年　1–6月　｜　來源：KPI_分類彙總.xlsx／114vs115比較</span></div></div>
+        <div class="krow">
+          ${kcard('114年1–6月總計', `${rInt(total114)} 元`, '')}
+          ${kcard('115年1–6月總計', `${rInt(total115)} 元`, '')}
+          ${kcard('總計成長率', kpiGrowthLabel(totalGrowth), '', totalGrowth >= 0 ? 'good' : '')}
+          ${kcard('成長最多分類', esc(best.label), `<div class="d d-good">${kpiGrowthLabel(best.growth)}</div>`)}
+        </div>
+        <div class="card">
+          <div class="chead"><div class="ct">分類金額對比（114 vs 115，1–6月）</div><div class="cs">單位：元</div></div>
+          <div class="chartbox"><canvas id="kpi-c1"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元</div></div>
+          <div class="twrap"><table class="agg">
+            <thead><tr><th class="l">分類</th><th class="num">114年1-6月</th><th class="num">115年1-6月</th><th class="num">差異(115-114)</th><th class="num">成長率</th></tr></thead>
+            <tbody>${tableRows}
+              <tr class="grand"><td class="l">總計</td><td class="num">${rInt(total114)}</td><td class="num">${rInt(total115)}</td><td class="num">${rDiff(totalDiff)}</td><td class="num">${kpiGrowthLabel(totalGrowth)}</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="callout good"><p class="big-quote">AI 建議說明</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
+      </section>`,
+      chartScript: `
+        new Chart(document.getElementById('kpi-c1'),{type:'bar',
+          data:{labels:${JSON.stringify(rows.map((r) => r.label))},
+            datasets:[
+              {label:'114年1-6月',data:${JSON.stringify(rows.map((r) => r.y114))},backgroundColor:'#9AA0A6'},
+              {label:'115年1-6月',data:${JSON.stringify(rows.map((r) => r.y115))},backgroundColor:TREND}
+            ]},
+          options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'分類金額對比（元）'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}}});`,
+    };
+  }
+
+  // ════════════════════════════════════════════════════════════
   // 組裝
   // ════════════════════════════════════════════════════════════
   function generateReportHTML(state) {
@@ -1002,6 +1082,7 @@ App.report = (() => {
       overviewPageHTML(ctx),
       vendorSpotlightPageHTML(ctx),
       reuseUsagePageHTML(ctx),
+      kpiPageHTML(),
     ];
 
     return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"/>
@@ -1159,6 +1240,7 @@ td.cond{text-align:left;font-size:12px;color:var(--ink)}
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
     <button class="tab-btn" data-tab="usage">${App.icons.refresh()} 再使用</button>
+    <button class="tab-btn" data-tab="kpi">${App.icons.chart()} KPI</button>
   </nav>
 </div></header>
 <main class="main">
