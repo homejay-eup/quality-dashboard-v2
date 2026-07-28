@@ -126,6 +126,7 @@ App.report = (() => {
     const scope = deviceKey ? App.app.DEVICE_TABS.find((t) => t.key === deviceKey) : null;
     const periodsAsc = [...(state.currentPeriods || [])].reverse();
     const labels = [], 不良率 = [], 過保率 = [], 再使用率 = [], 整體不良率 = [], 整體過保率 = [], 整體再使用率 = [];
+    const 不良品數Raw = [], 未歸類數Raw = [], 總線上量Raw = [];
     for (const p of periodsAsc) {
       let rows = App.transform.buildDetail(state.raw, { year: p.year, quarter: p.quarter }).rows;
       let online = state.onlineList || [];
@@ -142,8 +143,9 @@ App.report = (() => {
       整體不良率.push(+(kpi.整體不良率 * 100).toFixed(1));
       整體過保率.push(+(kpi.整體過保率 * 100).toFixed(1));
       整體再使用率.push(+(kpi.整體再使用率 * 100).toFixed(1));
+      不良品數Raw.push(kpi.不良品數); 未歸類數Raw.push(kpi.未歸類數); 總線上量Raw.push(kpi.總線上量);
     }
-    return { labels, 不良率, 過保率, 再使用率, 整體不良率, 整體過保率, 整體再使用率 };
+    return { labels, 不良率, 過保率, 再使用率, 整體不良率, 整體過保率, 整體再使用率, 不良品數Raw, 未歸類數Raw, 總線上量Raw };
   }
 
   // ── 依機型／依廠商彙整（沿用 App.metrics.aggregate，不重寫彙整邏輯）───
@@ -184,6 +186,20 @@ App.report = (() => {
     return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${deltaHTML || ''}</div>`;
   }
 
+  // 整體不良率 KPI 卡：數值／漲跌都改成可跟「未歸類數併入不良品數」開關連動的 uc-rate／uc-delta
+  function kcardUncatRate(label, kpi, cmpKpi, hasCmp) {
+    const bad = kpi.不良品數, uncat = kpi.未歸類數 || 0, den = kpi.總線上量;
+    const valHTML = `<span class="uc-rate" data-bad="${bad}" data-uncat="${uncat}" data-den="${den}">${rPct(kpi.整體不良率)}</span>`;
+    let deltaHTML = '';
+    if (hasCmp && cmpKpi) {
+      const cbad = cmpKpi.不良品數, cuncat = cmpKpi.未歸類數 || 0, cden = cmpKpi.總線上量;
+      const pp = (kpi.整體不良率 - cmpKpi.整體不良率) * 100;
+      const cls = Math.abs(pp) < 0.05 ? 'flat' : (pp > 0 ? 'bad' : 'good');
+      deltaHTML = `<div class="d d-${cls} uc-delta" data-bad="${bad}" data-uncat="${uncat}" data-den="${den}" data-cbad="${cbad}" data-cuncat="${cuncat}" data-cden="${cden}" data-better="false">${pp >= 0 ? '▲ +' : '▼ '}${pp.toFixed(1)}pp</div>`;
+    }
+    return `<div class="kcard good"><div class="l">${esc(label)}</div><div class="v">${valHTML}</div>${deltaHTML}</div>`;
+  }
+
   // 可編輯的核心發現／建議區塊：文字放進 textarea，供瀏覽時直接調整/複製
   function adviceCalloutHTML(id, title, bullets, tone) {
     if (!bullets.length) return '';
@@ -197,15 +213,22 @@ App.report = (() => {
 
 
   // 過保／不良品依機型排名表：前三名粗體＋底色標示
-  function rankTableHTML(groups, countKey) {
+  function rankTableHTML(groups, countKey, ucScope) {
     const total = groups.reduce((sum, g) => sum + g.subtotal[countKey], 0);
     const rows = groups.map((g, i) => {
       const count = g.subtotal[countKey];
       const pct = total ? count / total : 0;
       const top3 = i < 3;
+      const uncat = g.subtotal.未歸類數 || 0;
+      const countCell = ucScope
+        ? `<span class="uc-bad" data-scope="${ucScope}" data-bad="${count}" data-uncat="${uncat}">${rInt(count)}</span>`
+        : rInt(count);
+      const pctCell = ucScope
+        ? `<span class="uc-share" data-scope="${ucScope}" data-bad="${count}" data-uncat="${uncat}">${rPct(pct)}</span>`
+        : rPct(pct);
       return `<tr class="${top3 ? 'rank-top3' : ''}">
         <td class="l">${esc(g.key)}</td>
-        <td class="num">${rInt(count)}</td><td class="num">${rPct(pct)}</td></tr>`;
+        <td class="num">${countCell}</td><td class="num">${pctCell}</td></tr>`;
     }).join('');
     return `<div class="twrap"><div class="scroll" style="max-height:220px">
       <table class="agg ranktable">
@@ -218,13 +241,18 @@ App.report = (() => {
   function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId) {
     const agg = aggByType(d, selection);
     agg.groups = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量); // 比照 draft：依回廠量由大到小
+    const ucBad = (s) => `<span class="uc-bad" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}">${rInt(s.不良品數)}</span>`;
+    const ucBadRate = (s) => `<span class="uc-rate" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}" data-den="${s.回廠量}">${rPct(s.不良率)}</span>`;
+    const ucOverallRate = (s) => `<span class="uc-rate" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}" data-den="${s.上線量}">${rPct(s.整體不良率)}</span>`;
+    const ucUncat = (s) => `<span class="uc-uncat" data-uncat="${s.未歸類數 || 0}">${rInt(s.未歸類數)}</span>`;
+    const ucUncatRate = (s) => `<span class="uc-uncat-rate" data-uncat="${s.未歸類數 || 0}" data-den="${s.回廠量}">${rPct(s.未歸類率)}</span>`;
     const rows = agg.groups.map((g) => {
       const s = g.subtotal;
       return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rInt(s.回廠量)}</td>
-        <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${rInt(s.不良品數)}<span class="colRate">（${rPct(s.不良率)}）</span></td>
+        <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${ucBad(s)}<span class="colRate">（${ucBadRate(s)}）</span></td>
         <td>${rInt(s.過保數)}<span class="colRate">（${rPct(s.過保率)}）</span></td>
-        <td class="hl">${rPct(s.整體不良率)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td>${rYear(s.已使用年限)}</td>
-        <td class="colUncat">${rInt(s.未歸類數)}<span class="colRate">（${rPct(s.未歸類率)}）</span></td></tr>`;
+        <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td>${rYear(s.已使用年限)}</td>
+        <td class="colUncat">${ucUncat(s)}<span class="colRate">（${ucUncatRate(s)}）</span></td></tr>`;
     }).join('');
     const gt = agg.grandTotal;
     const donutLabels = agg.groups.map((g) => g.key);
@@ -242,6 +270,7 @@ App.report = (() => {
           <div class="toggle-group">
             <label class="uncat-toggle" title="顯示良品/不良品/過保比率"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-rate',this.checked)"><span class="uncat-icon">%</span></label>
             <label class="uncat-toggle" title="顯示未歸類數"><input type="checkbox" onchange="this.closest('.card').classList.toggle('show-uncat',this.checked)"><span class="uncat-icon">▦</span></label>
+            <label class="uncat-toggle uc-merge-toggle" title="未歸類數併入不良品數"><input type="checkbox" class="uc-merge-checkbox"><span class="uncat-icon">⊕</span></label>
           </div>
         </div></div>
         <div class="rlayout3">
@@ -254,10 +283,10 @@ App.report = (() => {
               <tr><th>回廠量</th><th>良品數(再使用)</th><th>不良品數</th><th>過保數</th></tr></thead>
               <tbody>${rows}
                 <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rInt(gt.回廠量)}</td>
-                  <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${rInt(gt.不良品數)}<span class="colRate">（${rPct(gt.不良率)}）</span></td>
+                  <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${ucBad(gt)}<span class="colRate">（${ucBadRate(gt)}）</span></td>
                   <td>${rInt(gt.過保數)}<span class="colRate">（${rPct(gt.過保率)}）</span></td>
-                  <td class="hl">${rPct(gt.整體不良率)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td>${rYear(gt.已使用年限)}</td>
-                  <td class="colUncat">${rInt(gt.未歸類數)}<span class="colRate">（${rPct(gt.未歸類率)}）</span></td></tr>
+                  <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td>${rYear(gt.已使用年限)}</td>
+                  <td class="colUncat">${ucUncat(gt)}<span class="colRate">（${ucUncatRate(gt)}）</span></td></tr>
               </tbody>
             </table>
           </div></div>
@@ -274,7 +303,7 @@ App.report = (() => {
           <div class="rlayout3">
             <div class="legendgrid">${badGroups.map((g, i) => `<div class="litem"><span class="dot" style="background:${PAL[i % PAL.length]}"></span>${esc(g.key)}</div>`).join('')}</div>
             <div class="chartbox pie"><canvas id="${badChartId}"></canvas></div>
-            ${rankTableHTML(badGroups, '不良品數')}
+            ${rankTableHTML(badGroups, '不良品數', `${badChartId}-rank`)}
           </div>
         </div>
       </div>`,
@@ -286,7 +315,9 @@ App.report = (() => {
         options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'過保設備占比'}}}});
       new Chart(document.getElementById('${badChartId}'),{type:'pie',
         data:{labels:${JSON.stringify(badGroups.map((g) => g.key))},datasets:[{data:${JSON.stringify(badGroups.map((g) => g.subtotal.不良品數))},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
-        options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'不良品設備占比'}}}});`,
+        options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'不良品設備占比'}}}});
+      window.__ucCharts=window.__ucCharts||[];
+      window.__ucCharts.push({id:'${badChartId}',bad:${JSON.stringify(badGroups.map((g) => g.subtotal.不良品數))},uncat:${JSON.stringify(badGroups.map((g) => g.subtotal.未歸類數 || 0))}});`,
     };
   }
 
@@ -305,7 +336,9 @@ App.report = (() => {
           scales:{
             y:{beginAtZero:true,position:'left',ticks:{callback:v=>v+'%'}},
             y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}}
-          }}});`,
+          }}});
+      window.__ucLineCharts=window.__ucLineCharts||[];
+      window.__ucLineCharts.push({id:'${chartId}',dsIndex:1,bad:${JSON.stringify(trend.不良品數Raw)},uncat:${JSON.stringify(trend.未歸類數Raw)},den:${JSON.stringify(trend.總線上量Raw)}});`,
     };
   }
 
@@ -320,15 +353,16 @@ App.report = (() => {
       const online = (state.onlineList || []).filter((o) => o.設備類型 === scope.設備類型);
       const rowsScoped = allRows.filter((r) => r.設備類型 === scope.設備類型 && r.維護原因 === scope.維護原因);
       const sel = state.selectionByTab[deviceKey];
-      const 過保率 = [], 不良率 = [], 再使用率 = [];
+      const 過保率 = [], 不良率 = [], 再使用率 = [], 不良品數Raw = [], 未歸類數Raw = [], 總線上量Raw = [];
       for (let m = 1; m <= monthCount; m++) {
         const rowsM = rowsScoped.filter((r) => monthOf(r.年月) === m);
         const kpi = App.metrics.computeKPI(rowsM, online, sel);
         過保率.push(+(kpi.整體過保率 * 100).toFixed(1));
         不良率.push(+(kpi.整體不良率 * 100).toFixed(1));
         再使用率.push(+(kpi.再使用率 * 100).toFixed(1));
+        不良品數Raw.push(kpi.不良品數); 未歸類數Raw.push(kpi.未歸類數); 總線上量Raw.push(kpi.總線上量);
       }
-      return { monthCount, 過保率, 不良率, 再使用率 };
+      return { monthCount, 過保率, 不良率, 再使用率, 不良品數Raw, 未歸類數Raw, 總線上量Raw };
     };
     const cur = buildForPeriod(state.year, state.quarter);
     const cmp = hasCmp ? buildForPeriod(state.cmp.year, state.cmp.quarter) : null;
@@ -352,10 +386,19 @@ App.report = (() => {
     const chartCalls = metrics.map((m) => {
       const curData = JSON.stringify(pad(qseries.cur[m.key], n));
       const cmpDs = qseries.cmp ? `,{label:'${cmpLabel}',data:${JSON.stringify(pad(qseries.cmp[m.key], n))},borderColor:${m.color},borderDash:[5,4],fill:false,tension:.3,pointRadius:3}` : '';
+      let ucReg = '';
+      if (m.key === '不良率') {
+        ucReg = `window.__ucLineCharts=window.__ucLineCharts||[];
+        window.__ucLineCharts.push({id:'${m.id}',dsIndex:0,bad:${JSON.stringify(pad(qseries.cur.不良品數Raw, n))},uncat:${JSON.stringify(pad(qseries.cur.未歸類數Raw, n))},den:${JSON.stringify(pad(qseries.cur.總線上量Raw, n))}});`;
+        if (qseries.cmp) {
+          ucReg += `\n        window.__ucLineCharts.push({id:'${m.id}',dsIndex:1,bad:${JSON.stringify(pad(qseries.cmp.不良品數Raw, n))},uncat:${JSON.stringify(pad(qseries.cmp.未歸類數Raw, n))},den:${JSON.stringify(pad(qseries.cmp.總線上量Raw, n))}});`;
+        }
+      }
       return `new Chart(document.getElementById('${m.id}'),{type:'line',
         data:{labels:${JSON.stringify(monthLabels)},datasets:[
           {label:'${curLabel}',data:${curData},borderColor:${m.color},backgroundColor:${m.color}_BG,fill:true,tension:.3,pointRadius:3}${cmpDs}
-        ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});`;
+        ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+      ${ucReg}`;
     }).join('\n      ');
     return {
       html: `<div class="card">
@@ -409,14 +452,14 @@ App.report = (() => {
         <div class="krow">
           ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
           ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(car.kpi.期間回廠量, car.cmpKpi.期間回廠量, 'int', null) : '')}
-          ${kcard('車機整體不良率', rPct(car.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體不良率, car.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
+          ${kcardUncatRate('車機整體不良率', car.kpi, car.cmpKpi, ctx.hasCmp)}
           ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
         <div class="sech">整體數值 · 鏡頭</div>
         <div class="krow">
           ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
           ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.期間回廠量, lens.cmpKpi.期間回廠量, 'int', null) : '')}
-          ${kcard('鏡頭整體不良率', rPct(lens.kpi.整體不良率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體不良率, lens.cmpKpi.整體不良率, 'pct', false) : '', 'good')}
+          ${kcardUncatRate('鏡頭整體不良率', lens.kpi, lens.cmpKpi, ctx.hasCmp)}
           ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
         ${carSec.html}
@@ -733,7 +776,7 @@ App.report = (() => {
   // 精簡 kpi 只留圖表／卡片需要的欄位，embed 進報告的 JSON 體積不隨 computeKPI 未來擴充欄位而膨脹
   function vendorKPISlim(kpi) {
     return {
-      過保數: kpi.過保數, 不良品數: kpi.不良品數, 良品數: kpi.良品數,
+      過保數: kpi.過保數, 不良品數: kpi.不良品數, 良品數: kpi.良品數, 未歸類數: kpi.未歸類數, 期間回廠量: kpi.期間回廠量,
       期間不良率: kpi.期間不良率, 期間過保率: kpi.期間過保率, 再使用率: kpi.再使用率,
     };
   }
@@ -872,7 +915,8 @@ App.report = (() => {
       chartScript: `
         window.__vendorAllData={car:${JSON.stringify(carVendorData)},lens:${JSON.stringify(lensVendorData)}};
         function __vendorSummaryRowHTML(name,kpi){
-          return '<tr><td class="l">'+name+'</td><td class="num">'+Math.round(kpi.不良品數).toLocaleString('en-US')+'</td>'+
+          var uc=window.__uncatMerged, bad=kpi.不良品數+(uc?(kpi.未歸類數||0):0);
+          return '<tr><td class="l">'+name+'</td><td class="num">'+Math.round(bad).toLocaleString('en-US')+'</td>'+
             '<td class="num">'+Math.round(kpi.過保數).toLocaleString('en-US')+'</td><td class="num">'+Math.round(kpi.良品數).toLocaleString('en-US')+'</td></tr>';
         }
         window.__renderVendorSection=function(device){
@@ -882,9 +926,12 @@ App.report = (() => {
           if(summaryEl)summaryEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorSummaryRowHTML(v,rec.kpi):''; }).join('')||'<tr><td class="l" colspan="4">尚未選擇廠商</td></tr>';
           var canvas=document.getElementById('vendor-chart-'+device);
           var existing=Chart.getChart(canvas); if(existing)existing.destroy();
+          var uc=window.__uncatMerged;
           var datasets=checked.map(function(v,i){
             var rec=all[v]; if(!rec)return null;
-            return {label:v,data:[+(rec.kpi.期間不良率*100).toFixed(1),+(rec.kpi.期間過保率*100).toFixed(1),+(rec.kpi.再使用率*100).toFixed(1)],backgroundColor:PAL[i%PAL.length]};
+            var k=rec.kpi;
+            var badRate=k.期間回廠量?((k.不良品數+(uc?(k.未歸類數||0):0))/k.期間回廠量):0;
+            return {label:v,data:[+(badRate*100).toFixed(1),+(k.期間過保率*100).toFixed(1),+(k.再使用率*100).toFixed(1)],backgroundColor:PAL[i%PAL.length]};
           }).filter(Boolean);
           new Chart(canvas,{type:'bar',data:{labels:['不良率%','過保率%','再使用率%'],datasets:datasets},
             options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'%';}}}}}});
@@ -1121,6 +1168,7 @@ ${pages.map((p) => p.html).join('\n')}
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
 const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
+window.__uncatMerged=false;
 window.addEventListener('load',function(){
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
@@ -1132,6 +1180,71 @@ window.addEventListener('load',function(){
     });
   });
   if(typeof Chart!=='undefined'){${pages.map((p) => p.chartScript).join('\n')}}
+
+  // ── 未歸類數併入不良品數：全報告連動（表格數字／KPI卡／長條圖／折線圖／圓餅圖）──
+  function __ucFmtInt(v){ return Math.round(v).toLocaleString('en-US'); }
+  function __ucFmtPct(v){ return (v*100).toFixed(1)+'%'; }
+  function __ucPct(bad,uncat,den,on){ return den?(on?bad+uncat:bad)/den:0; }
+  window.__ucApplyAll=function(){
+    var on=window.__uncatMerged;
+    document.querySelectorAll('.uc-bad:not([data-scope])').forEach(function(el){
+      var bad=+el.dataset.bad,uncat=+el.dataset.uncat;
+      el.textContent=__ucFmtInt(on?bad+uncat:bad);
+    });
+    document.querySelectorAll('.uc-rate').forEach(function(el){
+      var bad=+el.dataset.bad,uncat=+el.dataset.uncat,den=+el.dataset.den;
+      el.textContent=__ucFmtPct(__ucPct(bad,uncat,den,on));
+    });
+    document.querySelectorAll('.uc-uncat').forEach(function(el){
+      el.textContent=__ucFmtInt(on?0:(+el.dataset.uncat));
+    });
+    document.querySelectorAll('.uc-uncat-rate').forEach(function(el){
+      var uncat=+el.dataset.uncat,den=+el.dataset.den;
+      el.textContent=__ucFmtPct(den?(on?0:uncat)/den:0);
+    });
+    var scopeTotals={};
+    document.querySelectorAll('.uc-bad[data-scope]').forEach(function(el){
+      var scope=el.dataset.scope,bad=+el.dataset.bad,uncat=+el.dataset.uncat;
+      var v=on?bad+uncat:bad;
+      el.textContent=__ucFmtInt(v);
+      scopeTotals[scope]=(scopeTotals[scope]||0)+v;
+    });
+    document.querySelectorAll('.uc-share').forEach(function(el){
+      var scope=el.dataset.scope,bad=+el.dataset.bad,uncat=+el.dataset.uncat;
+      var v=on?bad+uncat:bad, total=scopeTotals[scope]||0;
+      el.textContent=__ucFmtPct(total?v/total:0);
+    });
+    document.querySelectorAll('.uc-delta').forEach(function(el){
+      var bad=+el.dataset.bad,uncat=+el.dataset.uncat,den=+el.dataset.den;
+      var cbad=+el.dataset.cbad,cuncat=+el.dataset.cuncat,cden=+el.dataset.cden;
+      var cur=__ucPct(bad,uncat,den,on), prev=__ucPct(cbad,cuncat,cden,on);
+      var pp=(cur-prev)*100;
+      var better=el.dataset.better==='true';
+      var cls=Math.abs(pp)<0.05?'flat':(((pp>0)===better)?'good':'bad');
+      el.className='d uc-delta d-'+cls;
+      el.textContent=(pp>=0?'▲ +':'▼ ')+pp.toFixed(1)+'pp';
+    });
+    (window.__ucCharts||[]).forEach(function(spec){
+      var c=Chart.getChart(spec.id); if(!c)return;
+      c.data.datasets[0].data=spec.bad.map(function(b,i){ return on?b+(spec.uncat[i]||0):b; });
+      c.update();
+    });
+    (window.__ucLineCharts||[]).forEach(function(spec){
+      var c=Chart.getChart(spec.id); if(!c)return;
+      var ds=c.data.datasets[spec.dsIndex]; if(!ds)return;
+      ds.data=spec.bad.map(function(b,i){ var den=spec.den[i]||0; var u=spec.uncat[i]||0; return den?+((on?(b+u):b)/den*100).toFixed(1):0; });
+      c.update();
+    });
+    if(window.__renderVendorSection){ window.__renderVendorSection('car'); window.__renderVendorSection('lens'); }
+  };
+  var ucChecks=document.querySelectorAll('.uc-merge-checkbox');
+  ucChecks.forEach(function(cb){
+    cb.addEventListener('change',function(){
+      window.__uncatMerged=cb.checked;
+      ucChecks.forEach(function(other){ other.checked=cb.checked; });
+      window.__ucApplyAll();
+    });
+  });
 });
 </script></body></html>`;
   }
