@@ -333,9 +333,25 @@ App.report = (() => {
     return bullets;
   }
 
+  // 車機回廠量分析表列序：一般定位／影像機型各自依指定順序排最前面，方便同分類機型互相比對；
+  // 未列在這兩組的機型（少量／未分類）維持原本「回廠量由大到小」排序，接在後面（2026-07-28 使用者裁決）
+  const CAR_RANK_ORDER_GENERAL = ['S168', 'MT99', 'GO-168', 'EDR-168'];
+  const CAR_RANK_ORDER_IMAGING = ['FUHO 4CH', 'FUHO 8CH', 'F6N', 'C43'];
+  const CAR_RANK_ORDER_INDEX = Object.fromEntries([...CAR_RANK_ORDER_GENERAL, ...CAR_RANK_ORDER_IMAGING].map((k, i) => [k, i]));
+
   function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId) {
     const agg = aggByType(d, selection);
-    agg.groups = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量); // 比照 draft：依回廠量由大到小
+    if (deviceKey === '車機') {
+      agg.groups = [...agg.groups].sort((a, b) => {
+        const ai = CAR_RANK_ORDER_INDEX[a.key], bi = CAR_RANK_ORDER_INDEX[b.key];
+        if (ai != null && bi != null) return ai - bi;
+        if (ai != null) return -1;
+        if (bi != null) return 1;
+        return b.subtotal.回廠量 - a.subtotal.回廠量;
+      });
+    } else {
+      agg.groups = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量); // 比照 draft：依回廠量由大到小
+    }
     const ucBad = (s) => `<span class="uc-bad" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}">${rInt(s.不良品數)}</span>`;
     const ucBadRate = (s) => `<span class="uc-rate" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}" data-den="${s.回廠量}">${rPct(s.不良率)}</span>`;
     const ucOverallRate = (s) => `<span class="uc-rate" data-bad="${s.不良品數}" data-uncat="${s.未歸類數 || 0}" data-den="${s.上線量}">${rPct(s.整體不良率)}</span>`;
@@ -493,7 +509,7 @@ App.report = (() => {
       return `new Chart(document.getElementById('${m.id}'),{type:'line',
         data:{labels:${JSON.stringify(monthLabels)},datasets:[
           {label:'${curLabel}',data:${curData},borderColor:${m.color},backgroundColor:${m.color}_BG,fill:true,tension:.3,pointRadius:3}${cmpDs}
-        ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+        ]},options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
       ${ucReg}`;
     }).join('\n      ');
     return {
@@ -1165,12 +1181,17 @@ App.report = (() => {
           if(!tbody)return;
           var sort=window.__vageSort[device];
           var rows=[].concat(window.__vageRendered[device]||[]);
+          var grouped=device==='car';
+          var catOrder={general:0,imaging:1};
           rows.sort(function(a,b){
+            if(grouped){
+              var ca=catOrder[a.cat]!=null?catOrder[a.cat]:2, cb=catOrder[b.cat]!=null?catOrder[b.cat]:2;
+              if(ca!==cb)return ca-cb;
+            }
             if(sort.key==='year'){ var av=a.year||0,bv=b.year||0; return sort.dir==='asc'?av-bv:bv-av; }
             var as=String(a[sort.key]||''),bs=String(b[sort.key]||'');
             return sort.dir==='asc'?as.localeCompare(bs,'zh-Hant'):bs.localeCompare(as,'zh-Hant');
           });
-          var grouped=device==='car';
           tbody.innerHTML=rows.map(function(r){
             return '<tr><td class="l">'+r.model+'</td><td class="l">'+r.vendor+'</td>'+
               (grouped?'<td class="l">'+(r.cat?__vageCatChip(r.cat):'<span style="color:var(--muted)">未分類</span>')+'</td>':'')+
@@ -1265,11 +1286,18 @@ App.report = (() => {
     const [mainUnit, accessory, qc, exportQc] = rows;
     const stableTotal = accessory.y115 + qc.y115;
 
+    // 配件類鏡頭整新數量（使用者提供的補充明細，非彙總常數可推得，故獨立列出）
+    const LENS_QTY = { y114: 841, y115: 782 };
+    const lensQtyDiff = LENS_QTY.y115 - LENS_QTY.y114;
+
     // 配件類金額差異補充說明（獨立於 AI 建議說明，放在明細表旁的說明欄；
     // 僅在配件115年金額低於114年時顯示，避免跟未來資料對不上）
-    const ACCESSORY_NOTE = accessory.diff < 0
-      ? `「${esc(accessory.label)}」114年同期金額較高，主要因當年度執行 Mobileye ADAS(AM)、DMS控制盒(CM) 等大型整新專案；115年無同等規模之一次性整新案，故整體金額相對降低。`
-      : '';
+    const ACCESSORY_NOTES = accessory.diff < 0
+      ? [
+          `「${esc(accessory.label)}」114年同期金額較高，主要因當年度執行 Mobileye ADAS(AM)、DMS控制盒(CM) 等大型整新專案；115年無同等規模之一次性整新案，故整體金額相對降低。`,
+          `配件類差異亦反映在鏡頭整新數量：114年1–6月共整新 ${rInt(LENS_QTY.y114)} 顆，115年同期 ${rInt(LENS_QTY.y115)} 顆，減少 ${rInt(Math.abs(lensQtyDiff))} 顆，與金額端變化方向一致。`,
+        ]
+      : [];
 
     const bullets = [
       `115年1–6月整新循環總價值達 ${rInt(total115)} 元，較114年同期增加 ${rDiff(totalDiff)} 元（${kpiGrowthLabel(totalGrowth)}），相當於再為公司省下同等金額的外部採購／維修支出。`,
@@ -1301,9 +1329,10 @@ App.report = (() => {
               </tbody>
             </table></div>
           </div>
-          ${ACCESSORY_NOTE ? `<div class="card">
+          ${ACCESSORY_NOTES.length ? `<div class="card">
             <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
-            <p>${esc(ACCESSORY_NOTE)}</p>
+            <ul>${ACCESSORY_NOTES.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+            <div class="chartbox sm"><canvas id="kpi-c2"></canvas></div>
           </div>` : ''}
         </div>
         <div class="callout good"><p class="big-quote">AI 建議說明</p><ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
@@ -1334,7 +1363,26 @@ App.report = (() => {
               });
               ctx.restore();
             }
-          }]});`,
+          }]});
+        ${ACCESSORY_NOTES.length ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
+          data:{labels:['114年1-6月','115年1-6月'],
+            datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
+          options:{maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'配件類鏡頭整新數量（顆）'}},scales:{y:{beginAtZero:true}}},
+          plugins:[{
+            id:'lensQtyValueLabels',
+            afterDatasetsDraw(chart){
+              const ctx=chart.ctx;
+              ctx.save();
+              ctx.fillStyle='#1F2535';
+              ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
+              ctx.textAlign='center';
+              ctx.textBaseline='bottom';
+              chart.getDatasetMeta(0).data.forEach((bar,i)=>{
+                ctx.fillText(chart.data.datasets[0].data[i]+' 顆',bar.x,bar.y-4);
+              });
+              ctx.restore();
+            }
+          }]});` : ''}`,
     };
   }
 
@@ -1578,7 +1626,12 @@ window.addEventListener('load',function(){
       window.scrollTo(0,0);
     });
   });
-  if(typeof Chart!=='undefined'){${pages.map((p) => p.chartScript).join('\n')}}
+  if(typeof Chart!=='undefined'){
+    Chart.defaults.font.size=13;
+    Chart.defaults.font.weight=700;
+    Chart.defaults.color='#4A5264';
+    ${pages.map((p) => p.chartScript).join('\n')}
+  }
 
   // ── 未歸類數併入不良品數：全報告連動（表格數字／KPI卡／長條圖／折線圖／圓餅圖）──
   function __ucFmtInt(v){ return Math.round(v).toLocaleString('en-US'); }
