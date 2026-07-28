@@ -113,6 +113,28 @@ App.sheets = (() => {
   }
 
   // ─────────────────────────────────────────────────
+  // 進貨表（本機靜態資料：js/data/purchase_dates.json）
+  // ─────────────────────────────────────────────────
+
+  /**
+   * 讀取預先轉換好的「條碼 → 最舊進貨日」對照表（Map<條碼, 'YYYY-MM-DD'>）。
+   * 來源：桌面「2026進貨0728_所有條碼.XLSX」（單據名稱＝產品進貨單，去重取最舊單據日期），
+   * 經 scripts/build_purchase_dates.py 一次性轉換而成。此為進貨日的主要來源，
+   * 找不到時由 transform.js 退回舊有 Google Sheets 進貨日欄位（派工/回廠/維修/報廢）。
+   * 讀取失敗（檔案不存在等）時靜默回空物件，不影響其餘功能。
+   * @returns {Promise<Object<string,string>>}
+   */
+  async function load進貨表() {
+    try {
+      const res = await fetch('js/data/purchase_dates.json');
+      if (!res.ok) return {};
+      return await res.json();
+    } catch {
+      return {};
+    }
+  }
+
+  // ─────────────────────────────────────────────────
   // 公開 API
   // ─────────────────────────────────────────────────
 
@@ -132,6 +154,7 @@ App.sheets = (() => {
    *   關鍵字對照表: Object[],  // key: 優先序, 關鍵字, 維護類型
    *   維修分類:     Object[],  // key: 維修分類
    *   年限門檻:     Object[],  // key: 設備類型, 年限門檻（分頁未建立時為空陣列）
+   *   進貨表:       Object<string,string>,  // Map<條碼, 'YYYY-MM-DD'>，本機靜態檔（進貨日主要來源）
    * }
    * ```
    *
@@ -158,7 +181,7 @@ App.sheets = (() => {
   async function loadAll(sheetIdOverride) {
     const [
       派工, 回廠, 維修, 報廢, 上線量,
-      類型清單, 品號對照表, 關鍵字對照表, 維修分類, 年限門檻,
+      類型清單, 品號對照表, 關鍵字對照表, 維修分類, 年限門檻, 進貨表,
     ] = await Promise.all([
       fetchSheet(urlFor('派工', sheetIdOverride)),
       fetchSheet(urlFor('回廠', sheetIdOverride)),
@@ -170,11 +193,12 @@ App.sheets = (() => {
       fetchSheet(urlFor('關鍵字對照表', sheetIdOverride)),
       fetchSheet(urlFor('維修分類', sheetIdOverride)),
       load年限門檻(sheetIdOverride),
+      load進貨表(),
     ]);
 
     return {
       派工, 回廠, 維修, 報廢, 上線量,
-      類型清單, 品號對照表, 關鍵字對照表, 維修分類, 年限門檻,
+      類型清單, 品號對照表, 關鍵字對照表, 維修分類, 年限門檻, 進貨表,
     };
   }
 

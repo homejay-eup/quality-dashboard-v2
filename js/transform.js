@@ -404,6 +404,7 @@ App.transform = (() => {
     const {
       派工, 回廠, 維修, 報廢,
       類型清單, 品號對照表, 關鍵字對照表, 年限門檻,
+      進貨表 = {},
     } = raw;
 
     const { startMonth, endMonth } = getPeriodMonths(year, quarter);
@@ -533,8 +534,10 @@ App.transform = (() => {
       const 報廢原因   = String(報廢Row?.['報廢原因']   || '').trim();
 
       // ── 規則 E：已使用年限
-      // 優先 派工.替換前進貨日；缺則依序查 回廠/維修/報廢 的進貨日
-      let 進貨日Date = parseDate(row['替換前進貨日']);
+      // 優先 進貨表（本機「產品進貨單」條碼→最舊進貨日對照，見 js/data/purchase_dates.json）；
+      // 查無條碼時退回 Google Sheets 舊有來源：派工.替換前進貨日，再依序查 回廠/維修/報廢 的進貨日
+      let 進貨日Date = barcode ? parseDate(進貨表[barcode]) : null;
+      if (!進貨日Date) 進貨日Date = parseDate(row['替換前進貨日']);
       if (!進貨日Date) {
         for (const src of [回廠Row, 維修Row, 報廢Row]) {
           const d = parseDate(src?.['進貨日']);
