@@ -174,11 +174,11 @@ App.report = (() => {
     if (fmt === 'pct') {
       const pp = (cur - prev) * 100;
       const cls = Math.abs(pp) < 0.05 ? 'flat' : (better == null ? 'flat' : (((pp > 0) === better) ? 'good' : 'bad'));
-      return `<div class="d d-${cls}">${pp >= 0 ? '▲ +' : '▼ '}${pp.toFixed(1)}pp</div><div class="p">對比 ${rPct(prev)}</div>`;
+      return `<div class="d d-${cls}">${pp >= 0 ? '▲ +' : '▼ '}${pp.toFixed(1)}pp</div>`;
     }
     const diff = cur - prev;
     const cls = diff === 0 ? 'flat' : (better == null ? 'flat' : (((diff > 0) === better) ? 'good' : 'bad'));
-    return `<div class="d d-${cls}">${diff >= 0 ? '▲ +' : '▼ '}${rInt(diff)}</div><div class="p">對比 ${rInt(prev)}</div>`;
+    return `<div class="d d-${cls}">${diff >= 0 ? '▲ +' : '▼ '}${rInt(diff)}</div>`;
   }
   function kcard(label, val, deltaHTML, tone) {
     return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${deltaHTML || ''}</div>`;
@@ -486,9 +486,7 @@ App.report = (() => {
   function reuseUsagePageHTML(ctx) {
     const { car, lens, state } = ctx, hasCmp = ctx.hasCmp;
     const months = periodMonths(state.quarter);
-    const cmpMonths = hasCmp ? periodMonths(state.cmp.quarter) : null;
     const freight = shippingCost(months);
-    const cmpFreight = hasCmp ? shippingCost(cmpMonths) : null;
 
     // 車機機型分類設定：依本期回廠QC數由大到小排序，供分類表勾選
     const carTypeAgg = aggByType(car, ctx.carSelection);
@@ -514,6 +512,21 @@ App.report = (() => {
           <div class="kcard"><div class="l">預估省下的成本</div><div class="v" id="kpi-saved-cost-total">0 元</div><div class="p">內部檢測數量 × 單位成本</div></div>
           <div class="kcard" style="border-top-color:var(--warn)"><div class="l">送修運費（固定物流成本）</div><div class="v">${rInt(freight)} 元</div><div class="p">300元/次 × 2次/週 × 4週/月 × ${months}個月，與件數無關</div></div>
         </div>
+        <div class="${hasCmp ? 'g2-eq' : ''}">
+          <div class="card">
+            <div class="chead"><div class="ct">省下的成本走勢</div><div class="cs">${esc(usageTrend.curLabel)} 1～${usageTrend.months.length}月${usageTrend.cmpLabel ? `　vs　${esc(usageTrend.cmpLabel)}` : ''}，隨上方分類／單位成本即時變化</div></div>
+            <div class="chartbox"><canvas id="usage-trend-chart"></canvas></div>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">期間</th><th class="num">省下的成本合計（元）</th></tr></thead>
+              <tbody id="usage-yearly-tbody"></tbody>
+            </table></div>
+          </div>
+          ${hasCmp ? `<div class="card">
+            <div class="chead"><div class="ct">與去年同期比較</div><div class="cs">${esc(periodText(state))}　｜　內部檢測數量（件）</div></div>
+            <div class="chartbox"><canvas id="usage-yoy-chart"></canvas></div>
+          </div>` : ''}
+        </div>
+        <div class="callout good"><p class="big-quote">整體建議說明</p><ul>${bullets1.concat(bullets2).map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
         <div class="card">
           <details class="collapsible">
             <summary class="chead"><div class="ct">車機機型分類設定</div><div class="cs">勾選「一般定位」或「影像」，決定下方成本試算與趨勢圖如何加總；同一機型只能勾一邊，都不勾視為未分類（不計入試算）</div></summary>
@@ -563,29 +576,6 @@ App.report = (() => {
             </div></div>
           </details>
         </div>
-        <div class="${hasCmp ? 'g2-eq' : ''}">
-          <div class="card">
-            <div class="chead"><div class="ct">省下的成本走勢</div><div class="cs">${esc(usageTrend.curLabel)} 1～${usageTrend.months.length}月${usageTrend.cmpLabel ? `　vs　${esc(usageTrend.cmpLabel)}` : ''}，隨上方分類／單位成本即時變化</div></div>
-            <div class="chartbox"><canvas id="usage-trend-chart"></canvas></div>
-            <div class="twrap" style="margin-top:14px"><table class="agg">
-              <thead><tr><th class="l">期間</th><th class="num">省下的成本合計（元）</th></tr></thead>
-              <tbody id="usage-yearly-tbody"></tbody>
-            </table></div>
-          </div>
-          ${hasCmp ? `<div class="card">
-            <div class="chead"><div class="ct">與去年同期比較</div><div class="cs">${esc(periodText(state))}</div></div>
-            <div class="twrap"><table class="agg">
-              <thead><tr><th class="l">指標</th><th class="num">對比期間</th><th class="num">目前期間</th><th class="num">差異</th></tr></thead>
-              <tbody>
-                <tr><td class="l">車機內部檢測數量（件）</td><td class="num">${rInt(car.cmpKpi.內部檢測數)}</td><td class="num">${rInt(car.kpi.內部檢測數)}</td><td class="num">${rDiff(car.kpi.內部檢測數 - car.cmpKpi.內部檢測數)}</td></tr>
-                <tr><td class="l">鏡頭內部檢測數量（件）</td><td class="num">${rInt(lens.cmpKpi.內部檢測數)}</td><td class="num">${rInt(lens.kpi.內部檢測數)}</td><td class="num">${rDiff(lens.kpi.內部檢測數 - lens.cmpKpi.內部檢測數)}</td></tr>
-                <tr><td class="l">送修運費（固定物流成本，元）</td><td class="num">${rInt(cmpFreight)}</td><td class="num">${rInt(freight)}</td><td class="num">${rDiff(freight - cmpFreight)}</td></tr>
-              </tbody>
-            </table></div>
-          </div>` : ''}
-        </div>
-        <div class="callout good"><p class="big-quote">整體建議說明</p><ul>${bullets1.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
-        ${hasCmp ? `<div class="callout good"><p class="big-quote">同期比較說明</p><ul>${bullets2.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>` : ''}
       </section>`,
       chartScript: `
         window.__carModelQC=${JSON.stringify(carModelQC)};
@@ -660,6 +650,12 @@ App.report = (() => {
             {label:window.__usageTrend.cmpLabel||'去年同期',data:[],borderColor:'#9AA0A6',borderDash:[5,4],fill:false,tension:.3,pointRadius:3}
           ]},
           options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v.toLocaleString('en-US');}}}}}});
+        ${hasCmp ? `new Chart(document.getElementById('usage-yoy-chart'),{type:'bar',
+          data:{labels:['車機','鏡頭'],datasets:[
+            {label:'${esc(usageTrend.cmpLabel || '去年同期')}',data:[${Math.round(car.cmpKpi.內部檢測數) || 0},${Math.round(lens.cmpKpi.內部檢測數) || 0}],backgroundColor:'#9AA0A6'},
+            {label:'${esc(usageTrend.curLabel)}',data:[${Math.round(car.kpi.內部檢測數) || 0},${Math.round(lens.kpi.內部檢測數) || 0}],backgroundColor:GOOD}
+          ]},
+          options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});` : ''}
         document.querySelectorAll('#page-usage .cost-input').forEach(function(el){el.addEventListener('input',window.__recomputeUsageSaving);});
         document.querySelectorAll('.cls-general').forEach(function(cb){
           cb.addEventListener('change',function(){
@@ -692,8 +688,7 @@ App.report = (() => {
   // 精簡 kpi 只留圖表／卡片需要的欄位，embed 進報告的 JSON 體積不隨 computeKPI 未來擴充欄位而膨脹
   function vendorKPISlim(kpi) {
     return {
-      期間回廠量: kpi.期間回廠量, 過保數: kpi.過保數, 不良品數: kpi.不良品數, 人為數: kpi.人為數,
-      良品數: kpi.良品數, 其他未過數: kpi.其他未過數,
+      過保數: kpi.過保數, 不良品數: kpi.不良品數, 良品數: kpi.良品數,
       期間不良率: kpi.期間不良率, 期間過保率: kpi.期間過保率, 再使用率: kpi.再使用率,
     };
   }
@@ -724,60 +719,45 @@ App.report = (() => {
     return {
       html: `<section class="page" id="page-vendor">
         <div class="ph"><div><span class="ph-l">${App.icons.factory()} 重點廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
-        <div class="sech">車機重點廠商</div>
-        <div class="card">
-          <details class="collapsible">
-            <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
-            <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-          </details>
+        <div class="g2-eq">
+          <div>
+            <div class="sech">車機重點廠商</div>
+            <div class="card">
+              <details class="collapsible">
+                <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
+                <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+              </details>
+            </div>
+            <div class="card">
+              <div class="chead"><div class="ct">車機廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
+              <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+              <div class="twrap" style="margin-top:14px"><table class="agg">
+                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                <tbody id="vendor-summary-car"></tbody>
+              </table></div>
+            </div>
+          </div>
+          <div>
+            <div class="sech">鏡頭重點廠商</div>
+            <div class="card">
+              <details class="collapsible">
+                <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
+                <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+              </details>
+            </div>
+            <div class="card">
+              <div class="chead"><div class="ct">鏡頭廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
+              <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+              <div class="twrap" style="margin-top:14px"><table class="agg">
+                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                <tbody id="vendor-summary-lens"></tbody>
+              </table></div>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <div class="chead"><div class="ct">車機廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
-          <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
-          <div class="twrap" style="margin-top:14px"><table class="agg">
-            <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-            <tbody id="vendor-summary-car"></tbody>
-          </table></div>
-        </div>
-        <div class="g2" id="vendor-cards-car"></div>
-
-        <div class="sech" style="margin-top:26px">鏡頭重點廠商</div>
-        <div class="card">
-          <details class="collapsible">
-            <summary class="chead"><div class="ct">選擇要比較的廠商</div><div class="cs">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</div></summary>
-            <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-          </details>
-        </div>
-        <div class="card">
-          <div class="chead"><div class="ct">鏡頭廠商品質比較</div><div class="cs">不良率／過保率／再使用率，數字越高不代表越好（過保率／不良率越低越好）</div></div>
-          <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
-          <div class="twrap" style="margin-top:14px"><table class="agg">
-            <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-            <tbody id="vendor-summary-lens"></tbody>
-          </table></div>
-        </div>
-        <div class="g2" id="vendor-cards-lens"></div>
       </section>`,
       chartScript: `
         window.__vendorAllData={car:${JSON.stringify(carVendorData)},lens:${JSON.stringify(lensVendorData)}};
-        function __vendorBucketRows(kpi){
-          return [
-            {label:'過保',cls:'warn',count:kpi.過保數},
-            {label:'不良',cls:'bad',count:kpi.不良品數},
-            {label:'人為',cls:'',count:kpi.人為數},
-            {label:'仍在線（良品）',cls:'good',count:kpi.良品數},
-            {label:'其他(未過)',cls:'',count:kpi.其他未過數},
-          ];
-        }
-        function __vendorCardHTML(name,kpi){
-          var rows=__vendorBucketRows(kpi);
-          var trs=rows.map(function(r){
-            return '<tr><td class="l"><span class="pill '+r.cls+'">'+r.label+'</span></td><td class="num">'+Math.round(r.count).toLocaleString('en-US')+'</td></tr>';
-          }).join('');
-          return '<div class="card"><div class="chead"><div class="ct">'+name+'</div><div class="cs">回廠量 '+Math.round(kpi.期間回廠量).toLocaleString('en-US')+'</div></div>'+
-            '<div class="twrap"><table class="agg"><thead><tr><th class="l">分類</th><th class="num">數量</th></tr></thead>'+
-            '<tbody>'+trs+'</tbody></table></div></div>';
-        }
         function __vendorSummaryRowHTML(name,kpi){
           return '<tr><td class="l">'+name+'</td><td class="num">'+Math.round(kpi.不良品數).toLocaleString('en-US')+'</td>'+
             '<td class="num">'+Math.round(kpi.過保數).toLocaleString('en-US')+'</td><td class="num">'+Math.round(kpi.良品數).toLocaleString('en-US')+'</td></tr>';
@@ -785,8 +765,6 @@ App.report = (() => {
         window.__renderVendorSection=function(device){
           var checked=[].slice.call(document.querySelectorAll('.vp-'+device+':checked')).map(function(cb){return cb.value;});
           var all=window.__vendorAllData[device];
-          var cardsEl=document.getElementById('vendor-cards-'+device);
-          cardsEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorCardHTML(v,rec.kpi):''; }).join('');
           var summaryEl=document.getElementById('vendor-summary-'+device);
           if(summaryEl)summaryEl.innerHTML=checked.map(function(v){ var rec=all[v]; return rec?__vendorSummaryRowHTML(v,rec.kpi):''; }).join('')||'<tr><td class="l" colspan="4">尚未選擇廠商</td></tr>';
           var canvas=document.getElementById('vendor-chart-'+device);
