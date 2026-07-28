@@ -421,7 +421,10 @@ App.report = (() => {
           ${bucketBreakdownHTML('鏡頭', lens.kpi, ctx.hasCmp ? lens.cmpKpi : null)}
         </div>
         <div class="callout good"><p class="big-quote">整體建議說明</p><ul>${bucketBullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
-        <div class="g2-eq">
+        <div class="chart-toggle-row">
+          <label class="chart-toggle-label"><input type="checkbox" id="toggle-ov-trend"> 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</label>
+        </div>
+        <div class="g2-eq" id="ov-trend-wrap">
           ${carTrendSec.html}
           ${lensTrendSec.html}
         </div>
@@ -434,6 +437,14 @@ App.report = (() => {
       chartScript: `
         ${carTrendSec.chartScript}
         ${lensTrendSec.chartScript}
+        (function(){
+          var wrap=document.getElementById('ov-trend-wrap');
+          var chk=document.getElementById('toggle-ov-trend');
+          if(wrap&&chk){
+            wrap.style.display=chk.checked?'':'none';
+            chk.addEventListener('change',function(){ wrap.style.display=this.checked?'':'none'; });
+          }
+        })();
         ${carQoYSec.chartScript}
         ${lensQoYSec.chartScript}
         ${carSec.chartScript}
@@ -992,6 +1003,9 @@ table.rtable .colRate{display:none}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .rank-badge{margin-right:4px}
+.chart-toggle-row{display:flex;justify-content:flex-end;margin:-6px 0 12px}
+.chart-toggle-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
+.chart-toggle-label input{cursor:pointer}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
 .vp-item{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;user-select:none}
 .vp-item input{cursor:pointer}
