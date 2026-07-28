@@ -288,6 +288,40 @@ App.report = (() => {
     </div></div>`;
   }
 
+  // 單一設備類型（車機／鏡頭）「回廠量分析」＋「過保／不良品」的分析與說明：
+  // 整體不良率／過保率、不良品與過保占比前三名機型、平均已使用年限 vs 預期使用年限，最後一句總結。
+  function deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups) {
+    const bullets = [];
+    bullets.push(`本期${deviceKey}回廠 ${rInt(gt.回廠量)} 台，其中不良品 ${rInt(gt.不良品數)} 台、過保 ${rInt(gt.過保數)} 台；以總上線量 ${rInt(gt.上線量)} 台為基準，整體不良率 ${rPct(gt.整體不良率)}、整體過保率 ${rPct(gt.整體過保率)}。`);
+
+    const totalBad = badGroups.reduce((s, g) => s + g.subtotal.不良品數, 0);
+    const totalWarr = scrGroups.reduce((s, g) => s + g.subtotal.過保數, 0);
+    const badTop3 = badGroups.slice(0, 3).map((g) => `${g.key}（${rPct(totalBad ? g.subtotal.不良品數 / totalBad : 0)}）`);
+    const warrTop3 = scrGroups.slice(0, 3).map((g) => `${g.key}（${rPct(totalWarr ? g.subtotal.過保數 / totalWarr : 0)}）`);
+    if (badTop3.length) bullets.push(`不良品以 ${badTop3.join('、')} 為主。`);
+    if (warrTop3.length) bullets.push(`過保以 ${warrTop3.join('、')} 為主。`);
+
+    const baseline = EXPECTED_LIFE_YEARS[deviceKey];
+    if (gt.已使用年限 != null && baseline != null) {
+      const diff = gt.已使用年限 - baseline;
+      const verdict = diff > 0
+        ? `已超出預期使用年限 ${diff.toFixed(1)} 年，屬於延壽使用，划算。`
+        : diff < 0
+          ? `尚未達預期使用年限，理論上還有 ${Math.abs(diff).toFixed(1)} 年可用。`
+          : '恰好達預期使用年限。';
+      bullets.push(`${deviceKey}（有報廢資訊的設備）平均已使用 ${gt.已使用年限.toFixed(1)} 年，預期使用年限 ${baseline} 年，${verdict}`);
+    }
+
+    const badLeader = badTop3[0] ? badTop3[0].split('（')[0] : null;
+    const warrLeader = warrTop3[0] ? warrTop3[0].split('（')[0] : null;
+    const summaryParts = [`${deviceKey}整體品質狀況：不良率 ${rPct(gt.整體不良率)}、過保率 ${rPct(gt.整體過保率)}`];
+    if (badLeader) summaryParts.push(`不良品集中在 ${badLeader}`);
+    if (warrLeader) summaryParts.push(`過保集中在 ${warrLeader}`);
+    bullets.push(`總結：${summaryParts.join('，')}，建議優先關注上述機型的品質與後續汰換規劃。`);
+
+    return bullets;
+  }
+
   function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId) {
     const agg = aggByType(d, selection);
     agg.groups = [...agg.groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量); // 比照 draft：依回廠量由大到小
@@ -356,6 +390,7 @@ App.report = (() => {
             ${rankTableHTML(badGroups, '不良品數', `${badChartId}-rank`)}
           </div>
         </div>
+        ${adviceCalloutHTML(`advice-${chartId}`, `分析與說明（${esc(deviceKey)}）`, deviceQualityFindingsHTML(deviceKey, gt, scrGroups, badGroups), gt.整體不良率 >= 0.03 ? 'bad' : gt.整體不良率 >= 0.01 ? 'warn' : 'good')}
       </div>`,
       chartScript: `new Chart(document.getElementById('${chartId}'),{type:'doughnut',
         data:{labels:${JSON.stringify(donutLabels)},datasets:[{data:${JSON.stringify(donutData)},backgroundColor:PAL,borderColor:'#fff',borderWidth:1}]},
