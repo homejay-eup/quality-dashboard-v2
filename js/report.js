@@ -345,10 +345,10 @@ App.report = (() => {
     const metrics = [
       { key: '過保率', color: 'AMBER', id: `${chartId}-scr` },
       { key: '不良率', color: 'RED', id: `${chartId}-bad` },
-      // 再使用率先隱藏（保留資料與程式碼，之後要恢復顯示只需取消註解）
-      // { key: '再使用率', color: 'TREND', id: `${chartId}-reuse` },
+      // 再使用率預設隱藏，靠「顯示再使用率（月度同期比較）」按鈕切換（見 overviewPageHTML）
+      { key: '再使用率', color: 'TREND', id: `${chartId}-reuse`, hidden: true },
     ];
-    const panels = metrics.map((m) => `<div><div class="mini-title">${esc(m.key)}</div><div class="chartbox sm"><canvas id="${m.id}"></canvas></div></div>`).join('');
+    const panels = metrics.map((m) => `<div class="${m.hidden ? 'qoy-reuse-panel' : ''}"${m.hidden ? ' style="display:none"' : ''}><div class="mini-title">${esc(m.key)}</div><div class="chartbox sm"><canvas id="${m.id}"></canvas></div></div>`).join('');
     const chartCalls = metrics.map((m) => {
       const curData = JSON.stringify(pad(qseries.cur[m.key], n));
       const cmpDs = qseries.cmp ? `,{label:'${cmpLabel}',data:${JSON.stringify(pad(qseries.cmp[m.key], n))},borderColor:${m.color},borderDash:[5,4],fill:false,tension:.3,pointRadius:3}` : '';
@@ -359,7 +359,7 @@ App.report = (() => {
     }).join('\n      ');
     return {
       html: `<div class="card">
-        <div class="chead"><div class="ct">過保率／不良率（月度同期比較）</div><div class="cs"><span class="trend-device">${esc(deviceKey)}</span>　｜　1～${n}月，${curLabel}${cmpLabel ? `　vs　${cmpLabel}` : ''}</div></div>
+        <div class="chead"><div class="ct">過保率／不良率<span class="qoy-reuse-title-suffix" style="display:none">／再使用率</span>（月度同期比較）</div><div class="cs"><span class="trend-device">${esc(deviceKey)}</span>　｜　1～${n}月，${curLabel}${cmpLabel ? `　vs　${cmpLabel}` : ''}</div></div>
         <div class="g3">${panels}</div>
       </div>`,
       chartScript: chartCalls,
@@ -425,6 +425,7 @@ App.report = (() => {
           ${carQoYSec.html}
           ${lensQoYSec.html}
         </div>
+        <button type="button" class="lowkey-btn" id="qoy-reuse-toggle">${App.icons.chart()} 顯示再使用率（月度同期比較）</button>
         <details class="lowkey-toggle">
           <summary>${App.icons.chart()} 顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</summary>
           <div class="lowkey-toggle-body">
@@ -442,7 +443,21 @@ App.report = (() => {
         ${carQoYSec.chartScript}
         ${lensQoYSec.chartScript}
         ${carSec.chartScript}
-        ${lensSec.chartScript}`,
+        ${lensSec.chartScript}
+        (function(){
+          var btn=document.getElementById('qoy-reuse-toggle');
+          if(!btn)return;
+          var on=false;
+          btn.addEventListener('click',function(){
+            on=!on;
+            document.querySelectorAll('.qoy-reuse-panel').forEach(function(el){
+              el.style.display=on?'':'none';
+              if(on){ var c=Chart.getChart(el.querySelector('canvas')); if(c)c.resize(); }
+            });
+            document.querySelectorAll('.qoy-reuse-title-suffix').forEach(function(el){ el.style.display=on?'inline':'none'; });
+            btn.innerHTML=(on?'${App.icons.chart()} 隱藏再使用率（月度同期比較）':'${App.icons.chart()} 顯示再使用率（月度同期比較）');
+          });
+        })();`,
     };
   }
 
@@ -1041,6 +1056,8 @@ table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle summary:hover{color:var(--teal-d)}
 .lowkey-toggle-body{margin-top:10px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:8px}
 .lowkey-toggle-desc{font-size:12px;color:var(--muted);margin:0 0 10px}
+.lowkey-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;background:none;border:none;padding:0;margin:8px 2px 0;font-family:inherit}
+.lowkey-btn:hover{color:var(--teal-d)}
 .vendor-picker{display:flex;flex-wrap:wrap;gap:8px 16px}
 .age-slots{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px}
 .age-slot{display:flex;gap:6px;align-items:center}
