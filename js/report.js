@@ -989,19 +989,6 @@ App.report = (() => {
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
     ).join('');
 
-    // 重點廠商分析與說明：以預設勾選的廠商為準（靜態產生，不隨勾選即時變動，與本報告其他建議說明區塊一致）
-    const vendorFindingsHTML = (id, vendorData, vendors) => {
-      const rows = vendors.filter((v) => vendorData[v]).map((v) => ({ v, k: vendorData[v].kpi }));
-      if (!rows.length) return '';
-      const bullets = rows.map((r) => `${r.v}：不良率 ${rPct(r.k.期間不良率)}、過保率 ${rPct(r.k.期間過保率)}、再使用率 ${rPct(r.k.再使用率)}。`);
-      if (rows.length > 1) {
-        const worstBad = rows.reduce((a, b) => (b.k.期間不良率 > a.k.期間不良率 ? b : a));
-        const bestReuse = rows.reduce((a, b) => (b.k.再使用率 > a.k.再使用率 ? b : a));
-        bullets.push(`${worstBad.v} 不良率相對較高，建議列入品質追蹤重點；${bestReuse.v} 再使用率表現較佳。`);
-      }
-      return adviceCalloutHTML(id, '分析與說明', bullets);
-    };
-
     return {
       html: `<section class="page" id="page-vendor">
         <div class="ph"><div><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
@@ -1009,7 +996,6 @@ App.report = (() => {
           <div>
             <div class="sech">車機</div>
             ${ageCardHTML('car', '車機', true)}
-            ${vendorFindingsHTML('advice-vendor-car', carVendorData, CAR_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle icon-collapse">
               <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
               <div class="lowkey-toggle-body">
@@ -1031,7 +1017,6 @@ App.report = (() => {
           <div>
             <div class="sech">鏡頭</div>
             ${ageCardHTML('lens', '鏡頭', false)}
-            ${vendorFindingsHTML('advice-vendor-lens', lensVendorData, LENS_SPOTLIGHT_VENDORS_DEFAULT)}
             <details class="lowkey-toggle icon-collapse">
               <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
               <div class="lowkey-toggle-body">
