@@ -227,36 +227,47 @@ App.report = (() => {
     return { badTop3, warrTop3, avgAge: agg.grandTotal.已使用年限 };
   }
 
-  // 整體總覽「分析與說明」：整體不良率／過保率是否改善、不良品與過保占比前三名、平均已使用年限 vs 預期使用年限
+  // 整體總覽「分析與說明」：給主管看的精簡結論——先講結論，再講重點機型與汰換建議，控制在4行內
   function overviewFindingsHTML(car, lens, carSelection, lensSelection, combined, combinedCmp, hasCmp) {
     const bullets = [];
-    const dr = combined.整體不良率;
-    bullets.push(`整體不良率 ${rPct(dr)}${hasCmp ? `（較對比期間 ${signedPP(dr, combinedCmp.整體不良率)}）` : ''}，${hasCmp ? (dr < combinedCmp.整體不良率 ? '較去年同期下降，品質有改善。' : dr > combinedCmp.整體不良率 ? '較去年同期上升，需留意。' : '與去年同期持平。') : '為當期狀況。'}`);
-    const sr = combined.整體過保率;
-    bullets.push(`整體過保率 ${rPct(sr)}${hasCmp ? `（較對比期間 ${signedPP(sr, combinedCmp.整體過保率)}）` : ''}，${hasCmp ? (sr < combinedCmp.整體過保率 ? '較去年同期下降，過保狀況有改善。' : sr > combinedCmp.整體過保率 ? '較去年同期上升，建議追蹤高過保品號的使用年限分佈。' : '與去年同期持平。') : '為當期狀況。'}`);
+    const dr = combined.整體不良率, sr = combined.整體過保率;
 
+    // 1. 結論先講：整體品質是變好還是變差，一句話講完，數字放後面佐證
+    if (hasCmp) {
+      const drUp = dr > combinedCmp.整體不良率, srUp = sr > combinedCmp.整體過保率;
+      const verdict = (!drUp && !srUp) ? '整體品質較去年同期改善'
+        : (drUp && srUp) ? '整體品質較去年同期下滑，須留意'
+          : '整體品質較去年同期互有增減';
+      bullets.push(`結論：${verdict}。不良率 ${rPct(dr)}（${signedPP(dr, combinedCmp.整體不良率)}），過保率 ${rPct(sr)}（${signedPP(sr, combinedCmp.整體過保率)}）。`);
+    } else {
+      bullets.push(`結論：本期整體不良率 ${rPct(dr)}、過保率 ${rPct(sr)}。`);
+    }
+
+    // 2. 重點機型：不良／過保集中在哪些機型，車機、鏡頭各一句講完
     const carSum = deviceQualitySummary(car, carSelection);
     const lensSum = deviceQualitySummary(lens, lensSelection);
-    if (carSum.badTop3.length) bullets.push(`車機不良品占比前三名：${carSum.badTop3.join('、')}。`);
-    if (lensSum.badTop3.length) bullets.push(`鏡頭不良品占比前三名：${lensSum.badTop3.join('、')}。`);
-    if (carSum.warrTop3.length) bullets.push(`車機過保占比前三名：${carSum.warrTop3.join('、')}。`);
-    if (lensSum.warrTop3.length) bullets.push(`鏡頭過保占比前三名：${lensSum.warrTop3.join('、')}。`);
+    const spotlightLine = (label, sum) => {
+      const parts = [];
+      if (sum.badTop3.length) parts.push(`不良集中在${sum.badTop3.slice(0, 2).join('、')}`);
+      if (sum.warrTop3.length) parts.push(`過保集中在${sum.warrTop3.slice(0, 2).join('、')}`);
+      return parts.length ? `${label}重點機型：${parts.join('；')}，建議優先追蹤。` : null;
+    };
+    const carSpotlight = spotlightLine('車機', carSum);
+    const lensSpotlight = spotlightLine('鏡頭', lensSum);
+    if (carSpotlight) bullets.push(carSpotlight);
+    if (lensSpotlight) bullets.push(lensSpotlight);
 
-    const ageBullet = (label, avgAge) => {
+    // 3. 汰換建議：車機／鏡頭平均使用年限 vs 預期年限，合併成一句好懂的划算判斷
+    const ageVerdict = (label, avgAge) => {
       if (avgAge == null) return null;
       const baseline = EXPECTED_LIFE_YEARS[label];
       const diff = avgAge - baseline;
-      const verdict = diff > 0
-        ? `已超出預期使用年限 ${diff.toFixed(1)} 年，屬於延壽使用，划算。`
-        : diff < 0
-          ? `尚未達預期使用年限，理論上還有 ${Math.abs(diff).toFixed(1)} 年可用。`
-          : '恰好達預期使用年限。';
-      return `${label}（有報廢資訊的設備）平均已使用 ${avgAge.toFixed(1)} 年，預期使用年限 ${baseline} 年，${verdict}`;
+      if (diff > 0) return `${label}已用滿${avgAge.toFixed(1)}年（超出預期${diff.toFixed(1)}年），划算，暫無汰換壓力`;
+      if (diff < 0) return `${label}已用${avgAge.toFixed(1)}年，尚未達預期年限，還可再用${Math.abs(diff).toFixed(1)}年`;
+      return `${label}已用${avgAge.toFixed(1)}年，剛好達預期年限`;
     };
-    const carAgeBullet = ageBullet('車機', carSum.avgAge);
-    const lensAgeBullet = ageBullet('鏡頭', lensSum.avgAge);
-    if (carAgeBullet) bullets.push(carAgeBullet);
-    if (lensAgeBullet) bullets.push(lensAgeBullet);
+    const ageParts = [ageVerdict('車機', carSum.avgAge), ageVerdict('鏡頭', lensSum.avgAge)].filter(Boolean);
+    if (ageParts.length) bullets.push(`設備汰換：${ageParts.join('；')}。`);
 
     return bullets;
   }
@@ -869,9 +880,13 @@ App.report = (() => {
   function vendorSpotlightPageHTML(ctx) {
     const { car, lens, state } = ctx, hasCmp = ctx.hasCmp;
 
-    // 所有出現過的廠商（不篩選），依回廠量由大到小，供 checkbox 清單使用
-    const allCarVendors = [...aggByVendor(car, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key);
-    const allLensVendors = [...aggByVendor(lens, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key);
+    // 出現過的廠商，依回廠量由大到小，並依主畫面「廠商」篩選面板目前的勾選收斂範圍（未勾選＝不限制）
+    const carVendorSel = state.selectionByTab.車機.廠商;
+    const lensVendorSel = state.selectionByTab.鏡頭.廠商;
+    const allCarVendors = [...aggByVendor(car, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key)
+      .filter((v) => !carVendorSel.length || carVendorSel.includes(v));
+    const allLensVendors = [...aggByVendor(lens, {}).groups].sort((a, b) => b.subtotal.回廠量 - a.subtotal.回廠量).map((g) => g.key)
+      .filter((v) => !lensVendorSel.length || lensVendorSel.includes(v));
 
     const buildVendorData = (d, vendors) => {
       const out = {};
@@ -963,7 +978,7 @@ App.report = (() => {
     </div>
     ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
     ${device === 'car' ? `<details class="lowkey-toggle">
-      <summary>${App.icons.settings()} 車機機型分類設定（與「再使用」頁籤各自獨立）</summary>
+      <summary>${App.icons.settings()} 車機機型分類設定</summary>
       <div class="lowkey-toggle-body">
         <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
         <div class="twrap"><div class="scroll">
@@ -1094,7 +1109,7 @@ App.report = (() => {
         }
         function __vageGroupHTML(label,cls,list,maxVal,rankMap){
           var rows=list.map(function(it){ return __vageBarRowHTML(it,rankMap.get(it.vendor+'|'+it.model)||99,maxVal,cls); }).join('');
-          return (label?'<span class="grp-label '+cls+'">'+label+' <span class="cnt">・'+list.length+' 機型</span></span>':'')+rows;
+          return (label?'<span class="grp-label '+cls+'">'+label+'</span>':'')+rows;
         }
 
         window.__renderVendorAge=function(device){
@@ -1475,7 +1490,6 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .grp-label{display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:800;color:#fff;padding:2px 10px;border-radius:20px;margin-bottom:9px}
 .grp-label.general{background:var(--bar-general)}
 .grp-label.imaging{background:var(--bar-imaging)}
-.grp-label .cnt{opacity:.85;font-weight:700}
 .barrow{display:grid;grid-template-columns:170px 1fr 84px;align-items:center;gap:8px;margin-bottom:8px}
 .barrow .lbl{font-size:16px;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .barrow .lbl .vd{display:block;font-size:14px;color:var(--muted);font-weight:600}

@@ -232,6 +232,7 @@ body {
 .chk:hover { background: var(--teal-pale); }
 .chk input { accent-color: var(--teal); }
 .chk span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chk-all { font-weight: 700; border-bottom: 1px solid var(--gray-200); }
 .filter-empty { padding: 10px; font-size: 14px; color: var(--gray-400); }
 
 /* ── 明細表（S2b）──────────────────────────────────── */
