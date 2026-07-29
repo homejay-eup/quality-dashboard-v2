@@ -1715,7 +1715,7 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .callout ul{margin:8px 0 0 20px}.callout li{margin:6px 0;font-size:21px;font-weight:700}
 .big-quote{font-size:23px;font-weight:800;color:var(--teal-d)}
 .note{font-size:17px;color:var(--muted);margin:4px 0 10px}
-.advice-edit{white-space:pre-wrap;font-size:21px;font-weight:700;line-height:1.7;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
+.advice-edit{white-space:pre-wrap;font-size:19px;font-weight:700;line-height:1.7;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
 .save-bar{text-align:center;margin-top:10px}
 .save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
 .foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
