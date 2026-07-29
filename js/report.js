@@ -1352,10 +1352,6 @@ App.report = (() => {
           ${kcard('總計成長率', kpiGrowthLabel(totalGrowth), '', totalGrowth >= 0 ? 'good' : '')}
           ${kcard('成長最多分類', esc(best.label), `<div class="d d-good">${kpiGrowthLabel(best.growth)}</div>`)}
         </div>
-        <div class="card">
-          <div class="chead"><div class="ct">分類金額對比（114 vs 115，1–6月）</div><div class="cs">單位：元</div></div>
-          <div class="chartbox"><canvas id="kpi-c1"></canvas></div>
-        </div>
         <div class="g2">
           <div class="card">
             <div class="chead"><div class="ct">KPI 分類彙總明細</div><div class="cs">114vs115比較｜金額單位：元｜金額皆以車機成本計算</div></div>
@@ -1366,25 +1362,32 @@ App.report = (() => {
               </tbody>
             </table></div>
           </div>
-          ${ACCESSORY_NOTES.length ? `<div class="card">
-            <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
+          <div class="card">
+            <div class="chead"><div class="ct">分類金額對比（114 vs 115，1–6月）</div><div class="cs">單位：元</div></div>
+            <div class="chartbox"><canvas id="kpi-c1"></canvas></div>
+          </div>
+        </div>
+        ${adviceCalloutHTML('advice-kpi', 'AI 建議說明', bullets)}
+        ${ACCESSORY_NOTES.length ? `<div class="card">
+          <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
+          <div class="kpi-note-row">
             <ul>${ACCESSORY_NOTES.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
             <div class="minichart-row">
               ${accessory.diff < 0 ? `<div><div class="minichart-title">配件類鏡頭整新數量（顆）</div><div class="chartbox xs"><canvas id="kpi-c2"></canvas></div></div>` : ''}
               ${mainUnit.diff > 0 ? `<div><div class="minichart-title">主機類影像主機台數（台）</div><div class="chartbox xs"><canvas id="kpi-c3"></canvas></div></div>` : ''}
             </div>
-          </div>` : ''}
-        </div>
-        ${adviceCalloutHTML('advice-kpi', 'AI 建議說明', bullets)}
+          </div>
+        </div>` : ''}
       </section>`,
       chartScript: `
+        const KPI_TEAL='#009688',KPI_GRAY='#9AA0A6';
         new Chart(document.getElementById('kpi-c1'),{type:'bar',
           data:{labels:${JSON.stringify(rows.map((r) => r.label))},
             datasets:[
-              {label:'114年1-6月',data:${JSON.stringify(rows.map((r) => r.y114))},backgroundColor:'#9AA0A6'},
-              {label:'115年1-6月',data:${JSON.stringify(rows.map((r) => r.y115))},backgroundColor:TREND}
+              {label:'114年1-6月',data:${JSON.stringify(rows.map((r) => r.y114))},backgroundColor:KPI_GRAY},
+              {label:'115年1-6月',data:${JSON.stringify(rows.map((r) => r.y115))},backgroundColor:KPI_TEAL}
             ]},
-          options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'分類金額對比（元）'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}},
+          options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'分類金額對比（元）'}},scales:{x:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}},
           plugins:[{
             id:'kpiValueLabels',
             afterDatasetsDraw(chart){
@@ -1392,13 +1395,13 @@ App.report = (() => {
               ctx.save();
               ctx.fillStyle='#1F2535';
               ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
-              ctx.textAlign='center';
-              ctx.textBaseline='bottom';
+              ctx.textAlign='left';
+              ctx.textBaseline='middle';
               chart.data.datasets.forEach((ds,dsIndex)=>{
                 chart.getDatasetMeta(dsIndex).data.forEach((bar,i)=>{
                   const val=ds.data[i];
                   if(val==null)return;
-                  ctx.fillText(val.toLocaleString('en-US'),bar.x,bar.y-4);
+                  ctx.fillText(val.toLocaleString('en-US'),bar.x+4,bar.y);
                 });
               });
               ctx.restore();
@@ -1406,7 +1409,7 @@ App.report = (() => {
           }]});
         ${accessory.diff < 0 ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
           data:{labels:['114年1-6月','115年1-6月'],
-            datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
+            datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:[KPI_GRAY,KPI_TEAL]}]},
           options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'lensQtyValueLabels',
@@ -1425,7 +1428,7 @@ App.report = (() => {
           }]});` : ''}
         ${mainUnit.diff > 0 ? `new Chart(document.getElementById('kpi-c3'),{type:'bar',
           data:{labels:['114年1-6月','115年1-6月'],
-            datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],backgroundColor:['#9AA0A6',TREND]}]},
+            datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],backgroundColor:[KPI_GRAY,KPI_TEAL]}]},
           options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'mainUnitQtyValueLabels',
@@ -1526,6 +1529,10 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .chartbox.xs{height:150px}
 .minichart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
 .minichart-row .minichart-title{font-size:13px;color:var(--muted);text-align:center;margin-bottom:4px}
+.kpi-note-row{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start}
+.kpi-note-row>ul{margin:0 0 0 18px}
+.kpi-note-row .minichart-row{margin-top:0}
+@media(max-width:900px){.kpi-note-row{grid-template-columns:1fr}}
 .twrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .scroll{overflow:auto;max-height:420px}
 .scroll--full{max-height:none;overflow-x:auto;overflow-y:visible}
