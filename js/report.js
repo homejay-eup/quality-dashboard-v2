@@ -1673,6 +1673,7 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
 .save-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;margin-left:4px;border:none;border-radius:8px;font-size:19px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;transition:background .15s}
 .save-icon-btn:hover{background:rgba(255,255,255,.24)}
+.gen-time.hidden{display:none}
 .save-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1F2535;color:#fff;padding:13px 20px;border-radius:10px;font-size:15.5px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:90vw;z-index:50;transition:opacity .2s,transform .2s}
 .save-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .save-toast .fn{color:#8fd6cd;font-weight:800}
@@ -1680,11 +1681,12 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand"><span class="t">${App.icons.chart()} 設備品質分析報告</span><span class="s">${esc(periodText(state))}　｜　製表：${esc(genAt)}</span></div>
+  <div class="brand"><span class="t">${App.icons.chart()} 設備品質分析報告</span><span class="s gen-time hidden" id="gen-time">製表：${esc(genAt)}</span></div>
   <nav class="tabs">
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
     <button class="tab-btn" data-tab="kpi">${App.icons.chart()} KPI</button>
+    <button class="save-icon-btn" id="btn-toggle-gentime" title="顯示／隱藏製表時間">${App.icons.clock()}</button>
     <button class="save-icon-btn" id="btn-save-edits" title="儲存編輯內容">${App.icons.save()}</button>
   </nav>
 </div></header>
@@ -1811,6 +1813,11 @@ window.addEventListener('load',function(){
     saveToastEl.classList.add('on');
     if(saveToastTimer)clearTimeout(saveToastTimer);
     saveToastTimer=setTimeout(function(){ saveToastEl.classList.remove('on'); },6000);
+  }
+  var genTimeBtn=document.getElementById('btn-toggle-gentime');
+  var genTimeEl=document.getElementById('gen-time');
+  if(genTimeBtn&&genTimeEl){
+    genTimeBtn.addEventListener('click',function(){ genTimeEl.classList.toggle('hidden'); });
   }
   var saveBtn=document.getElementById('btn-save-edits');
   if(saveBtn){
