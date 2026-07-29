@@ -107,6 +107,15 @@ App.report = (() => {
   // aggregate()/metrics.js/transform.js，只借排版與 CSS。）
   // ────────────────────────────────────────────────────────────
   const rInt = (v) => (Number(v) || 0).toLocaleString('en-US');
+  // 大數字底下的中文萬/億小提示（僅供直覺參考，未達萬不顯示，避免小數字也硬湊）
+  function bigNumHint(v) {
+    const n = Number(v) || 0, abs = Math.abs(n);
+    if (abs < 10000) return '';
+    const unit = abs >= 100000000 ? 100000000 : 10000;
+    const label = abs >= 100000000 ? '億' : '萬';
+    const rounded = Math.round((n / unit) * 10) / 10;
+    return `約 ${rounded}${label}`;
+  }
   const rPct = (v) => `${((Number(v) || 0) * 100).toFixed(1)}%`;
   const rYear = (v) => (v == null || v === '' ? '資料缺' : `${Number(v).toFixed(1)} 年`);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -189,8 +198,9 @@ App.report = (() => {
     const cls = diff === 0 ? 'flat' : (better == null ? 'flat' : (((diff > 0) === better) ? 'good' : 'bad'));
     return `<div class="d d-${cls}">${diff >= 0 ? '▲ +' : '▼ '}${rInt(diff)}</div>`;
   }
-  function kcard(label, val, deltaHTML, tone) {
-    return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${deltaHTML || ''}</div>`;
+  function kcard(label, val, deltaHTML, tone, rawNum) {
+    const hint = rawNum != null ? bigNumHint(rawNum) : '';
+    return `<div class="kcard${tone ? ` ${tone}` : ''}"><div class="l">${esc(label)}</div><div class="v">${val}</div>${hint ? `<div class="vhint">${hint}</div>` : ''}${deltaHTML || ''}</div>`;
   }
 
   // 整體不良率 KPI 卡：數值／漲跌都改成可跟「未歸類數併入不良品數」開關連動的 uc-rate／uc-delta
@@ -530,15 +540,15 @@ App.report = (() => {
         </details>
         <div class="sech">整體數值 · 車機</div>
         <div class="krow">
-          ${kcard('車機線上量', rInt(car.kpi.總線上量), '')}
-          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), '')}
+          ${kcard('車機線上量', rInt(car.kpi.總線上量), '', '', car.kpi.總線上量)}
+          ${kcard('車機期間回廠量', rInt(car.kpi.期間回廠量), '', '', car.kpi.期間回廠量)}
           ${kcardUncatRate('車機整體不良率', car.kpi, car.cmpKpi, ctx.hasCmp)}
           ${kcard('車機整體過保率', rPct(car.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(car.kpi.整體過保率, car.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
         <div class="sech">整體數值 · 鏡頭</div>
         <div class="krow">
-          ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '')}
-          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), '')}
+          ${kcard('鏡頭線上量', rInt(lens.kpi.總線上量), '', '', lens.kpi.總線上量)}
+          ${kcard('鏡頭期間回廠量', rInt(lens.kpi.期間回廠量), '', '', lens.kpi.期間回廠量)}
           ${kcardUncatRate('鏡頭整體不良率', lens.kpi, lens.cmpKpi, ctx.hasCmp)}
           ${kcard('鏡頭整體過保率', rPct(lens.kpi.整體過保率), ctx.hasCmp ? kpiDeltaHTML(lens.kpi.整體過保率, lens.cmpKpi.整體過保率, 'pct', false) : '', 'good')}
         </div>
@@ -666,10 +676,10 @@ App.report = (() => {
       html: `<section class="page" id="page-usage">
         <div class="ph"><div><span class="ph-l">${App.icons.refresh()} 再使用</span><span class="ph-s">內部檢測與送修成本｜期間：${esc(periodText(state))}</span></div></div>
         <div class="krow">
-          ${kcard('車機內部檢測數量', rInt(car.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(car.kpi.內部檢測數, car.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
-          ${kcard('鏡頭內部檢測數量', rInt(lens.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(lens.kpi.內部檢測數, lens.cmpKpi.內部檢測數, 'int', true) : '', 'good')}
-          <div class="kcard"><div class="l">預估省下的成本</div><div class="v" id="kpi-saved-cost-total">0 元</div><div class="p">內部檢測數量 × 單位成本</div></div>
-          <div class="kcard" style="border-top-color:var(--warn)"><div class="l">送修運費（固定物流成本）</div><div class="v">${rInt(freight)} 元</div><div class="p">300元/次 × 2次/週 × 4週/月 × ${months}個月，與件數無關</div></div>
+          ${kcard('車機內部檢測數量', rInt(car.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(car.kpi.內部檢測數, car.cmpKpi.內部檢測數, 'int', true) : '', 'good', car.kpi.內部檢測數)}
+          ${kcard('鏡頭內部檢測數量', rInt(lens.kpi.內部檢測數), hasCmp ? kpiDeltaHTML(lens.kpi.內部檢測數, lens.cmpKpi.內部檢測數, 'int', true) : '', 'good', lens.kpi.內部檢測數)}
+          <div class="kcard"><div class="l">預估省下的成本</div><div class="v" id="kpi-saved-cost-total">0 元</div><div class="vhint" id="kpi-saved-cost-hint"></div><div class="p">內部檢測數量 × 單位成本</div></div>
+          <div class="kcard" style="border-top-color:var(--warn)"><div class="l">送修運費（固定物流成本）</div><div class="v">${rInt(freight)} 元</div>${bigNumHint(freight) ? `<div class="vhint">${bigNumHint(freight)}</div>` : ''}<div class="p">300元/次 × 2次/週 × 4週/月 × ${months}個月，與件數無關</div></div>
         </div>
         <div class="${hasCmp ? 'g2-eq' : ''}">
           <div class="card">
@@ -772,6 +782,7 @@ App.report = (() => {
           var total=savedGeneral+savedImaging+savedLens;
           var totalEl=document.getElementById('usage-saved-total'); if(totalEl)totalEl.textContent=Math.round(total).toLocaleString('en-US');
           var kpiEl=document.getElementById('kpi-saved-cost-total'); if(kpiEl)kpiEl.textContent=Math.round(total).toLocaleString('en-US')+' 元';
+          var kpiHintEl=document.getElementById('kpi-saved-cost-hint'); if(kpiHintEl)kpiHintEl.textContent=window.__bigNumHint(total);
           if(window.__recomputeUsageTrend)window.__recomputeUsageTrend();
         };
         window.__usageMonthlySeriesFor=function(periodData,costGeneral,costImaging,costLens,generalModels,imagingModels){
@@ -1370,8 +1381,8 @@ App.report = (() => {
       html: `<section class="page" id="page-kpi">
         <div class="ph"><div><span class="ph-l">${App.icons.chart()} KPI 分類彙總</span><span class="ph-s">114年 vs 115年　1–6月　｜　來源：KPI_分類彙總.xlsx／114vs115比較</span></div></div>
         <div class="krow">
-          ${kcard('114年1–6月總計', `${rInt(total114)} 元`, '')}
-          ${kcard('115年1–6月總計', `${rInt(total115)} 元`, '')}
+          ${kcard('114年1–6月總計', `${rInt(total114)} 元`, '', '', total114)}
+          ${kcard('115年1–6月總計', `${rInt(total115)} 元`, '', '', total115)}
           ${kcard('總計成長率', kpiGrowthLabel(totalGrowth), '', totalGrowth >= 0 ? 'good' : '')}
           ${kcard('成長最多分類', esc(best.label), `<div class="d d-good">${kpiGrowthLabel(best.growth)}</div>`)}
         </div>
@@ -1527,6 +1538,8 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .kcard .v{font-size:33.5px;font-weight:800;margin-top:2px}
 .kcard .d{font-size:17px;font-weight:700;margin-top:5px}
 .kcard .p{font-size:15.5px;color:var(--muted)}
+.kcard .vhint{font-size:13.5px;font-weight:400;color:var(--muted);margin-top:1px}
+.kcard .vhint:empty{display:none}
 .kcard.good{border-top-color:var(--good)}
 .d-good{color:var(--teal)}.d-bad{color:var(--teal)}.d-flat{color:var(--muted)}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -1725,6 +1738,13 @@ ${pages.map((p) => p.html).join('\n')}
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
 const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
+window.__bigNumHint=function(v){
+  var n=Number(v)||0,abs=Math.abs(n);
+  if(abs<10000)return '';
+  var unit=abs>=100000000?100000000:10000, label=abs>=100000000?'億':'萬';
+  var rounded=Math.round((n/unit)*10)/10;
+  return '約 '+rounded+label;
+};
 window.__uncatMerged=true;
 window.addEventListener('load',function(){
   // 「分析與說明」文字框依內容自動撐開高度，不使用內部捲軸（切到隱藏分頁時內容還沒顯示，
