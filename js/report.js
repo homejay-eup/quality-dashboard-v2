@@ -899,7 +899,7 @@ App.report = (() => {
             const cg = cmpAgg.groups.find((x) => x.key === g.key);
             if (cg && cg.subtotal.已使用年限 != null) yearCmp = cg.subtotal.已使用年限;
           }
-          out.push({ vendor: v, model: g.key, year: g.subtotal.已使用年限, yearCmp, bad: g.subtotal.不良品數 || 0, uncat: g.subtotal.未歸類數 || 0 });
+          out.push({ vendor: v, model: g.key, year: g.subtotal.已使用年限, yearCmp, bad: g.subtotal.不良品數 || 0, uncat: g.subtotal.未歸類數 || 0, warr: g.subtotal.過保數 || 0 });
         });
       });
       return out;
@@ -942,6 +942,7 @@ App.report = (() => {
             <th class="l" data-key="model">機型<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="l" data-key="vendor">廠商<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="num" data-key="bad">不良品數<span class="arrows"><span>▲</span><span>▼</span></span></th>
+            <th class="num" data-key="warr">過保數<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="num" data-key="year">已使用年限<span class="arrows"><span>▲</span><span>▼</span></span></th>
           </tr></thead>
           <tbody id="vage-tbody-${device}"></tbody>
@@ -1023,7 +1024,7 @@ App.report = (() => {
       </div>
       <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
       <div class="twrap" style="margin-top:14px">
-        <table class="agg">
+        <table class="agg compact">
           <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">上線量</th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
           <tbody>
             <tr><td class="l">114年</td><td class="num">${vpOnlineCmp != null ? rInt(vpOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
@@ -1032,7 +1033,7 @@ App.report = (() => {
         </table>
       </div>
       <div class="twrap" style="margin-top:14px">
-        <table class="agg">
+        <table class="agg compact">
           <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">上線量</th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
           <tbody>
             <tr><td class="l">114年</td><td class="num">${crOnlineCmp != null ? rInt(crOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
@@ -1221,7 +1222,7 @@ App.report = (() => {
             groupsEl.innerHTML=ranked.length?'<div class="grp">'+__vageGroupHTML(ranked,maxVal,rankMap,barCls)+'</div>':'<p class="lowkey-toggle-desc">尚無資料</p>';
           }
 
-          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,year:it.year,bad:it.bad||0,uncat:it.uncat||0}; });
+          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,year:it.year,bad:it.bad||0,uncat:it.uncat||0,warr:it.warr||0}; });
           __vageRenderTable(device);
         };
 
@@ -1234,6 +1235,7 @@ App.report = (() => {
           rows.sort(function(a,b){
             if(sort.key==='year'){ var av=a.year||0,bv=b.year||0; return sort.dir==='asc'?av-bv:bv-av; }
             if(sort.key==='bad'){ var ab=(a.bad||0)+(uc?(a.uncat||0):0),bb=(b.bad||0)+(uc?(b.uncat||0):0); return sort.dir==='asc'?ab-bb:bb-ab; }
+            if(sort.key==='warr'){ var aw=a.warr||0,bw=b.warr||0; return sort.dir==='asc'?aw-bw:bw-aw; }
             var as=String(a[sort.key]||''),bs=String(b[sort.key]||'');
             return sort.dir==='asc'?as.localeCompare(bs,'zh-Hant'):bs.localeCompare(as,'zh-Hant');
           });
@@ -1241,8 +1243,9 @@ App.report = (() => {
             var bad=(r.bad||0)+(uc?(r.uncat||0):0);
             return '<tr><td class="l">'+r.model+'</td><td class="l">'+r.vendor+'</td>'+
               '<td class="num">'+bad.toLocaleString('en-US')+'</td>'+
+              '<td class="num">'+(r.warr||0).toLocaleString('en-US')+'</td>'+
               '<td class="num">'+r.year.toFixed(1)+' 年</td></tr>';
-          }).join('')||'<tr><td class="l" colspan="4">尚無資料</td></tr>';
+          }).join('')||'<tr><td class="l" colspan="5">尚無資料</td></tr>';
           var table=document.getElementById('vage-table-'+device);
           if(table){
             table.querySelectorAll('th').forEach(function(th){
@@ -1559,6 +1562,8 @@ table.agg th.num,table.agg td.num{text-align:right}
 table.agg td.l{text-align:left}
 table.agg td{padding:7px 10px;border-bottom:1px solid #eef0f4;white-space:nowrap}
 tr.grand td{background:#1F2535;color:#fff;font-weight:700}
+table.agg.compact{font-size:14.5px}
+table.agg.compact th,table.agg.compact td{padding:6px 6px;white-space:normal;line-height:1.3}
 .vendorgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .vcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .vcard .vh{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #eef2f7;padding-bottom:8px;margin-bottom:10px}
