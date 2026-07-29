@@ -1007,28 +1007,24 @@ App.report = (() => {
         <div class="ct">VP／CR 維修整新成本比較</div>
         <div class="cs">新眾 VP：外部維修＋整新花費　｜　呈岳科技 CR：內部整新省下的外部成本　｜　114 vs 115年1–6月</div>
       </div>
-      <div class="g2">
-        <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
-        <div>
-          <div class="twrap">
-            <table class="agg">
-              <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
-              <tbody>
-                <tr><td class="l">114年</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
-                <tr><td class="l">115年</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="twrap" style="margin-top:14px">
-            <table class="agg">
-              <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
-              <tbody>
-                <tr><td class="l">114年</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
-                <tr><td class="l">115年</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
+      <div class="twrap" style="margin-top:14px">
+        <table class="agg">
+          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
+          <tbody>
+            <tr><td class="l">114年</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="twrap" style="margin-top:14px">
+        <table class="agg">
+          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
+          <tbody>
+            <tr><td class="l">114年</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
     ${adviceCalloutHTML('advice-lens-cost', '分析與說明', lensCostBullets)}`;
@@ -1115,7 +1111,7 @@ App.report = (() => {
           data:{labels:['新眾 VP（花費）','呈岳科技 CR（省下）'],
             datasets:[
               {label:'114年1-6月',data:[${LENS_VP_COST.y114.total},${LENS_CR_COST.y114.total}],backgroundColor:'#9AA0A6'},
-              {label:'115年1-6月',data:[${LENS_VP_COST.y115.total},${LENS_CR_COST.y115.total}],backgroundColor:TREND}
+              {label:'115年1-6月',data:[${LENS_VP_COST.y115.total},${LENS_CR_COST.y115.total}],backgroundColor:'#009688'}
             ]},
           options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'維修／整新成本對比（元）'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}},
           plugins:[{
@@ -1476,7 +1472,7 @@ App.report = (() => {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--teal:#009688;--teal-d:#00695C;--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F;
---gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:#1E88E5;--bar-imaging:#9AA0A6;--marker:#5c6470}
+--gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:var(--teal);--bar-imaging:#9AA0A6;--marker:#5c6470}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-weight:700;font-size:16px}
 .icon{vertical-align:-0.15em;flex-shrink:0}
