@@ -1654,7 +1654,7 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .formula-card .fn{font-size:18px;font-weight:800;color:var(--teal-d);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .formula-card .fx{font-family:"DM Mono",Consolas,monospace;font-size:18.5px;background:#f7f9fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;text-align:center;line-height:1.7;color:var(--ink)}
 .formula-card .fd{font-size:16px;color:var(--muted);margin-top:8px;line-height:1.7}
-.callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 auto 16px;max-width:92%;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 0 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .callout.bad{border-left-color:var(--bad);background:#fff8f9}
 .callout.warn{border-left-color:var(--warn);background:#fffcf5}
 .callout.good{border-left-color:var(--good);background:#f6fbf8}
