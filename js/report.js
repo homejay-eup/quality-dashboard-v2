@@ -1354,7 +1354,7 @@ App.report = (() => {
     const stableTotal = accessory.y115 + qc.y115;
 
     // 配件類鏡頭整新數量／主機類影像主機台數（使用者提供的補充明細，非彙總常數可推得，故獨立列出）
-    const LENS_QTY = { y114: 841, y115: 782 };
+    const LENS_QTY = { y114: 663, y115: 778 };
     const lensQtyDiff = LENS_QTY.y115 - LENS_QTY.y114;
     const MAIN_UNIT_QTY = { y114: 57, y115: 200 };
     const mainUnitQtyDiff = MAIN_UNIT_QTY.y115 - MAIN_UNIT_QTY.y114;
@@ -1446,7 +1446,7 @@ App.report = (() => {
         ${accessory.diff < 0 ? `new Chart(document.getElementById('kpi-c2'),{type:'bar',
           data:{labels:['114年1-6月','115年1-6月'],
             datasets:[{data:[${LENS_QTY.y114},${LENS_QTY.y115}],backgroundColor:[KPI_GRAY,KPI_TEAL]}]},
-          options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
+          options:{maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'lensQtyValueLabels',
             afterDatasetsDraw(chart){
@@ -1465,7 +1465,7 @@ App.report = (() => {
         ${mainUnit.diff > 0 ? `new Chart(document.getElementById('kpi-c3'),{type:'bar',
           data:{labels:['114年1-6月','115年1-6月'],
             datasets:[{data:[${MAIN_UNIT_QTY.y114},${MAIN_UNIT_QTY.y115}],backgroundColor:[KPI_GRAY,KPI_TEAL]}]},
-          options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
+          options:{maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{maxTicksLimit:4}}}},
           plugins:[{
             id:'mainUnitQtyValueLabels',
             afterDatasetsDraw(chart){
