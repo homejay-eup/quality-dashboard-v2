@@ -1000,11 +1000,15 @@ App.report = (() => {
       y114: { qty: 150, refurb: 150, unitCost: 780, total: 117000 },
       y115: { qty: 316, refurb: 360, unitCost: 780, total: 280800 },
     };
-    // VP／CR 上線量：直接從鏡頭現有資料依廠商過濾算出（本期一律可算；去年同期僅在報告開啟「對比期間」時才有資料）
+    // VP／CR 上線量：115年（本期）直接從鏡頭現有資料依廠商過濾算出；
+    // 114年系統無歷史快照可查（「上線量」來源表只有當下單一快照，cmpRows 對應的仍是同一份快照，算出來會跟本期重複而失真），
+    // 故改用使用者提供的舊檔案 舊文件/設備品質分析_資料庫_25_Q1.xlsm「上線量(PQ)」分頁固定值：
+    // 依「類型清單」（替換前品項→廠商，缺則以ERP品號 join 品號對照表→主供應商名稱）比照 transform.js buildDetail() 的廠商判斷邏輯，
+    // 篩出 QP_ProductKind=鏡頭 且廠商=新眾／呈岳科技 的筆數統計而得（60890筆鏡頭中128筆缺對照，忽略不計）
     const vpOnlineCur = App.metrics.computeKPI(lens.rows, lens.online, { 廠商: ['新眾'] }).總線上量;
     const crOnlineCur = App.metrics.computeKPI(lens.rows, lens.online, { 廠商: ['呈岳科技'] }).總線上量;
-    const vpOnlineCmp = hasCmp ? App.metrics.computeKPI(lens.cmpRows, lens.cmpOnline, { 廠商: ['新眾'] }).總線上量 : null;
-    const crOnlineCmp = hasCmp ? App.metrics.computeKPI(lens.cmpRows, lens.cmpOnline, { 廠商: ['呈岳科技'] }).總線上量 : null;
+    const vpOnlineY114 = 16258;
+    const crOnlineY114 = 12708;
 
     const vpDiff = LENS_VP_COST.y115.total - LENS_VP_COST.y114.total;
     const vpGrowth = LENS_VP_COST.y114.total ? vpDiff / LENS_VP_COST.y114.total : 0;
@@ -1027,7 +1031,7 @@ App.report = (() => {
         <table class="agg compact">
           <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">上線量</th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${vpOnlineCmp != null ? rInt(vpOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${rInt(vpOnlineY114)}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
             <tr><td class="l">115年</td><td class="num">${rInt(vpOnlineCur)}</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
           </tbody>
         </table>
@@ -1036,7 +1040,7 @@ App.report = (() => {
         <table class="agg compact">
           <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">上線量</th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${crOnlineCmp != null ? rInt(crOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${rInt(crOnlineY114)}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
             <tr><td class="l">115年</td><td class="num">${rInt(crOnlineCur)}</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
           </tbody>
         </table>
