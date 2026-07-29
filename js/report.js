@@ -1041,45 +1041,49 @@ App.report = (() => {
           <div>${ageCardHTML('car-general', '一般定位', carGeneralAgeFlat)}</div>
           <div>${ageCardHTML('car-imaging', '影像', carImagingAgeFlat)}</div>
         </div>
-        ${carClassSettingsHTML}
-        <details class="lowkey-toggle icon-collapse">
-          <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（車機）</span></summary>
-          <div class="lowkey-toggle-body">
-            <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
-            <div class="twrap" style="margin-top:14px"><table class="agg">
-              <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-              <tbody id="vendor-summary-car"></tbody>
-            </table></div>
-          </div>
-        </details>
-        <details class="lowkey-toggle icon-collapse">
-          <summary title="比較廠商（車機）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（車機）</span></summary>
-          <div class="lowkey-toggle-body">
-            <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
-            <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-          </div>
-        </details>
+        <div class="icon-toggle-row">
+          ${carClassSettingsHTML}
+          <details class="lowkey-toggle icon-collapse">
+            <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（車機）</span></summary>
+            <div class="lowkey-toggle-body">
+              <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+              <div class="twrap" style="margin-top:14px"><table class="agg">
+                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                <tbody id="vendor-summary-car"></tbody>
+              </table></div>
+            </div>
+          </details>
+          <details class="lowkey-toggle icon-collapse">
+            <summary title="比較廠商（車機）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（車機）</span></summary>
+            <div class="lowkey-toggle-body">
+              <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+              <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+            </div>
+          </details>
+        </div>
 
         <div class="sech">鏡頭</div>
         ${ageCardHTML('lens', '鏡頭', lensAgeFlat, true)}
         ${lensCostCardHTML}
-        <details class="lowkey-toggle icon-collapse">
-          <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（鏡頭）</span></summary>
-          <div class="lowkey-toggle-body">
-            <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
-            <div class="twrap" style="margin-top:14px"><table class="agg">
-              <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-              <tbody id="vendor-summary-lens"></tbody>
-            </table></div>
-          </div>
-        </details>
-        <details class="lowkey-toggle icon-collapse">
-          <summary title="比較廠商（鏡頭）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（鏡頭）</span></summary>
-          <div class="lowkey-toggle-body">
-            <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
-            <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-          </div>
-        </details>
+        <div class="icon-toggle-row">
+          <details class="lowkey-toggle icon-collapse">
+            <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（鏡頭）</span></summary>
+            <div class="lowkey-toggle-body">
+              <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+              <div class="twrap" style="margin-top:14px"><table class="agg">
+                <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+                <tbody id="vendor-summary-lens"></tbody>
+              </table></div>
+            </div>
+          </details>
+          <details class="lowkey-toggle icon-collapse">
+            <summary title="比較廠商（鏡頭）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（鏡頭）</span></summary>
+            <div class="lowkey-toggle-body">
+              <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+              <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+            </div>
+          </details>
+        </div>
       </section>`,
       chartScript: `
         window.__vendorAllData={car:${JSON.stringify(carVendorData)},lens:${JSON.stringify(lensVendorData)}};
@@ -1567,6 +1571,9 @@ table.rtable .colRate{display:none}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle{margin:10px 2px 0}
+.icon-toggle-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px;margin:10px 2px 0}
+.icon-toggle-row>.lowkey-toggle{margin:0;flex:0 0 auto}
+.icon-toggle-row>.lowkey-toggle[open]{flex:1 1 100%}
 .lowkey-toggle summary{display:flex;align-items:center;gap:6px;font-size:17px;color:var(--muted);cursor:pointer;user-select:none;list-style:none}
 .lowkey-toggle summary::-webkit-details-marker{display:none}
 .lowkey-toggle summary:hover{color:var(--teal-d)}
@@ -1647,7 +1654,7 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .formula-card .fn{font-size:18px;font-weight:800;color:var(--teal-d);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .formula-card .fx{font-family:"DM Mono",Consolas,monospace;font-size:18.5px;background:#f7f9fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;text-align:center;line-height:1.7;color:var(--ink)}
 .formula-card .fd{font-size:16px;color:var(--muted);margin-top:8px;line-height:1.7}
-.callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.callout{background:#fff;border-left:5px solid var(--teal);border-radius:8px;padding:14px 18px;margin:0 auto 16px;max-width:92%;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .callout.bad{border-left-color:var(--bad);background:#fff8f9}
 .callout.warn{border-left-color:var(--warn);background:#fffcf5}
 .callout.good{border-left-color:var(--good);background:#f6fbf8}
@@ -1678,15 +1685,27 @@ const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
 const AMBER_BG='rgba(224,142,0,.18)',RED_BG='rgba(211,47,47,.15)',TREND_BG='rgba(30,136,229,.15)';
 window.__uncatMerged=true;
 window.addEventListener('load',function(){
+  // 「分析與說明」文字框依內容自動撐開高度，不使用內部捲軸（切到隱藏分頁時內容還沒顯示，
+  // scrollHeight量不到，故切換分頁當下也要重新撐開一次）
+  function __autoGrowAdvice(ta){
+    ta.style.height='auto';
+    ta.style.height=(ta.scrollHeight+2)+'px';
+  }
+  document.querySelectorAll('.advice-edit').forEach(function(ta){
+    ta.addEventListener('input',function(){ __autoGrowAdvice(ta); });
+  });
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('on');});
       document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
       btn.classList.add('on');
-      document.getElementById('page-'+btn.dataset.tab).classList.add('on');
+      var pageEl=document.getElementById('page-'+btn.dataset.tab);
+      pageEl.classList.add('on');
+      pageEl.querySelectorAll('.advice-edit').forEach(__autoGrowAdvice);
       window.scrollTo(0,0);
     });
   });
+  document.querySelectorAll('#page-overview .advice-edit').forEach(__autoGrowAdvice);
   if(typeof Chart!=='undefined'){
     Chart.defaults.font.size=13;
     Chart.defaults.font.weight=700;
