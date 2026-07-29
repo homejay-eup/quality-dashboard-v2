@@ -340,7 +340,7 @@ App.report = (() => {
       return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rInt(s.回廠量)}</td>
         <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${ucBad(s)}<span class="colRate">（${ucBadRate(s)}）</span></td>
         <td>${rInt(s.過保數)}<span class="colRate">（${rPct(s.過保率)}）</span></td>
-        <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td>${rYear(s.已使用年限)}</td>
+        <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td class="hl3">${rYear(s.已使用年限)}</td>
         <td class="colUncat">${ucUncat(s)}<span class="colRate">（${ucUncatRate(s)}）</span></td></tr>`;
     }).join('');
     const gt = agg.grandTotal;
@@ -374,7 +374,7 @@ App.report = (() => {
                 <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rInt(gt.回廠量)}</td>
                   <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${ucBad(gt)}<span class="colRate">（${ucBadRate(gt)}）</span></td>
                   <td>${rInt(gt.過保數)}<span class="colRate">（${rPct(gt.過保率)}）</span></td>
-                  <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td>${rYear(gt.已使用年限)}</td>
+                  <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td class="hl3">${rYear(gt.已使用年限)}</td>
                   <td class="colUncat">${ucUncat(gt)}<span class="colRate">（${ucUncatRate(gt)}）</span></td></tr>
               </tbody>
             </table>
@@ -1039,20 +1039,22 @@ App.report = (() => {
       </div>
       <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
       <div class="twrap" style="margin-top:14px">
-        <table class="agg compact">
-          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">上線量</th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
+        <table class="agg compact vpcr-table">
+          <colgroup><col style="width:24%"><col style="width:14%"><col style="width:18%"><col style="width:14%"><col style="width:14%"><col style="width:16%"></colgroup>
+          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">線上量</th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${rInt(vpOnlineY114)}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
-            <tr><td class="l">115年</td><td class="num">${rInt(vpOnlineCur)}</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${rInt(vpOnlineY114)}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num hl-total-bad">${rInt(LENS_VP_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(vpOnlineCur)}</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num hl-total-bad">${rInt(LENS_VP_COST.y115.total)}</td></tr>
           </tbody>
         </table>
       </div>
       <div class="twrap" style="margin-top:14px">
-        <table class="agg compact">
-          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">上線量</th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
+        <table class="agg compact vpcr-table">
+          <colgroup><col style="width:24%"><col style="width:14%"><col style="width:18%"><col style="width:14%"><col style="width:14%"><col style="width:16%"></colgroup>
+          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">線上量</th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${rInt(crOnlineY114)}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
-            <tr><td class="l">115年</td><td class="num">${rInt(crOnlineCur)}</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${rInt(crOnlineY114)}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num hl-total-good">${rInt(LENS_CR_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(crOnlineCur)}</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num hl-total-good">${rInt(LENS_CR_COST.y115.total)}</td></tr>
           </tbody>
         </table>
       </div>
@@ -1259,7 +1261,7 @@ App.report = (() => {
             return '<tr><td class="l">'+r.model+'</td><td class="l">'+r.vendor+'</td>'+
               '<td class="num">'+bad.toLocaleString('en-US')+'</td>'+
               '<td class="num">'+(r.warr||0).toLocaleString('en-US')+'</td>'+
-              '<td class="num">'+r.year.toFixed(1)+' 年</td></tr>';
+              '<td class="num hl-year">'+r.year.toFixed(1)+' 年</td></tr>';
           }).join('')||'<tr><td class="l" colspan="5">尚無資料</td></tr>';
           var table=document.getElementById('vage-table-'+device);
           if(table){
@@ -1581,6 +1583,7 @@ table.agg td{padding:7px 10px;border-bottom:1px solid #eef0f4;white-space:nowrap
 tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 table.agg.compact{font-size:14.5px}
 table.agg.compact th,table.agg.compact td{padding:6px 6px;white-space:normal;line-height:1.3}
+table.vpcr-table{table-layout:fixed}
 .vendorgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .vcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .vcard .vh{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #eef2f7;padding-bottom:8px;margin-bottom:10px}
@@ -1600,9 +1603,14 @@ table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
 table.rtable td.hl{background:#c7ecdf;font-weight:800;color:#04342c}
 table.rtable td.hl2{background:#a9dcd0;font-weight:800;color:#04342c}
+table.rtable td.hl3{background:var(--gold-bg);font-weight:800;color:#8a6a00}
+.hl-year{color:var(--gold);font-weight:800}
+.hl-total-bad{color:var(--bad);font-weight:800}
+.hl-total-good{color:var(--good);font-weight:800}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 table.rtable tr.grand td.hl{background:#085041;color:#fff}
 table.rtable tr.grand td.hl2{background:#04342c;color:#fff}
+table.rtable tr.grand td.hl3{background:#7a5c06;color:#fff}
 table.rtable .colUncat{display:none}
 .card.show-uncat table.rtable .colUncat{display:table-cell}
 table.rtable .colRate{display:none}
@@ -1663,7 +1671,7 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .barrow .fill.rank{outline:2px solid var(--gold);outline-offset:-2px}
 .barrow .marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--marker);z-index:2}
 .barrow .marker::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--marker)}
-.barrow .yr{font-size:16px;font-weight:800;color:var(--ink);text-align:left;display:flex;flex-direction:column;line-height:1.25}
+.barrow .yr{font-size:16px;font-weight:800;color:var(--gold);text-align:left;display:flex;flex-direction:column;line-height:1.25}
 .barrow .yr .delta{font-size:14px;font-weight:700}
 .barrow .delta.up{color:var(--teal)}.barrow .delta.down{color:var(--teal)}.barrow .delta.flat{color:var(--muted)}
 .medal{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#fff;font-size:10px;font-weight:800;margin-right:4px;flex:none}
