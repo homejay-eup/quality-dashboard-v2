@@ -585,6 +585,7 @@ App.report = (() => {
           ${carQoYSec.html}
           ${lensQoYSec.html}
         </div>
+        ${adviceCalloutHTML('advice-overview', '分析與說明', findings, tone)}
         <button type="button" class="lowkey-btn icon-collapse" id="qoy-reuse-toggle" title="顯示再使用率（月度同期比較）">${App.icons.chart()}<span class="lowkey-toggle-text">顯示再使用率（月度同期比較）</span></button>
         <details class="lowkey-toggle icon-collapse">
           <summary title="顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）">${App.icons.chart()}<span class="lowkey-toggle-text">顯示過保率／不良率／再使用率趨勢圖（車機＋鏡頭）</span></summary>
@@ -595,7 +596,6 @@ App.report = (() => {
             </div>
           </div>
         </details>
-        ${adviceCalloutHTML('advice-overview', '分析與說明', findings, tone)}
       </section>`,
       chartScript: `
         ${carTrendSec.chartScript}
@@ -1741,18 +1741,18 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .callout.warn{border-left-color:var(--warn);background:#fffcf5}
 .callout.good{border-left-color:var(--good);background:#f6fbf8}
 .callout ul{margin:8px 0 0 20px}.callout li{margin:6px 0;font-size:21px;font-weight:700}
-.big-quote{font-size:23px;font-weight:800;color:var(--teal-d)}
+.big-quote{font-size:23px;font-weight:800;color:var(--teal-d);margin:0 0 8px}
 .note{font-size:17px;color:var(--muted);margin:4px 0 10px}
 .advice-edit{white-space:pre-wrap;font-size:19px;font-weight:700;line-height:1.7;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;margin-bottom:10px;outline:none}
 .advice-edit:focus{border-color:var(--teal)}
 .edit-wrap{position:relative}
-.edit-toolbar{display:flex;align-items:center;gap:2px;padding:2px 0 5px;position:relative;opacity:0;pointer-events:none;transition:opacity .15s;min-height:26px}
+.edit-toolbar{display:flex;align-items:center;gap:2px;position:absolute;top:-32px;left:0;background:#fff;border:1px solid var(--line);border-radius:7px;padding:2px;box-shadow:0 2px 6px rgba(0,0,0,.1);opacity:0;pointer-events:none;transition:opacity .15s;z-index:6}
 .edit-wrap:focus-within .edit-toolbar{opacity:1;pointer-events:auto}
 .edit-tool-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border:none;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit;padding:0}
 .edit-tool-btn svg{width:15px;height:15px}
 .edit-tool-btn:hover{background:#eef2f2;color:var(--teal-d)}
 .edit-tool-btn.on{background:#e6f4f2;color:var(--teal-d)}
-.popover{position:absolute;top:24px;left:0;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:6px;display:none;z-index:10}
+.popover{position:absolute;top:30px;left:0;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:6px;display:none;z-index:10}
 .popover.open{display:flex;gap:5px}
 .popover.size-popover{flex-direction:column;width:96px;gap:0}
 .popover.size-popover button{text-align:left;padding:5px 8px;border:none;background:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:700;color:var(--ink);font-size:13px}
