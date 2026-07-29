@@ -217,10 +217,37 @@ App.report = (() => {
     return `<div class="kcard good"><div class="l">${esc(label)}</div><div class="v">${valHTML}</div>${deltaHTML}</div>`;
   }
 
-  // 可編輯的核心發現／建議區塊：文字放進 textarea，供瀏覽時直接調整/複製
+  // 編輯工具列：字體大小／顏色，低調圖示，聚焦編輯框時才淡入顯示
+  function editToolbarHTML() {
+    return `<div class="edit-toolbar">
+      <button type="button" class="edit-tool-btn" data-pop="size" title="字體大小">${App.icons.textSize()}</button>
+      <div class="popover size-popover" data-pop-panel="size">
+        <button type="button" data-size="15">小</button>
+        <button type="button" data-size="19">正常</button>
+        <button type="button" data-size="24">大</button>
+        <button type="button" data-size="30">特大</button>
+      </div>
+      <button type="button" class="edit-tool-btn" data-pop="color" title="文字顏色">${App.icons.palette()}</button>
+      <div class="popover" data-pop-panel="color">
+        <span class="swatch" style="background:#1F2535" data-color="#1F2535" title="黑"></span>
+        <span class="swatch" style="background:#D32F2F" data-color="#D32F2F" title="紅"></span>
+        <span class="swatch" style="background:#1E88E5" data-color="#1E88E5" title="藍"></span>
+        <span class="swatch" style="background:#1a9c53" data-color="#1a9c53" title="綠"></span>
+        <span class="swatch" style="background:#e08e00" data-color="#e08e00" title="橘"></span>
+        <span class="swatch" style="background:#9AA0A6" data-color="#9AA0A6" title="灰"></span>
+      </div>
+    </div>`;
+  }
+
+  // 可編輯的核心發現／建議區塊：contenteditable，可直接調整文字、字級與顏色
   function adviceCalloutHTML(id, title, bullets, tone) {
     if (!bullets.length) return '';
-    return `<div class="callout ${tone || 'good'}"><p class="big-quote">${esc(title)}</p><textarea class="advice-edit" id="${id}">${esc(bullets.join('\n'))}</textarea></div>`;
+    return `<div class="callout ${tone || 'good'}"><p class="big-quote">${esc(title)}</p>
+      <div class="edit-wrap">
+        ${editToolbarHTML()}
+        <div class="advice-edit" id="${id}" contenteditable="true">${esc(bullets.join('\n'))}</div>
+      </div>
+    </div>`;
   }
 
   // ════════════════════════════════════════════════════════════
@@ -1407,7 +1434,10 @@ App.report = (() => {
         ${ACCESSORY_NOTES.length ? `<div class="card">
           <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
           <div class="kpi-note-row">
-            <textarea class="advice-edit" id="advice-kpi-notes">${esc(ACCESSORY_NOTES.join('\n'))}</textarea>
+            <div class="edit-wrap">
+              ${editToolbarHTML()}
+              <div class="advice-edit" id="advice-kpi-notes" contenteditable="true">${esc(ACCESSORY_NOTES.join('\n'))}</div>
+            </div>
             <div class="minichart-row">
               ${accessory.diff < 0 ? `<div><div class="minichart-title">配件類鏡頭整新數量（顆）</div><div class="chartbox xs"><canvas id="kpi-c2"></canvas></div></div>` : ''}
               ${mainUnit.diff > 0 ? `<div><div class="minichart-title">主機類影像主機台數（台）</div><div class="chartbox xs"><canvas id="kpi-c3"></canvas></div></div>` : ''}
@@ -1713,7 +1743,22 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .callout ul{margin:8px 0 0 20px}.callout li{margin:6px 0;font-size:21px;font-weight:700}
 .big-quote{font-size:23px;font-weight:800;color:var(--teal-d)}
 .note{font-size:17px;color:var(--muted);margin:4px 0 10px}
-.advice-edit{white-space:pre-wrap;font-size:19px;font-weight:700;line-height:1.7;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;resize:vertical;margin-bottom:10px}
+.advice-edit{white-space:pre-wrap;font-size:19px;font-weight:700;line-height:1.7;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 16px;width:100%;min-height:150px;font-family:inherit;margin-bottom:10px;outline:none}
+.advice-edit:focus{border-color:var(--teal)}
+.edit-wrap{position:relative}
+.edit-toolbar{display:flex;align-items:center;gap:2px;padding:2px 0 5px;position:relative;opacity:0;pointer-events:none;transition:opacity .15s;min-height:26px}
+.edit-wrap:focus-within .edit-toolbar{opacity:1;pointer-events:auto}
+.edit-tool-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border:none;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit;padding:0}
+.edit-tool-btn svg{width:15px;height:15px}
+.edit-tool-btn:hover{background:#eef2f2;color:var(--teal-d)}
+.edit-tool-btn.on{background:#e6f4f2;color:var(--teal-d)}
+.popover{position:absolute;top:24px;left:0;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:6px;display:none;z-index:10}
+.popover.open{display:flex;gap:5px}
+.popover.size-popover{flex-direction:column;width:96px;gap:0}
+.popover.size-popover button{text-align:left;padding:5px 8px;border:none;background:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:700;color:var(--ink);font-size:13px}
+.popover.size-popover button:hover{background:#f0fbfa}
+.swatch{width:19px;height:19px;border-radius:5px;cursor:pointer;border:2px solid transparent;display:inline-block}
+.swatch:hover{border-color:var(--ink)}
 .save-bar{text-align:center;margin-top:10px}
 .save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
 .foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
@@ -1753,14 +1798,68 @@ window.__bigNumHint=function(v){
 };
 window.__uncatMerged=true;
 window.addEventListener('load',function(){
-  // 「分析與說明」文字框依內容自動撐開高度，不使用內部捲軸（切到隱藏分頁時內容還沒顯示，
-  // scrollHeight量不到，故切換分頁當下也要重新撐開一次）
-  function __autoGrowAdvice(ta){
-    ta.style.height='auto';
-    ta.style.height=(ta.scrollHeight+2)+'px';
+  // 編輯工具列：字體大小／顏色，套用到目前選取範圍（沒選取就套用整個框）；
+  // contenteditable 本身會隨內容自動撐開高度，不需要額外處理
+  var __editSavedRange=null;
+  document.querySelectorAll('.advice-edit').forEach(function(box){
+    box.addEventListener('mouseup',__saveEditRange);
+    box.addEventListener('keyup',__saveEditRange);
+    box.addEventListener('blur',__saveEditRange);
+  });
+  function __saveEditRange(e){
+    var box=e.currentTarget;
+    var sel=window.getSelection();
+    if(sel&&sel.rangeCount&&box.contains(sel.anchorNode)) __editSavedRange=sel.getRangeAt(0).cloneRange();
   }
-  document.querySelectorAll('.advice-edit').forEach(function(ta){
-    ta.addEventListener('input',function(){ __autoGrowAdvice(ta); });
+  function __closeAllPopovers(){
+    document.querySelectorAll('.popover.open').forEach(function(p){ p.classList.remove('open'); });
+    document.querySelectorAll('.edit-tool-btn.on').forEach(function(b){ b.classList.remove('on'); });
+  }
+  function __applyToEditSelection(box,applyFn){
+    var sel=window.getSelection();
+    if(__editSavedRange&&box.contains(__editSavedRange.commonAncestorContainer)&&!__editSavedRange.collapsed){
+      sel.removeAllRanges();
+      sel.addRange(__editSavedRange);
+      var range=__editSavedRange;
+      var span=document.createElement('span');
+      applyFn(span);
+      try{ range.surroundContents(span); }
+      catch(e){ var frag=range.extractContents(); span.appendChild(frag); range.insertNode(span); }
+      sel.removeAllRanges();
+    } else {
+      applyFn(box);
+    }
+  }
+  document.querySelectorAll('.edit-toolbar').forEach(function(bar){
+    var box=bar.parentElement.querySelector('.advice-edit');
+    bar.querySelectorAll('.edit-tool-btn').forEach(function(btn){
+      var panel=bar.querySelector('[data-pop-panel="'+btn.dataset.pop+'"]');
+      btn.addEventListener('mousedown',function(e){ e.preventDefault(); });
+      btn.addEventListener('click',function(){
+        var isOpen=panel.classList.contains('open');
+        __closeAllPopovers();
+        if(!isOpen){ panel.classList.add('open'); btn.classList.add('on'); }
+      });
+    });
+    var sizePanel=bar.querySelector('[data-pop-panel="size"]');
+    sizePanel.querySelectorAll('button[data-size]').forEach(function(btn){
+      btn.addEventListener('mousedown',function(e){ e.preventDefault(); });
+      btn.addEventListener('click',function(){
+        __applyToEditSelection(box,function(target){ target.style.fontSize=btn.dataset.size+'px'; });
+        __closeAllPopovers();
+      });
+    });
+    var colorPanel=bar.querySelector('[data-pop-panel="color"]');
+    colorPanel.querySelectorAll('.swatch').forEach(function(sw){
+      sw.addEventListener('mousedown',function(e){ e.preventDefault(); });
+      sw.addEventListener('click',function(){
+        __applyToEditSelection(box,function(target){ target.style.color=sw.dataset.color; });
+        __closeAllPopovers();
+      });
+    });
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.edit-toolbar')) __closeAllPopovers();
   });
   document.querySelectorAll('.tab-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
@@ -1769,11 +1868,9 @@ window.addEventListener('load',function(){
       btn.classList.add('on');
       var pageEl=document.getElementById('page-'+btn.dataset.tab);
       pageEl.classList.add('on');
-      pageEl.querySelectorAll('.advice-edit').forEach(__autoGrowAdvice);
       window.scrollTo(0,0);
     });
   });
-  document.querySelectorAll('#page-overview .advice-edit').forEach(__autoGrowAdvice);
   if(typeof Chart!=='undefined'){
     Chart.defaults.font.size=13;
     Chart.defaults.font.weight=700;
@@ -1876,7 +1973,7 @@ window.addEventListener('load',function(){
   var saveBtn=document.getElementById('btn-save-edits');
   if(saveBtn){
     saveBtn.addEventListener('click',function(){
-      document.querySelectorAll('textarea.advice-edit').forEach(function(ta){ ta.textContent=ta.value; });
+      __closeAllPopovers();
       var html='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;
       var blob=new Blob([html],{type:'text/html;charset=utf-8'});
       var name=__saveFilename();
