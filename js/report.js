@@ -1063,8 +1063,10 @@ App.report = (() => {
         </div>
 
         <div class="sech">鏡頭</div>
-        ${ageCardHTML('lens', '鏡頭', lensAgeFlat, true)}
-        ${lensCostCardHTML}
+        <div class="g2-eq">
+          <div>${ageCardHTML('lens', '鏡頭', lensAgeFlat, false)}</div>
+          <div>${lensCostCardHTML}</div>
+        </div>
         <div class="icon-toggle-row">
           <details class="lowkey-toggle icon-collapse">
             <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（鏡頭）</span></summary>
