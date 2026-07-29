@@ -1369,7 +1369,7 @@ App.report = (() => {
         ${ACCESSORY_NOTES.length ? `<div class="card">
           <div class="chead"><div class="ct">說明</div><div class="cs">關於差異金額的補充</div></div>
           <div class="kpi-note-row">
-            <ul>${ACCESSORY_NOTES.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+            <textarea class="advice-edit" id="advice-kpi-notes">${esc(ACCESSORY_NOTES.join('\n'))}</textarea>
             <div class="minichart-row">
               ${accessory.diff < 0 ? `<div><div class="minichart-title">配件類鏡頭整新數量（顆）</div><div class="chartbox xs"><canvas id="kpi-c2"></canvas></div></div>` : ''}
               ${mainUnit.diff > 0 ? `<div><div class="minichart-title">主機類影像主機台數（台）</div><div class="chartbox xs"><canvas id="kpi-c3"></canvas></div></div>` : ''}
@@ -1528,7 +1528,7 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .minichart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
 .minichart-row .minichart-title{font-size:13px;color:var(--muted);text-align:center;margin-bottom:4px}
 .kpi-note-row{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start}
-.kpi-note-row>ul{margin:0 0 0 18px}
+.kpi-note-row .advice-edit{margin-bottom:0;min-height:180px}
 .kpi-note-row .minichart-row{margin-top:0}
 @media(max-width:900px){.kpi-note-row{grid-template-columns:1fr}}
 .twrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
