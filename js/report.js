@@ -1603,14 +1603,14 @@ table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
 table.rtable td.hl{background:#c7ecdf;font-weight:800;color:#04342c}
 table.rtable td.hl2{background:#a9dcd0;font-weight:800;color:#04342c}
-table.rtable td.hl3{background:var(--gold-bg);font-weight:800;color:#8a6a00}
-.hl-year{color:var(--gold);font-weight:800}
-.hl-total-bad{color:var(--bad);font-weight:800}
-.hl-total-good{color:var(--good);font-weight:800}
+table.rtable td.hl3{background:#fde7ea;font-weight:800;color:var(--bad)}
+.hl-year{color:var(--bad);font-weight:800}
+.hl-total-bad{color:var(--bad);font-weight:800;font-size:1.15em}
+.hl-total-good{color:var(--good);font-weight:800;font-size:1.15em}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 table.rtable tr.grand td.hl{background:#085041;color:#fff}
 table.rtable tr.grand td.hl2{background:#04342c;color:#fff}
-table.rtable tr.grand td.hl3{background:#7a5c06;color:#fff}
+table.rtable tr.grand td.hl3{background:#7a1620;color:#fff}
 table.rtable .colUncat{display:none}
 .card.show-uncat table.rtable .colUncat{display:table-cell}
 table.rtable .colRate{display:none}
@@ -1646,7 +1646,7 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .top3-rank .num{width:18px;height:18px;border-radius:50%;background:var(--gold);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .top3-name{font-size:17px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top3-vendor{font-size:15px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top3-years{font-size:17px;font-weight:800;color:var(--gold)}
+.top3-years{font-size:17px;font-weight:800;color:var(--bad)}
 
 /* 已使用年限比較：去年同期圖例 */
 .vage-legend{display:flex;align-items:center;gap:16px;font-size:15.5px;color:var(--muted);margin:2px 0 14px}
@@ -1671,7 +1671,7 @@ details.icon-collapse[open]>summary .lowkey-toggle-text{display:inline}
 .barrow .fill.rank{outline:2px solid var(--gold);outline-offset:-2px}
 .barrow .marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--marker);z-index:2}
 .barrow .marker::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--marker)}
-.barrow .yr{font-size:16px;font-weight:800;color:var(--gold);text-align:left;display:flex;flex-direction:column;line-height:1.25}
+.barrow .yr{font-size:16px;font-weight:800;color:var(--bad);text-align:left;display:flex;flex-direction:column;line-height:1.25}
 .barrow .yr .delta{font-size:14px;font-weight:700}
 .barrow .delta.up{color:var(--teal)}.barrow .delta.down{color:var(--teal)}.barrow .delta.flat{color:var(--muted)}
 .medal{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--gold);color:#fff;font-size:10px;font-weight:800;margin-right:4px;flex:none}
