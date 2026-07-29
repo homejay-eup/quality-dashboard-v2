@@ -340,7 +340,7 @@ App.report = (() => {
       return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rInt(s.回廠量)}</td>
         <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${ucBad(s)}<span class="colRate">（${ucBadRate(s)}）</span></td>
         <td>${rInt(s.過保數)}<span class="colRate">（${rPct(s.過保率)}）</span></td>
-        <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td class="hl3">${rYear(s.已使用年限)}</td>
+        <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td>${rYear(s.已使用年限)}</td>
         <td class="colUncat">${ucUncat(s)}<span class="colRate">（${ucUncatRate(s)}）</span></td></tr>`;
     }).join('');
     const gt = agg.grandTotal;
@@ -374,7 +374,7 @@ App.report = (() => {
                 <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rInt(gt.回廠量)}</td>
                   <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${ucBad(gt)}<span class="colRate">（${ucBadRate(gt)}）</span></td>
                   <td>${rInt(gt.過保數)}<span class="colRate">（${rPct(gt.過保率)}）</span></td>
-                  <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td class="hl3">${rYear(gt.已使用年限)}</td>
+                  <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td>${rYear(gt.已使用年限)}</td>
                   <td class="colUncat">${ucUncat(gt)}<span class="colRate">（${ucUncatRate(gt)}）</span></td></tr>
               </tbody>
             </table>
@@ -1603,14 +1603,12 @@ table.rtable td{padding:6px 8px;text-align:center;border:1px solid var(--line)}
 table.rtable td.l{text-align:left}
 table.rtable td.hl{background:#c7ecdf;font-weight:800;color:#04342c}
 table.rtable td.hl2{background:#a9dcd0;font-weight:800;color:#04342c}
-table.rtable td.hl3{background:#fde7ea;font-weight:800;color:var(--bad)}
 .hl-year{color:var(--bad);font-weight:800}
 .hl-total-bad{color:var(--bad);font-weight:800;font-size:1.15em}
 .hl-total-good{color:var(--good);font-weight:800;font-size:1.15em}
 table.rtable tr.grand td{background:#1F2535;color:#fff;font-weight:700}
 table.rtable tr.grand td.hl{background:#085041;color:#fff}
 table.rtable tr.grand td.hl2{background:#04342c;color:#fff}
-table.rtable tr.grand td.hl3{background:#7a1620;color:#fff}
 table.rtable .colUncat{display:none}
 .card.show-uncat table.rtable .colUncat{display:table-cell}
 table.rtable .colRate{display:none}
