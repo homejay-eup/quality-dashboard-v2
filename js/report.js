@@ -1458,6 +1458,7 @@ App.report = (() => {
     const hasCmp = !!(state.cmp.on && car.cmpKpi && lens.cmpKpi);
     const ctx = { state, car, lens, carSelection: state.selectionByTab['車機'], lensSelection: state.selectionByTab['鏡頭'], hasCmp };
     const genAt = new Date().toLocaleString('zh-TW');
+    const defaultFilename = `品質分析報告_${state.year}-Q${state.quarter}_${new Date().toISOString().slice(0, 10)}.html`;
 
     const pages = [
       overviewPageHTML(ctx),
@@ -1670,6 +1671,11 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .save-bar{text-align:center;margin-top:10px}
 .save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
 .foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
+.save-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;margin-left:4px;border:none;border-radius:8px;font-size:19px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;transition:background .15s}
+.save-icon-btn:hover{background:rgba(255,255,255,.24)}
+.save-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1F2535;color:#fff;padding:13px 20px;border-radius:10px;font-size:15.5px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:90vw;z-index:50;transition:opacity .2s,transform .2s}
+.save-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.save-toast .fn{color:#8fd6cd;font-weight:800}
 @media(max-width:900px){.topbar-inner{padding:10px 16px}.main{padding:16px}.g2,.g2-eq,.g3,.vendorgrid,.rlayout3{grid-template-columns:1fr}}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 </style></head><body>
@@ -1679,11 +1685,13 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
     <button class="tab-btn on" data-tab="overview">${App.icons.pin()} 整體總覽</button>
     <button class="tab-btn" data-tab="vendor">${App.icons.factory()} 廠商比較</button>
     <button class="tab-btn" data-tab="kpi">${App.icons.chart()} KPI</button>
+    <button class="save-icon-btn" id="btn-save-edits" title="儲存編輯內容">${App.icons.save()}</button>
   </nav>
 </div></header>
 <main class="main">
 ${pages.map((p) => p.html).join('\n')}
 </main>
+<div class="save-toast" id="save-toast"></div>
 <script>
 const PAL=${JSON.stringify(PAL)};
 const AMBER='#e08e00',RED='#D32F2F',GOOD='#1a9c53',TREND='#1E88E5';
@@ -1783,6 +1791,44 @@ window.addEventListener('load',function(){
     });
   });
   window.__ucApplyAll();
+
+  // ── 儲存編輯內容：把目前所有「分析與說明／AI建議說明」文字框的內容，連同整份報告重新存成一個新檔案 ──
+  var DEFAULT_REPORT_FILENAME='${defaultFilename}';
+  function __saveFilename(){
+    try {
+      if (location.protocol === 'file:') {
+        var name = decodeURIComponent(location.pathname.split('/').pop() || '');
+        if (name) return name;
+      }
+    } catch (e) {}
+    return DEFAULT_REPORT_FILENAME;
+  }
+  var saveToastEl=document.getElementById('save-toast');
+  var saveToastTimer=null;
+  function __showSaveToast(name){
+    if(!saveToastEl)return;
+    saveToastEl.innerHTML='${App.icons.checkCircle()} 已儲存編輯內容，新檔案已下載：<span class="fn">'+name+'</span>　請用這份新檔案覆蓋原本的檔案';
+    saveToastEl.classList.add('on');
+    if(saveToastTimer)clearTimeout(saveToastTimer);
+    saveToastTimer=setTimeout(function(){ saveToastEl.classList.remove('on'); },6000);
+  }
+  var saveBtn=document.getElementById('btn-save-edits');
+  if(saveBtn){
+    saveBtn.addEventListener('click',function(){
+      document.querySelectorAll('textarea.advice-edit').forEach(function(ta){ ta.textContent=ta.value; });
+      var html='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;
+      var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+      var name=__saveFilename();
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      __showSaveToast(name);
+    });
+  }
 });
 </script></body></html>`;
   }
