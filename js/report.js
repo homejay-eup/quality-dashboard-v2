@@ -112,11 +112,18 @@ App.report = (() => {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const PAL = ['#009688', '#26A69A', '#4DB6AC', '#1E88E5', '#1565C0', '#80CBC4', '#B2DFDB', '#E08E00', '#9AA0A6', '#EF5350'];
 
+  // 季度在本工具是累加制（Q1=1–3月、Q2=1–6月、Q3=1–9月、Q4=1–12月），供期間文字換算月份範圍用
+  const QUARTER_MONTH_RANGE = { 1: '1–3月', 2: '1–6月', 3: '1–9月', 4: '1–12月' };
+  const rocYear = (y) => y - 1911;
+
   function periodText(state) {
-    const cur = state.currentSnap ? `${state.year}-Q${state.quarter}（快照）` : `${state.year}-Q${state.quarter}`;
-    if (!state.cmp.on) return cur;
-    const cmp = state.cmpSnap ? `${state.cmp.year}-Q${state.cmp.quarter}（快照）` : `${state.cmp.year}-Q${state.cmp.quarter}`;
-    return `${cur}　vs　${cmp}`;
+    const monthRange = (q) => QUARTER_MONTH_RANGE[q] || '';
+    const yearLabel = (y, snap) => `${rocYear(y)}年${snap ? '（快照）' : ''}`;
+    if (!state.cmp.on) return `${yearLabel(state.year, state.currentSnap)}　${monthRange(state.quarter)}`;
+    const curLabel = yearLabel(state.year, state.currentSnap);
+    const cmpLabel = yearLabel(state.cmp.year, state.cmpSnap);
+    if (state.quarter === state.cmp.quarter) return `${cmpLabel} vs ${curLabel}　${monthRange(state.quarter)}`;
+    return `${cmpLabel}　${monthRange(state.cmp.quarter)} vs ${curLabel}　${monthRange(state.quarter)}`;
   }
 
   // ── 近 N 季序列（車機分析頁 用）─────────────────
@@ -892,7 +899,7 @@ App.report = (() => {
             const cg = cmpAgg.groups.find((x) => x.key === g.key);
             if (cg && cg.subtotal.已使用年限 != null) yearCmp = cg.subtotal.已使用年限;
           }
-          out.push({ vendor: v, model: g.key, year: g.subtotal.已使用年限, yearCmp });
+          out.push({ vendor: v, model: g.key, year: g.subtotal.已使用年限, yearCmp, bad: g.subtotal.不良品數 || 0, uncat: g.subtotal.未歸類數 || 0 });
         });
       });
       return out;
@@ -934,6 +941,7 @@ App.report = (() => {
           <thead><tr>
             <th class="l" data-key="model">機型<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="l" data-key="vendor">廠商<span class="arrows"><span>▲</span><span>▼</span></span></th>
+            <th class="num" data-key="bad">不良品數<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="num" data-key="year">已使用年限<span class="arrows"><span>▲</span><span>▼</span></span></th>
           </tr></thead>
           <tbody id="vage-tbody-${device}"></tbody>
@@ -991,6 +999,12 @@ App.report = (() => {
       y114: { qty: 150, refurb: 150, unitCost: 780, total: 117000 },
       y115: { qty: 316, refurb: 360, unitCost: 780, total: 280800 },
     };
+    // VP／CR 上線量：直接從鏡頭現有資料依廠商過濾算出（本期一律可算；去年同期僅在報告開啟「對比期間」時才有資料）
+    const vpOnlineCur = App.metrics.computeKPI(lens.rows, lens.online, { 廠商: ['新眾'] }).總線上量;
+    const crOnlineCur = App.metrics.computeKPI(lens.rows, lens.online, { 廠商: ['呈岳科技'] }).總線上量;
+    const vpOnlineCmp = hasCmp ? App.metrics.computeKPI(lens.cmpRows, lens.cmpOnline, { 廠商: ['新眾'] }).總線上量 : null;
+    const crOnlineCmp = hasCmp ? App.metrics.computeKPI(lens.cmpRows, lens.cmpOnline, { 廠商: ['呈岳科技'] }).總線上量 : null;
+
     const vpDiff = LENS_VP_COST.y115.total - LENS_VP_COST.y114.total;
     const vpGrowth = LENS_VP_COST.y114.total ? vpDiff / LENS_VP_COST.y114.total : 0;
     const crDiff = LENS_CR_COST.y115.total - LENS_CR_COST.y114.total;
@@ -1010,19 +1024,19 @@ App.report = (() => {
       <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
       <div class="twrap" style="margin-top:14px">
         <table class="agg">
-          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
+          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">上線量</th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
-            <tr><td class="l">115年</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${vpOnlineCmp != null ? rInt(vpOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(vpOnlineCur)}</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
           </tbody>
         </table>
       </div>
       <div class="twrap" style="margin-top:14px">
         <table class="agg">
-          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
+          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">上線量</th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
           <tbody>
-            <tr><td class="l">114年</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
-            <tr><td class="l">115年</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
+            <tr><td class="l">114年</td><td class="num">${crOnlineCmp != null ? rInt(crOnlineCmp) : '－'}</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(crOnlineCur)}</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
           </tbody>
         </table>
       </div>
@@ -1207,7 +1221,7 @@ App.report = (() => {
             groupsEl.innerHTML=ranked.length?'<div class="grp">'+__vageGroupHTML(ranked,maxVal,rankMap,barCls)+'</div>':'<p class="lowkey-toggle-desc">尚無資料</p>';
           }
 
-          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,year:it.year}; });
+          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,year:it.year,bad:it.bad||0,uncat:it.uncat||0}; });
           __vageRenderTable(device);
         };
 
@@ -1216,15 +1230,19 @@ App.report = (() => {
           if(!tbody)return;
           var sort=window.__vageSort[device];
           var rows=[].concat(window.__vageRendered[device]||[]);
+          var uc=window.__uncatMerged;
           rows.sort(function(a,b){
             if(sort.key==='year'){ var av=a.year||0,bv=b.year||0; return sort.dir==='asc'?av-bv:bv-av; }
+            if(sort.key==='bad'){ var ab=(a.bad||0)+(uc?(a.uncat||0):0),bb=(b.bad||0)+(uc?(b.uncat||0):0); return sort.dir==='asc'?ab-bb:bb-ab; }
             var as=String(a[sort.key]||''),bs=String(b[sort.key]||'');
             return sort.dir==='asc'?as.localeCompare(bs,'zh-Hant'):bs.localeCompare(as,'zh-Hant');
           });
           tbody.innerHTML=rows.map(function(r){
+            var bad=(r.bad||0)+(uc?(r.uncat||0):0);
             return '<tr><td class="l">'+r.model+'</td><td class="l">'+r.vendor+'</td>'+
+              '<td class="num">'+bad.toLocaleString('en-US')+'</td>'+
               '<td class="num">'+r.year.toFixed(1)+' 年</td></tr>';
-          }).join('')||'<tr><td class="l" colspan="3">尚無資料</td></tr>';
+          }).join('')||'<tr><td class="l" colspan="4">尚無資料</td></tr>';
           var table=document.getElementById('vage-table-'+device);
           if(table){
             table.querySelectorAll('th').forEach(function(th){
@@ -1783,6 +1801,7 @@ window.addEventListener('load',function(){
       c.update();
     });
     if(window.__renderVendorSection){ window.__renderVendorSection('car'); window.__renderVendorSection('lens'); }
+    if(window.__renderVendorAge){ ['car-general','car-imaging','lens'].forEach(function(d){ window.__renderVendorAge(d); }); }
   };
   var ucChecks=document.querySelectorAll('.uc-merge-checkbox');
   ucChecks.forEach(function(cb){
