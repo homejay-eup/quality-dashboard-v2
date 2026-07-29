@@ -1012,11 +1012,59 @@ App.report = (() => {
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
     ).join('');
 
+    // 鏡頭 VP／CR 維修整新成本（使用者提供的廠商對帳彙整，非彙總常數可推得，故獨立列出）：
+    // 新眾 VP 為送外維修／整新的實際花費；呈岳科技 CR 為內部整新對應省下的外部維修成本
+    const LENS_VP_COST = {
+      y114: { qty: 61, refurb: 28, repair: 33, total: 28290 },
+      y115: { qty: 15, refurb: 14, repair: 1, total: 9818 },
+    };
+    const LENS_CR_COST = {
+      y114: { qty: 150, refurb: 150, unitCost: 780, total: 117000 },
+      y115: { qty: 316, refurb: 360, unitCost: 780, total: 280800 },
+    };
+    const vpDiff = LENS_VP_COST.y115.total - LENS_VP_COST.y114.total;
+    const vpGrowth = LENS_VP_COST.y114.total ? vpDiff / LENS_VP_COST.y114.total : 0;
+    const crDiff = LENS_CR_COST.y115.total - LENS_CR_COST.y114.total;
+    const crGrowth = LENS_CR_COST.y114.total ? crDiff / LENS_CR_COST.y114.total : 0;
+
+    const lensCostBullets = [
+      `新眾 VP 鏡頭以外部維修／整新為主，115年1–6月花費 ${rInt(LENS_VP_COST.y115.total)} 元，較114年同期 ${rInt(LENS_VP_COST.y114.total)} 元${vpDiff <= 0 ? '減少' : '增加'} ${rInt(Math.abs(vpDiff))} 元（${kpiGrowthLabel(vpGrowth)}），對外維修依賴降低。`,
+      `呈岳科技 CR 鏡頭以內部QC檢測／整新為主，對應省下的外部維修成本115年1–6月達 ${rInt(LENS_CR_COST.y115.total)} 元，較114年同期 ${rInt(LENS_CR_COST.y114.total)} 元${crDiff >= 0 ? '成長' : '減少'} ${rInt(Math.abs(crDiff))} 元（${kpiGrowthLabel(crGrowth)}）。`,
+      `兩者對比：VP 對外花費下降、CR 內部整新省下持續攀升，顯示內部整新／檢測的成本效益優於外部維修，建議持續強化鏡頭內部整新流程。`,
+    ];
+
+    const lensCostCardHTML = `<div class="card">
+      <div class="chead">
+        <div class="ct">VP／CR 維修整新成本比較</div>
+        <div class="cs">新眾 VP：外部維修＋整新花費　｜　呈岳科技 CR：內部整新省下的外部成本　｜　114 vs 115年1–6月</div>
+      </div>
+      <div class="chartbox"><canvas id="lens-vpcr-chart"></canvas></div>
+      <div class="twrap" style="margin-top:16px">
+        <table class="agg">
+          <thead><tr><th class="l">新眾 VP<span class="pill bad" style="margin-left:8px">花費</span></th><th class="num">品項數</th><th class="num">整新(件)</th><th class="num">維修(件)</th><th class="num">總計（元）</th></tr></thead>
+          <tbody>
+            <tr><td class="l">114年</td><td class="num">${rInt(LENS_VP_COST.y114.qty)}</td><td class="num">${rInt(LENS_VP_COST.y114.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y114.repair)}</td><td class="num">${rInt(LENS_VP_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(LENS_VP_COST.y115.qty)}</td><td class="num">${rInt(LENS_VP_COST.y115.refurb)}</td><td class="num">${rInt(LENS_VP_COST.y115.repair)}</td><td class="num">${rInt(LENS_VP_COST.y115.total)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="twrap" style="margin-top:14px">
+        <table class="agg">
+          <thead><tr><th class="l">呈岳科技 CR<span class="pill good" style="margin-left:8px">省下</span></th><th class="num">內部QC檢測數</th><th class="num">整新(件)</th><th class="num">整新單價（元）</th><th class="num">總計（省下，元）</th></tr></thead>
+          <tbody>
+            <tr><td class="l">114年</td><td class="num">${rInt(LENS_CR_COST.y114.qty)}</td><td class="num">${rInt(LENS_CR_COST.y114.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y114.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y114.total)}</td></tr>
+            <tr><td class="l">115年</td><td class="num">${rInt(LENS_CR_COST.y115.qty)}</td><td class="num">${rInt(LENS_CR_COST.y115.refurb)}</td><td class="num">${rInt(LENS_CR_COST.y115.unitCost)}</td><td class="num">${rInt(LENS_CR_COST.y115.total)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${adviceCalloutHTML('advice-lens-cost', '分析與說明', lensCostBullets)}`;
+
     return {
       html: `<section class="page" id="page-vendor">
         <div class="ph"><div><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
         <div class="sech">車機</div>
-        <div class="g2-eq">
+        <div class="g2-eq vage-split">
           <div>${ageCardHTML('car-general', '一般定位', carGeneralAgeFlat)}</div>
           <div>${ageCardHTML('car-imaging', '影像', carImagingAgeFlat)}</div>
         </div>
@@ -1040,28 +1088,27 @@ App.report = (() => {
         </details>
 
         <div class="sech">鏡頭</div>
-        <div class="g2-eq">
-          <div>
-            ${ageCardHTML('lens', '鏡頭', lensAgeFlat)}
-            <details class="lowkey-toggle icon-collapse">
-              <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
-              <div class="lowkey-toggle-body">
-                <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
-                <div class="twrap" style="margin-top:14px"><table class="agg">
-                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                  <tbody id="vendor-summary-lens"></tbody>
-                </table></div>
-              </div>
-            </details>
-            <details class="lowkey-toggle icon-collapse">
-              <summary title="比較廠商（鏡頭）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（鏡頭）</span></summary>
-              <div class="lowkey-toggle-body">
-                <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
-                <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-              </div>
-            </details>
-          </div>
+        <div class="g2-eq vage-split">
+          <div>${ageCardHTML('lens', '鏡頭', lensAgeFlat)}</div>
+          <div>${lensCostCardHTML}</div>
         </div>
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（鏡頭）</span></summary>
+          <div class="lowkey-toggle-body">
+            <div class="chartbox"><canvas id="vendor-chart-lens"></canvas></div>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+              <tbody id="vendor-summary-lens"></tbody>
+            </table></div>
+          </div>
+        </details>
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="比較廠商（鏡頭）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（鏡頭）</span></summary>
+          <div class="lowkey-toggle-body">
+            <p class="lowkey-toggle-desc">可複選，預設：${esc(LENS_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+            <div class="vendor-picker">${pickerHTML('lens', allLensVendors, LENS_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+          </div>
+        </details>
       </section>`,
       chartScript: `
         window.__vendorAllData={car:${JSON.stringify(carVendorData)},lens:${JSON.stringify(lensVendorData)}};
@@ -1087,6 +1134,32 @@ App.report = (() => {
           new Chart(canvas,{type:'bar',data:{labels:['不良率%','過保率%','再使用率%'],datasets:datasets},
             options:{maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'%';}}}}}});
         };
+        new Chart(document.getElementById('lens-vpcr-chart'),{type:'bar',
+          data:{labels:['新眾 VP（花費）','呈岳科技 CR（省下）'],
+            datasets:[
+              {label:'114年1-6月',data:[${LENS_VP_COST.y114.total},${LENS_CR_COST.y114.total}],backgroundColor:'#9AA0A6'},
+              {label:'115年1-6月',data:[${LENS_VP_COST.y115.total},${LENS_CR_COST.y115.total}],backgroundColor:TREND}
+            ]},
+          options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'維修／整新成本對比（元）'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}},
+          plugins:[{
+            id:'lensVpcrValueLabels',
+            afterDatasetsDraw(chart){
+              const ctx=chart.ctx;
+              ctx.save();
+              ctx.fillStyle='#1F2535';
+              ctx.font='bold 11px -apple-system,"Segoe UI","Microsoft JhengHei",sans-serif';
+              ctx.textAlign='center';
+              ctx.textBaseline='bottom';
+              chart.data.datasets.forEach(function(ds,dsIndex){
+                chart.getDatasetMeta(dsIndex).data.forEach(function(bar,i){
+                  var val=ds.data[i];
+                  if(val==null)return;
+                  ctx.fillText(val.toLocaleString('en-US'),bar.x,bar.y-4);
+                });
+              });
+              ctx.restore();
+            }
+          }]});
         document.querySelectorAll('.vp-car').forEach(function(cb){cb.addEventListener('change',function(){window.__renderVendorSection('car');});});
         document.querySelectorAll('.vp-lens').forEach(function(cb){cb.addEventListener('change',function(){window.__renderVendorSection('lens');});});
         window.__renderVendorSection('car');
@@ -1465,6 +1538,9 @@ body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFan
 .g2>*{min-width:0}
 .g2-eq{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
 .g2-eq>*{min-width:0}
+.vage-split>div{display:flex;flex-direction:column}
+.vage-split>div>.card{flex:1;display:flex;flex-direction:column}
+.vage-split>div>.card>.twrap{flex:1}
 .rlayout3{display:grid;grid-template-columns:140px 220px 1fr;gap:18px;align-items:center;min-width:0}
 .rlayout3>*{min-width:0}
 .g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:14px;min-width:0}
