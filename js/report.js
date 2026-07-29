@@ -942,35 +942,27 @@ App.report = (() => {
     // 車機機型分類清單（全部機型，含本期回廠QC數，供分類勾選表使用）
     const carAllModels = [...aggByType(car, {}).groups].sort((a, b) => (b.subtotal['回廠QC'] || 0) - (a.subtotal['回廠QC'] || 0));
 
+    // 車機依預設分類拆成一般定位／影像兩份清單，各自獨立比較（不含未分類機型）
+    const carGeneralAgeFlat = carAgeFlat.filter((r) => CAR_GENERAL_MODELS_DEFAULT.includes(r.model));
+    const carImagingAgeFlat = carAgeFlat.filter((r) => CAR_IMAGING_MODELS_DEFAULT.includes(r.model));
+
     // 已使用年限比較「分析與說明」：以預設分類為準靜態產生一次，不隨勾選即時變動（與本報告其他建議說明區塊一致）
-    const ageFindingsHTML = (id, flat, grouped) => {
-      const pool = grouped
-        ? flat.filter((r) => CAR_GENERAL_MODELS_DEFAULT.includes(r.model) || CAR_IMAGING_MODELS_DEFAULT.includes(r.model))
-        : flat;
-      if (!pool.length) return '';
-      const top = [...pool].sort((a, b) => b.year - a.year)[0];
+    const ageFindingsHTML = (id, flat) => {
+      if (!flat.length) return '';
+      const top = [...flat].sort((a, b) => b.year - a.year)[0];
       const bullets = [`已使用年限最長的是 ${esc(top.vendor)}・${esc(top.model)}，已使用 ${rYear(top.year)}，代表這台設備的汰換效益最佳。`];
-      const withDelta = pool.filter((r) => r.yearCmp != null);
+      const withDelta = flat.filter((r) => r.yearCmp != null);
       if (withDelta.length) {
         const biggestUp = [...withDelta].sort((a, b) => (b.year - b.yearCmp) - (a.year - a.yearCmp))[0];
         const biggestDown = [...withDelta].sort((a, b) => (a.year - a.yearCmp) - (b.year - b.yearCmp))[0];
         if (biggestUp.year - biggestUp.yearCmp > 0.05) bullets.push(`${esc(biggestUp.vendor)}・${esc(biggestUp.model)} 已使用年限較去年同期增加 ${rYear(biggestUp.year - biggestUp.yearCmp)}，持續延長使用中。`);
         if (biggestDown !== biggestUp && biggestDown.year - biggestDown.yearCmp < -0.05) bullets.push(`${esc(biggestDown.vendor)}・${esc(biggestDown.model)} 已使用年限較去年同期縮短 ${rYear(biggestDown.yearCmp - biggestDown.year)}，可能有提前送修或報廢情形，建議留意。`);
       }
-      if (grouped) {
-        const genList = pool.filter((r) => CAR_GENERAL_MODELS_DEFAULT.includes(r.model));
-        const imgList = pool.filter((r) => CAR_IMAGING_MODELS_DEFAULT.includes(r.model));
-        if (genList.length && imgList.length) {
-          const avg = (list) => list.reduce((s, r) => s + r.year, 0) / list.length;
-          const genAvg = avg(genList), imgAvg = avg(imgList);
-          bullets.push(`一般定位機型平均已使用 ${rYear(genAvg)}，影像機型平均已使用 ${rYear(imgAvg)}，${genAvg >= imgAvg ? '一般定位' : '影像'}機型整體耐用度表現較佳。`);
-        }
-      }
       return adviceCalloutHTML(id, '分析與說明', bullets);
     };
 
-    // 已使用年限比較卡：純 CSS 分組橫條圖（車機依分類分組、鏡頭不分組）＋最划算 Top3＋可排序明細表，皆由前端 JS 依分類勾選即時重繪
-    const ageCardHTML = (device, deviceLabel, grouped) => `<div class="card">
+    // 已使用年限比較卡：純 CSS 橫條圖＋最划算 Top3＋可排序明細表，車機拆成一般定位／影像各自獨立一張卡，皆由前端 JS 依分類勾選即時重繪
+    const ageCardHTML = (device, deviceLabel, flat) => `<div class="card">
       <div class="chead">
         <div class="ct">已使用年限比較（${esc(deviceLabel)}）</div>
       </div>
@@ -985,18 +977,18 @@ App.report = (() => {
           <thead><tr>
             <th class="l" data-key="model">機型<span class="arrows"><span>▲</span><span>▼</span></span></th>
             <th class="l" data-key="vendor">廠商<span class="arrows"><span>▲</span><span>▼</span></span></th>
-            ${grouped ? '<th class="l" data-key="cat">分類<span class="arrows"><span>▲</span><span>▼</span></span></th>' : ''}
             <th class="num" data-key="year">已使用年限<span class="arrows"><span>▲</span><span>▼</span></span></th>
           </tr></thead>
           <tbody id="vage-tbody-${device}"></tbody>
         </table>
       </div>
     </div>
-    ${ageFindingsHTML(`advice-vage-${device}`, device === 'car' ? carAgeFlat : lensAgeFlat, grouped)}
-    ${device === 'car' ? `<details class="lowkey-toggle icon-collapse">
+    ${ageFindingsHTML(`advice-vage-${device}`, flat)}`;
+
+    const carClassSettingsHTML = `<details class="lowkey-toggle icon-collapse">
       <summary title="車機機型分類設定">${App.icons.settings()}<span class="lowkey-toggle-text">車機機型分類設定</span></summary>
       <div class="lowkey-toggle-body">
-        <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定上方分組與最划算排名如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入本卡比較）</p>
+        <p class="lowkey-toggle-desc">勾選「一般定位」或「影像」，決定左右兩張卡片如何分類；同一機型只能勾一邊，都不勾視為未分類（不列入任一卡片比較）</p>
         <div class="twrap"><div class="scroll">
           <table class="agg" id="vage-class-table">
             <thead><tr><th class="l">機型</th><th class="num">本期回廠QC數</th><th class="num">一般定位</th><th class="num">影像</th></tr></thead>
@@ -1014,7 +1006,7 @@ App.report = (() => {
           </table>
         </div></div>
       </div>
-    </details>` : ''}`;
+    </details>`;
 
     const pickerHTML = (device, vendors, defaults) => vendors.map((v) =>
       `<label class="vp-item"><input type="checkbox" class="vp-${device}" value="${esc(v)}" ${defaults.includes(v) ? 'checked' : ''}> ${esc(v)}</label>`
@@ -1023,31 +1015,34 @@ App.report = (() => {
     return {
       html: `<section class="page" id="page-vendor">
         <div class="ph"><div><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">期間：${esc(periodText(state))}</span></div></div>
+        <div class="sech">車機</div>
+        <div class="g2-eq">
+          <div>${ageCardHTML('car-general', '一般定位', carGeneralAgeFlat)}</div>
+          <div>${ageCardHTML('car-imaging', '影像', carImagingAgeFlat)}</div>
+        </div>
+        ${carClassSettingsHTML}
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較（車機）</span></summary>
+          <div class="lowkey-toggle-body">
+            <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
+            <div class="twrap" style="margin-top:14px"><table class="agg">
+              <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
+              <tbody id="vendor-summary-car"></tbody>
+            </table></div>
+          </div>
+        </details>
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="比較廠商（車機）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（車機）</span></summary>
+          <div class="lowkey-toggle-body">
+            <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
+            <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
+          </div>
+        </details>
+
+        <div class="sech">鏡頭</div>
         <div class="g2-eq">
           <div>
-            <div class="sech">車機</div>
-            ${ageCardHTML('car', '車機', true)}
-            <details class="lowkey-toggle icon-collapse">
-              <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
-              <div class="lowkey-toggle-body">
-                <div class="chartbox"><canvas id="vendor-chart-car"></canvas></div>
-                <div class="twrap" style="margin-top:14px"><table class="agg">
-                  <thead><tr><th class="l">廠商</th><th class="num">不良品數</th><th class="num">過保數</th><th class="num">再使用數</th></tr></thead>
-                  <tbody id="vendor-summary-car"></tbody>
-                </table></div>
-              </div>
-            </details>
-            <details class="lowkey-toggle icon-collapse">
-              <summary title="比較廠商（車機）">${App.icons.filter()}<span class="lowkey-toggle-text">比較廠商（車機）</span></summary>
-              <div class="lowkey-toggle-body">
-                <p class="lowkey-toggle-desc">可複選，預設：${esc(CAR_SPOTLIGHT_VENDORS_DEFAULT.join('、'))}</p>
-                <div class="vendor-picker">${pickerHTML('car', allCarVendors, CAR_SPOTLIGHT_VENDORS_DEFAULT)}</div>
-              </div>
-            </details>
-          </div>
-          <div>
-            <div class="sech">鏡頭</div>
-            ${ageCardHTML('lens', '鏡頭', false)}
+            ${ageCardHTML('lens', '鏡頭', lensAgeFlat)}
             <details class="lowkey-toggle icon-collapse">
               <summary title="顯示不良率／過保率／再使用率比較">${App.icons.chart()}<span class="lowkey-toggle-text">顯示不良率／過保率／再使用率比較</span></summary>
               <div class="lowkey-toggle-body">
@@ -1098,12 +1093,20 @@ App.report = (() => {
         window.__renderVendorSection('lens');
 
         window.__vageData={car:${JSON.stringify(carAgeFlat)},lens:${JSON.stringify(lensAgeFlat)}};
-        window.__vageSort={car:{key:'year',dir:'desc'},lens:{key:'year',dir:'desc'}};
+        window.__vageSort={'car-general':{key:'year',dir:'desc'},'car-imaging':{key:'year',dir:'desc'},lens:{key:'year',dir:'desc'}};
         window.__vageRendered={};
+        var __VAGE_DEVICES=['car-general','car-imaging','lens'];
 
         function __vageMedalHTML(rank){ return rank<=3?'<span class="medal">'+rank+'</span>':''; }
-        function __vageCatLabel(cat){ return cat==='general'?'一般定位':(cat==='imaging'?'影像':''); }
-        function __vageCatChip(cat){ return cat?'<span class="catchip '+cat+'">'+__vageCatLabel(cat)+'</span>':''; }
+
+        function __vageCatOf(model){
+          var genSet={},imgSet={};
+          document.querySelectorAll('.vage-cls-general:checked').forEach(function(cb){genSet[cb.dataset.model]=true;});
+          document.querySelectorAll('.vage-cls-imaging:checked').forEach(function(cb){imgSet[cb.dataset.model]=true;});
+          if(genSet[model])return 'general';
+          if(imgSet[model])return 'imaging';
+          return null;
+        }
 
         function __vageBarRowHTML(item,rank,maxVal,cls){
           var pct=maxVal?Math.round(item.year/maxVal*100):0;
@@ -1123,22 +1126,17 @@ App.report = (() => {
             '<div class="yr">'+item.year.toFixed(1)+' 年'+deltaHTML+'</div>'+
           '</div>';
         }
-        function __vageGroupHTML(label,cls,list,maxVal,rankMap){
-          var rows=list.map(function(it){ return __vageBarRowHTML(it,rankMap.get(it.vendor+'|'+it.model)||99,maxVal,cls); }).join('');
-          return (label?'<span class="grp-label '+cls+'">'+label+'</span>':'')+rows;
+        function __vageGroupHTML(list,maxVal,rankMap,cls){
+          return list.map(function(it){ return __vageBarRowHTML(it,rankMap.get(it.vendor+'|'+it.model)||99,maxVal,cls); }).join('');
         }
 
         window.__renderVendorAge=function(device){
-          var data=window.__vageData[device]||[];
-          var grouped=device==='car';
-          var pool=data, catOf=null;
-          if(grouped){
-            var genSet={},imgSet={};
-            document.querySelectorAll('.vage-cls-general:checked').forEach(function(cb){genSet[cb.dataset.model]=true;});
-            document.querySelectorAll('.vage-cls-imaging:checked').forEach(function(cb){imgSet[cb.dataset.model]=true;});
-            catOf=function(model){ if(genSet[model])return 'general'; if(imgSet[model])return 'imaging'; return null; };
-            pool=data.filter(function(it){return catOf(it.model)!=null;});
-          }
+          var srcKey=device==='lens'?'lens':'car';
+          var data=window.__vageData[srcKey]||[];
+          var barCls='general', pool=data;
+          if(device==='car-general'){ pool=data.filter(function(it){return __vageCatOf(it.model)==='general';}); barCls='general'; }
+          else if(device==='car-imaging'){ pool=data.filter(function(it){return __vageCatOf(it.model)==='imaging';}); barCls='imaging'; }
+
           var maxVal=(pool.reduce(function(m,it){return Math.max(m,it.year,it.yearCmp||0);},0)*1.08)||1;
 
           var ranked=[].concat(pool).sort(function(a,b){return b.year-a.year;});
@@ -1148,10 +1146,9 @@ App.report = (() => {
           var top3El=document.getElementById('vage-top3-'+device);
           if(top3El){
             top3El.innerHTML=top3.map(function(it,i){
-              var cat=grouped?catOf(it.model):null;
               return '<div class="top3-item"><div class="top3-rank"><span class="num">'+(i+1)+'</span>TOP'+(i+1)+'</div>'+
                 '<div class="top3-name">'+it.model+'</div>'+
-                '<div class="top3-vendor">'+it.vendor+(cat?'・'+__vageCatLabel(cat):'')+'</div>'+
+                '<div class="top3-vendor">'+it.vendor+'</div>'+
                 '<div class="top3-years">'+it.year.toFixed(1)+' 年</div></div>';
             }).join('')||'<p class="lowkey-toggle-desc">尚無可比較資料</p>';
           }
@@ -1161,18 +1158,10 @@ App.report = (() => {
 
           var groupsEl=document.getElementById('vage-groups-'+device);
           if(groupsEl){
-            if(grouped){
-              var genList=pool.filter(function(it){return catOf(it.model)==='general';}).sort(function(a,b){return b.year-a.year;});
-              var imgList=pool.filter(function(it){return catOf(it.model)==='imaging';}).sort(function(a,b){return b.year-a.year;});
-              var groupsHTML=(genList.length?'<div class="grp">'+__vageGroupHTML('一般定位','general',genList,maxVal,rankMap)+'</div>':'')+
-                (imgList.length?'<div class="grp">'+__vageGroupHTML('影像','imaging',imgList,maxVal,rankMap)+'</div>':'');
-              groupsEl.innerHTML=groupsHTML||'<p class="lowkey-toggle-desc">尚未勾選任何機型分類</p>';
-            } else {
-              groupsEl.innerHTML=ranked.length?'<div class="grp">'+__vageGroupHTML(null,'general',ranked,maxVal,rankMap)+'</div>':'<p class="lowkey-toggle-desc">尚無資料</p>';
-            }
+            groupsEl.innerHTML=ranked.length?'<div class="grp">'+__vageGroupHTML(ranked,maxVal,rankMap,barCls)+'</div>':'<p class="lowkey-toggle-desc">尚無資料</p>';
           }
 
-          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,cat:grouped?catOf(it.model):null,year:it.year}; });
+          window.__vageRendered[device]=pool.map(function(it){ return {model:it.model,vendor:it.vendor,year:it.year}; });
           __vageRenderTable(device);
         };
 
@@ -1181,22 +1170,15 @@ App.report = (() => {
           if(!tbody)return;
           var sort=window.__vageSort[device];
           var rows=[].concat(window.__vageRendered[device]||[]);
-          var grouped=device==='car';
-          var catOrder={general:0,imaging:1};
           rows.sort(function(a,b){
-            if(grouped){
-              var ca=catOrder[a.cat]!=null?catOrder[a.cat]:2, cb=catOrder[b.cat]!=null?catOrder[b.cat]:2;
-              if(ca!==cb)return ca-cb;
-            }
             if(sort.key==='year'){ var av=a.year||0,bv=b.year||0; return sort.dir==='asc'?av-bv:bv-av; }
             var as=String(a[sort.key]||''),bs=String(b[sort.key]||'');
             return sort.dir==='asc'?as.localeCompare(bs,'zh-Hant'):bs.localeCompare(as,'zh-Hant');
           });
           tbody.innerHTML=rows.map(function(r){
             return '<tr><td class="l">'+r.model+'</td><td class="l">'+r.vendor+'</td>'+
-              (grouped?'<td class="l">'+(r.cat?__vageCatChip(r.cat):'<span style="color:var(--muted)">未分類</span>')+'</td>':'')+
               '<td class="num">'+r.year.toFixed(1)+' 年</td></tr>';
-          }).join('')||'<tr><td class="l" colspan="'+(grouped?4:3)+'">尚無資料</td></tr>';
+          }).join('')||'<tr><td class="l" colspan="3">尚無資料</td></tr>';
           var table=document.getElementById('vage-table-'+device);
           if(table){
             table.querySelectorAll('th').forEach(function(th){
@@ -1209,7 +1191,7 @@ App.report = (() => {
           }
         }
 
-        ['car','lens'].forEach(function(device){
+        __VAGE_DEVICES.forEach(function(device){
           var table=document.getElementById('vage-table-'+device);
           if(table){
             table.querySelectorAll('th[data-key]').forEach(function(th){
@@ -1228,7 +1210,8 @@ App.report = (() => {
               var other=document.querySelector('.vage-cls-imaging[data-model="'+CSS.escape(this.dataset.model)+'"]');
               if(other)other.checked=false;
             }
-            window.__renderVendorAge('car');
+            window.__renderVendorAge('car-general');
+            window.__renderVendorAge('car-imaging');
           });
         });
         document.querySelectorAll('.vage-cls-imaging').forEach(function(cb){
@@ -1237,11 +1220,11 @@ App.report = (() => {
               var other=document.querySelector('.vage-cls-general[data-model="'+CSS.escape(this.dataset.model)+'"]');
               if(other)other.checked=false;
             }
-            window.__renderVendorAge('car');
+            window.__renderVendorAge('car-general');
+            window.__renderVendorAge('car-imaging');
           });
         });
-        window.__renderVendorAge('car');
-        window.__renderVendorAge('lens');`,
+        __VAGE_DEVICES.forEach(function(device){ window.__renderVendorAge(device); });`,
     };
   }
 
