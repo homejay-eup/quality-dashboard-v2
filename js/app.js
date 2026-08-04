@@ -396,7 +396,7 @@ App.app = (() => {
     }
   }
 
-  document.addEventListener('DOMContentLoaded', init);
-
-  return { state, rerender, fmt: { int: fmtInt, pct: fmtPct }, DEVICE_TABS, dataForDevice };
+  // 由 js/auth.js 在登入驗證通過後呼叫（見 index.html 的 DOMContentLoaded 監聽），
+  // 不在此自行掛 DOMContentLoaded，避免資料在登入畫面關閉前就先抓取/渲染。
+  return { state, init, rerender, fmt: { int: fmtInt, pct: fmtPct }, DEVICE_TABS, dataForDevice };
 })();

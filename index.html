@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>設備品質分析</title>
-  <link rel="stylesheet" href="css/style.css?v=12" />
+  <link rel="stylesheet" href="css/style.css?v=13" />
 </head>
 <body>
   <!-- ── Header ─────────────────────────────────────── -->
@@ -17,6 +17,7 @@
           <div class="brand__sub">EUP 弋揚科技</div>
         </div>
       </div>
+      <div class="app-header__user" id="auth-user-slot"></div>
     </div>
   </header>
 
@@ -98,8 +99,9 @@
 
   <!-- ── 相依函式庫（CDN）──────────────────────────── -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
   <!-- ── 本地模組（依序）；?v= 為快取版本號，改動 js 時一併調高 ── -->
-  <script src="js/icons.js?v=3"></script>
+  <script src="js/icons.js?v=4"></script>
   <script src="js/config.js?v=6"></script>
   <script src="js/sheets.js?v=4"></script>
   <script src="js/transform.js?v=5"></script>
@@ -111,7 +113,11 @@
   <script src="js/advice.js?v=3"></script>
   <script src="js/report.js?v=60"></script>
   <script src="js/cloud.js?v=2"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/app.js?v=14"></script>
+  <script src="js/auth.js?v=1"></script>
   <input type="file" id="snap-file" accept="application/json,.json" hidden />
+  <script>
+    document.addEventListener('DOMContentLoaded', () => App.auth.init(() => App.app.init()));
+  </script>
 </body>
 </html>

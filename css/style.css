@@ -75,6 +75,16 @@ body {
 .brand__title { font-size: 21px; font-weight: 700; color: var(--gray-800); }
 .brand__sub { font-size: 13px; color: var(--gray-400); }
 
+/* ── 登入使用者資訊（header 右側，auth.js 注入）───── */
+.app-header__user { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.auth-user__email { font-size: 14px; color: var(--gray-500); }
+.auth-user__logout {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--gray-200);
+  background: #fff; color: var(--gray-400); cursor: pointer; transition: all .15s;
+}
+.auth-user__logout:hover { border-color: var(--teal-light); color: var(--teal); background: var(--teal-pale); }
+
 /* ── Hero ───────────────────────────────────────────── */
 .hero {
   background: var(--grad);
@@ -458,3 +468,24 @@ details.icon-collapse[open] > summary .lowkey-toggle-text { display: inline; }
 }
 .toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast--error { background: var(--bad-dk); }
+
+/* ── 登入畫面（介面閘，auth.js 注入）───────────────── */
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--grad);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.auth-card {
+  background: #fff; border-radius: 18px; width: min(380px, 100%);
+  box-shadow: 0 24px 64px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.08);
+  padding: 32px 28px; text-align: center;
+}
+.auth-card__icon { color: var(--teal); margin-bottom: 10px; }
+.auth-card__icon svg { width: 34px; height: 34px; }
+.auth-card__title { font-size: 19px; font-weight: 700; color: var(--gray-800); margin-bottom: 6px; }
+.auth-card__sub { font-size: 14px; color: var(--gray-400); margin-bottom: 22px; line-height: 1.6; }
+.auth-card__btn { display: flex; justify-content: center; }
+.auth-card__err {
+  margin-top: 16px; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--warn-bg); color: var(--warn); font-size: 13.5px; line-height: 1.6; text-align: left;
+}
