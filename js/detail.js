@@ -192,7 +192,7 @@ App.detail = (() => {
           <div class="detail__bar">
             <span class="detail__title" id="${ids.title}">${title}</span>
             <span class="detail__count" id="${ids.count}"></span>
-            <button type="button" class="btn-ghost detail__download" id="${ids.download}">📥 下載 CSV</button>
+            <button type="button" class="btn-ghost detail__download" id="${ids.download}">${App.icons.download()} 下載 CSV</button>
           </div>
           <div class="detail__opts">
             <div class="opt-row">

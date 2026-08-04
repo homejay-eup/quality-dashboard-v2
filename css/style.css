@@ -378,10 +378,21 @@ body {
 }
 .logic-bar__clear:hover { background: #fff; }
 
+/* ── 摺疊按鈕（僅圖示，展開才顯示文字；沿用落地頁報告 icon-collapse 慣例）──── */
+.lowkey-toggle { margin: 0; }
+.lowkey-toggle summary {
+  display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 700;
+  color: var(--gray-400); cursor: pointer; user-select: none; list-style: none;
+}
+.lowkey-toggle summary::-webkit-details-marker { display: none; }
+.lowkey-toggle summary:hover { color: var(--teal-dark); }
+.lowkey-toggle-body { margin-top: 12px; }
+.icon-collapse .lowkey-toggle-text { display: none; }
+details.icon-collapse[open] > summary .lowkey-toggle-text { display: inline; }
+
 /* ── 品管/採購建議（F5）───────────────────────────── */
 .advice { margin-top: 18px; padding: 16px 18px; }
 .advice__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.advice__title { font-size: 16px; font-weight: 700; color: var(--gray-800); }
 .advice__note { font-size: 14px; color: var(--gray-400); }
 .advice__tabs { display: flex; gap: 8px; margin-bottom: 10px; }
 .advice-tab {

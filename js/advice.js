@@ -82,19 +82,23 @@ App.advice = (() => {
   function build() {
     $('advice-slot').innerHTML = `
       <section class="card advice">
-        <div class="advice__head">
-          <span class="advice__title">${App.icons.compass()} 品管 &amp; 採購建議</span>
-          <span class="advice__note">依上方篩選自動生成初稿，可於框內修改後下載</span>
-        </div>
-        <div class="advice__tabs">
-          <button class="advice-tab advice-tab--on" data-t="品管">品管建議</button>
-          <button class="advice-tab" data-t="採購">採購建議</button>
-        </div>
-        <textarea class="advice__text" id="advice-text" rows="10" spellcheck="false"></textarea>
-        <div class="advice__actions">
-          <button class="btn-ghost" id="advice-dl">下載 .txt</button>
-          <button class="btn-ghost" id="advice-regen">重新生成</button>
-        </div>
+        <details class="lowkey-toggle icon-collapse">
+          <summary title="展開品管與採購建議">${App.icons.compass()}<span class="lowkey-toggle-text">品管 &amp; 採購建議</span></summary>
+          <div class="lowkey-toggle-body">
+            <div class="advice__head">
+              <span class="advice__note">依上方篩選自動生成初稿，可於框內修改後下載</span>
+            </div>
+            <div class="advice__tabs">
+              <button class="advice-tab advice-tab--on" data-t="品管">品管建議</button>
+              <button class="advice-tab" data-t="採購">採購建議</button>
+            </div>
+            <textarea class="advice__text" id="advice-text" rows="10" spellcheck="false"></textarea>
+            <div class="advice__actions">
+              <button class="btn-ghost" id="advice-dl">下載 .txt</button>
+              <button class="btn-ghost" id="advice-regen">重新生成</button>
+            </div>
+          </div>
+        </details>
       </section>`;
     $('advice-slot').querySelectorAll('.advice-tab').forEach((b) =>
       b.addEventListener('click', () => {

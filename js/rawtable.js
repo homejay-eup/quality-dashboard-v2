@@ -60,7 +60,7 @@ App.rawtable = (() => {
         <div class="detail__bar">
           <span class="detail__title" id="raw-title">彙整表</span>
           <span class="detail__count" id="raw-count"></span>
-          <button type="button" class="btn-ghost detail__download" id="raw-download">📥 下載 CSV</button>
+          <button type="button" class="btn-ghost detail__download" id="raw-download">${App.icons.download()} 下載 CSV</button>
         </div>
         <div class="detail__opts">
           <div class="opt-row opt-row--cols">
