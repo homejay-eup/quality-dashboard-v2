@@ -14,7 +14,7 @@
 window.App = window.App || {};
 
 App.auth = (() => {
-  const CLIENT_ID = '49182385706-226jh4skn9jjnrl915iu5r58tco4m84b.apps.googleusercontent.com';
+  const CLIENT_ID = '49182385706-96bcusg30519r5q8tioleovdqmoti4d7.apps.googleusercontent.com';
   const ALLOWED_DOMAIN = 'eup.com.tw';
   const SESSION_KEY = 'eup_auth_session_v1';
 
