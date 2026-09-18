@@ -1,2 +1,37 @@
 .DS_Store
 *.log
+
+# === 機密（最優先，絕不可 commit）===
+.env*
+!.env.example
+_secrets/
+
+# === Python（Python 批次腳本用）===
+__pycache__/
+*.pyc
+
+# === 新版產出：xlsx 快照與批次產出物，非邏輯本體不進版控 ===
+新版產出/*.xlsx
+新版產出/__pycache__/
+
+# === Claude Code ===
+# ⚠️ .gitignore 不支援行尾註解——# 只有在行首才是註解。
+# 註解一律獨立成行，否則整串會被當成字面 pattern 而完全失效。
+# 下一行：Claude Code 原生 --worktree 的預設位置
+.claude/worktrees/
+.claude/settings.local.json
+
+# === 暫存產物（審查用，與 git 歷史重複，勿 commit）===
+_管理/任務報告/全分支diff.txt
+
+# === 原則四閘門的執行期產物 ===
+_管理/.verify-marker
+_管理/verify-bypass.log
+
+# === CodeGraph 本地索引 ===
+.codegraph/
+
+# === 系統與 IDE ===
+Thumbs.db
+.vscode/
+.idea/

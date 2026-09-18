@@ -19,4 +19,4 @@
 - `index.html` / `css/` / `js/`：純前端，無框架、無打包器
 - `apps-script/`：雲端快照備份用的 Google Apps Script（Drive 對 Drive 複製來源 Sheet）
 
-彙整邏輯依 `設備品質分析_分冊文件` 規則 A–F（v5）實作，細節見 `js/transform.js`。
+彙整邏輯依 `設備品質分析_分冊文件` 規則 A–F（現行 v9，見 `00_規則定義.md`）實作，細節見 `js/transform.js`。
