@@ -17,6 +17,7 @@
  *   App.metrics.computeYoY(raw, { year, quarter, selection })
  *   App.metrics.trendByMonth(rows, selection)
  *   App.metrics.faultDistribution(rows, selection)
+ *   App.metrics.computeOnlineAge(onlineRows, selection)  — 規則 H，資料來源與 computeKPI 完全獨立
  *
  * selection 型別：{ 廠商?: string[], 類型?: string[], ERP品號?: string[] }
  *   各陣列為空 → 對應維度不限制。
@@ -287,6 +288,96 @@ App.metrics = (() => {
       整體人為率:     safeDiv(人為數,   總線上量),
       整體其他未過率: safeDiv(其他未過數, 總線上量),
       整體再使用率:   safeDiv(良品數,   總線上量),
+    };
+  }
+
+  // ─────────────────────────────────────────────────
+  // 在線平均已使用年限（規則 H；資料來源與 computeKPI 完全獨立）
+  // ─────────────────────────────────────────────────
+
+  /**
+   * 將日期字串（Sheets API 回傳的格式化字串，可能為 'YYYY-MM-DD'、'YYYY/M/D' 等）解析成 Date。
+   * 解析失敗（空值、格式不明）回傳 null。
+   * @param {*} v
+   * @returns {Date|null}
+   */
+  function parseFlexDate(v) {
+    if (v == null) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+    const m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (m) {
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  /**
+   * 依規則 H 取單筆的「參考日期」：
+   * 優先採用「日期」欄；缺值時依「日期依據」欄指向的欄位（進貨日/安裝日）取值，
+   * 該欄也缺時改試另一欄；兩欄都無值 → null（呼叫端視為不可用，不計入平均）。
+   * @param {Object} r - 「車機鏡頭上線明細」單列（key：日期/日期依據/進貨日/安裝日）
+   * @returns {Date|null}
+   */
+  function pickOnlineRefDate(r) {
+    const direct = parseFlexDate(r['日期']);
+    if (direct) return direct;
+
+    const basis = String(r['日期依據'] || '').trim();
+    const primaryKey = basis === '安裝日' ? '安裝日' : (basis === '進貨日' ? '進貨日' : null);
+    if (primaryKey) {
+      const primary = parseFlexDate(r[primaryKey]);
+      if (primary) return primary;
+      const fallbackKey = primaryKey === '進貨日' ? '安裝日' : '進貨日';
+      return parseFlexDate(r[fallbackKey]);
+    }
+    // 「日期依據」欄本身缺值時，依序試進貨日→安裝日
+    return parseFlexDate(r['進貨日']) || parseFlexDate(r['安裝日']);
+  }
+
+  /**
+   * 規則 H：在線平均已使用年限（../設備品質分析_分冊文件/00_規則定義.md 規則 H）。
+   *
+   * 計算對象：目前線上（「車機鏡頭上線明細」名單內）的車機／鏡頭，**不限**回廠或良品狀態
+   * （跟規則 E「已使用年限」的計算對象完全不同，資料來源也完全獨立，不要混用）。
+   *
+   * 依 selection 過濾（比照 applyFilter：比對 r.廠商／r.廠牌型號／r.ERP品號——呼叫端需先把
+   * 廠商／廠牌型號 join 進 onlineRows，本函式只做過濾＋分組計算，不做 join），
+   * 再依「設備類型」分車機／鏡頭分別獨立取平均（不合併）：
+   *   參考日期見 pickOnlineRefDate()；兩個日期欄都無值，或算出負值年限（資料異常），
+   *   該筆不計入平均。
+   *   年限 = (今天 − 參考日期) / 365，取小數點第一位（沿用規則E既有公式）。
+   * 分母為 0（篩選後沒有符合的設備、或設備都有但日期全部不可用）該設備類型回傳 null，
+   * 不回傳 0（避免跟「平均年限剛好是 0」混淆）。
+   *
+   * @param {Object[]} onlineRows - 「車機鏡頭上線明細」轉換後的列（至少含 設備類型/進貨日/安裝日/日期/日期依據；
+   *   需要依 廠商/類型 篩選時，呼叫端需先 join 上 廠商/廠牌型號 這兩個 key）
+   * @param {{ 廠商?: string[], 類型?: string[], ERP品號?: string[] }} [selection]
+   * @returns {{ 在線平均已使用年限_車機: number|null, 在線平均已使用年限_鏡頭: number|null }}
+   */
+  function computeOnlineAge(onlineRows, selection) {
+    const filtered = applyFilter(onlineRows || [], selection);
+    const today = new Date();
+
+    function avgFor(設備類型) {
+      let sum = 0, n = 0;
+      for (const r of filtered) {
+        if (String(r['設備類型'] || '').trim() !== 設備類型) continue;
+        const refDate = pickOnlineRefDate(r);
+        if (!refDate) continue;
+        const diffMs = today.getTime() - refDate.getTime();
+        if (diffMs < 0) continue; // 負值年限（資料異常）不計入
+        sum += diffMs / (365 * 24 * 60 * 60 * 1000);
+        n++;
+      }
+      return n ? Math.round(sum / n * 10) / 10 : null;
+    }
+
+    return {
+      在線平均已使用年限_車機: avgFor('車機'),
+      在線平均已使用年限_鏡頭: avgFor('鏡頭'),
     };
   }
 
@@ -600,6 +691,12 @@ App.metrics = (() => {
     faultDistribution,
 
     /**
+     * 規則 H：在線平均已使用年限（車機/鏡頭分別計算，資料來源與 computeKPI 完全獨立）。
+     * 回傳：{ 在線平均已使用年限_車機: number|null, 在線平均已使用年限_鏡頭: number|null }
+     */
+    computeOnlineAge,
+
+    /**
      * 依 ERP品號 彙整＋分組（類型/廠商）＋小計/總計，供折疊明細表與落地頁。
      * 回傳：{ groups:[{key,rows,subtotal}], grandTotal, groupBy }
      */
@@ -613,5 +710,7 @@ App.metrics = (() => {
 
     // 內部工具（底線前綴，供測試直接呼叫）
     _safeDiv: safeDiv,
+    _parseFlexDate: parseFlexDate,
+    _pickOnlineRefDate: pickOnlineRefDate,
   };
 })();

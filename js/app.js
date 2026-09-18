@@ -29,12 +29,23 @@ App.app = (() => {
     { key: '不良品數',     label: '不良品數',     fmt: 'int', better: null,  def: false, get: (k) => k.不良品數 },
     { key: '過保數',       label: '過保數',       fmt: 'int', better: null,  def: false, get: (k) => k.過保數 },
     { key: '未歸類數',     label: '未歸類數',     fmt: 'int', better: null,  def: false, get: (k) => k.未歸類數 },
+    // 在線平均已使用年限（規則H，資料來源與其他 KPI 完全獨立；見 App.metrics.computeOnlineAge）
+    { key: '在線平均已使用年限_車機', label: '在線平均已使用年限（車機）', fmt: 'year', better: null, def: true, get: (k) => k.在線平均已使用年限_車機 },
+    { key: '在線平均已使用年限_鏡頭', label: '在線平均已使用年限（鏡頭）', fmt: 'year', better: null, def: true, get: (k) => k.在線平均已使用年限_鏡頭 },
   ];
+
+  // 上述兩個 key 讀取失敗（OAuth 授權問題/網路錯誤）時，renderKpi() 改顯示「無法載入，點選重試」。
+  const ONLINE_AGE_KEYS = new Set(['在線平均已使用年限_車機', '在線平均已使用年限_鏡頭']);
 
   const state = {
     raw: null,
     onlineList: null,
     rows: [],
+    // 「車機鏡頭上線明細」（規則H，供在線平均已使用年限用）——獨立於 state.raw／state.kpi 的載入流程，
+    // 只需成功抓一次即快取；篩選變動時只重跑 computeOnlineAge()，不重新呼叫 Sheets API。
+    onlineAgeRows: null,          // 轉換＋join 廠商/廠牌型號後的列
+    onlineAgeStatus: 'idle',      // 'idle' | 'loading' | 'ok' | 'error'
+    onlineAgeError: null,
     periods: [],
     currentPeriods: [],
     deviceTab: DEVICE_TABS[0].key,   // '車機' | '鏡頭'
@@ -62,7 +73,8 @@ App.app = (() => {
   const $ = (id) => document.getElementById(id);
   const fmtInt = (v) => (Number(v) || 0).toLocaleString('en-US');
   const fmtPct = (v) => `${((Number(v) || 0) * 100).toFixed(1)}%`;
-  const fmtVal = (v, kind) => (kind === 'pct' ? fmtPct(v) : fmtInt(v));
+  const fmtYear = (v) => `${(Number(v) || 0).toFixed(1)} 年`;
+  const fmtVal = (v, kind) => (kind === 'pct' ? fmtPct(v) : (kind === 'year' ? fmtYear(v) : fmtInt(v)));
   const snapLabel = (s) => s.meta.period ? `${s.meta.period.year}-Q${s.meta.period.quarter}` : (s.meta.name || '雲端快照');
 
   function showStatus(html, isError = false) {
@@ -156,7 +168,10 @@ App.app = (() => {
     });
   }
 
-  const NO_DELTA_METRICS = new Set(['總線上量', '期間派工量', '期間回廠量']);
+  const NO_DELTA_METRICS = new Set([
+    '總線上量', '期間派工量', '期間回廠量',
+    '在線平均已使用年限_車機', '在線平均已使用年限_鏡頭', // 現在時點的數字，不隨「本季/去年同期」變動，比照「總線上量」
+  ]);
 
   function deltaMarkup(m) {
     if (NO_DELTA_METRICS.has(m.key)) return '';
@@ -176,15 +191,39 @@ App.app = (() => {
             <div class="kpi__prev">對比 ${fmtVal(prev, m.fmt)}</div>`;
   }
 
-  function renderKpi() {
-    const cards = METRICS.filter((m) => state.visible.has(m.key)).map((m) =>
-      `<div class="kpi">
+  // 一張卡片渲染失敗（例如 m.get 拋錯）不能讓整個 renderKpi() 掛掉、拖累其他卡片全部消失。
+  function renderOneKpi(m) {
+    try {
+      if (ONLINE_AGE_KEYS.has(m.key) && state.onlineAgeStatus === 'error') {
+        return `<div class="kpi">
+          <div class="kpi__label">${m.label}</div>
+          <div class="kpi__empty">無法載入 <button type="button" class="btn-ghost" data-online-age-retry="1">點選重試</button></div>
+        </div>`;
+      }
+      const val = m.get(state.kpi);
+      const valueMarkup = (val === null || val === undefined)
+        ? `<div class="kpi__empty">無資料</div>`
+        : `<div class="kpi__value">${fmtVal(val, m.fmt)}</div>`;
+      return `<div class="kpi">
         <div class="kpi__label">${m.label}</div>
-        <div class="kpi__value">${fmtVal(m.get(state.kpi), m.fmt)}</div>
+        ${valueMarkup}
         ${deltaMarkup(m)}
-      </div>`).join('');
+      </div>`;
+    } catch {
+      return `<div class="kpi">
+        <div class="kpi__label">${m.label}</div>
+        <div class="kpi__empty">無法載入</div>
+      </div>`;
+    }
+  }
+
+  function renderKpi() {
+    const cards = METRICS.filter((m) => state.visible.has(m.key)).map(renderOneKpi).join('');
     $('kpi-primary').innerHTML = cards || '<div class="kpi__empty">（未選任何指標）</div>';
     $('kpi-secondary').innerHTML = '';
+    $('kpi-primary').querySelectorAll('[data-online-age-retry]').forEach((btn) => {
+      btn.addEventListener('click', retryOnlineAge);
+    });
   }
 
   // 解析期間來源 → { rows, online }。snapshot 用其自身凍結的上線量。
@@ -226,15 +265,71 @@ App.app = (() => {
     return { rows: cur.rows, online: cur.online, kpi, cmpKpi, cmpRows, cmpOnline };
   }
 
+  // ── 在線平均已使用年限（規則H）——獨立資料來源，不影響既有 computeKPI 流程 ──────
+
+  // 把「車機鏡頭上線明細」的 ERP品號 join 上 state.onlineList 已算好的 廠商/廠牌型號，
+  // 讓 computeOnlineAge() 能比照既有 applyFilter 用 r.廠商/r.廠牌型號 篩選（不重新查 Sheet）。
+  function enrichOnlineAgeRows(rows) {
+    const byERP = new Map();
+    for (const o of state.onlineList || []) {
+      const erp = String(o.ERP品號 || '').trim();
+      if (erp && !byERP.has(erp)) byERP.set(erp, o);
+    }
+    return rows.map((r) => {
+      const erp = String(r['ERP品號'] || '').trim();
+      const match = byERP.get(erp);
+      return { ...r, ERP品號: erp, 廠商: match ? match.廠商 : '未分類', 廠牌型號: match ? match.廠牌型號 : '' };
+    });
+  }
+
+  // 只需成功抓一次；失敗（授權問題/網路錯誤）皆歸為 'error'，不細分原因——KPI 卡的重試按鈕
+  // 一律重新觸發 App.auth.requestSheetsAccess()（見 retryOnlineAge），不管失敗原因是什麼。
+  async function loadOnlineAgeData() {
+    state.onlineAgeStatus = 'loading';
+    try {
+      const rawRows = await App.sheets.loadOnlineDetail();
+      state.onlineAgeRows = enrichOnlineAgeRows(rawRows);
+      state.onlineAgeStatus = 'ok';
+    } catch (err) {
+      state.onlineAgeRows = null;
+      state.onlineAgeStatus = 'error';
+      state.onlineAgeError = err;
+    }
+  }
+
+  // 併入 computeKPI() 回傳的 kpi 物件（維持 state.kpi 既有形狀，METRICS 的 get(k) 才能照舊讀 k.xxx）。
+  // 兩個 key 現在時點的數字，目前期間/對比期間都用同一份，靠 NO_DELTA_METRICS 抑制 delta 顯示。
+  function mergeOnlineAgeKpi(kpiObj) {
+    if (state.onlineAgeStatus === 'ok' && state.onlineAgeRows) {
+      Object.assign(kpiObj, App.metrics.computeOnlineAge(state.onlineAgeRows, state.selection));
+    } else {
+      kpiObj.在線平均已使用年限_車機 = null;
+      kpiObj.在線平均已使用年限_鏡頭 = null;
+    }
+  }
+
+  // KPI 卡「點選重試」的點擊處理——使用者手勢，可合法重新跳出 OAuth 同意畫面（見 js/auth.js 說明）。
+  function retryOnlineAge() {
+    state.onlineAgeStatus = 'loading';
+    renderKpi();
+    if (!App.auth || !App.auth.requestSheetsAccess) { state.onlineAgeStatus = 'error'; renderKpi(); return; }
+    App.auth.requestSheetsAccess()
+      .then(() => loadOnlineAgeData())
+      .catch((err) => { state.onlineAgeRows = null; state.onlineAgeStatus = 'error'; state.onlineAgeError = err; })
+      .then(rerender);
+  }
+
   function rerender() {
     renderDeviceTabs();
     renderControls();
     const cur = resolveSource('current');
     state.rows = cur.rows;
     state.kpi = App.metrics.computeKPI(cur.rows, cur.online, state.selection);
+    mergeOnlineAgeKpi(state.kpi);
     if (state.cmp.on) {
       const c = resolveSource('compare');
       state.cmpKpi = App.metrics.computeKPI(c.rows, c.online, state.selection);
+      mergeOnlineAgeKpi(state.cmpKpi);
     } else { state.cmpKpi = null; }
     renderKpi();
     if (App.filters && App.filters.onRerender) App.filters.onRerender(state);
@@ -387,6 +482,9 @@ App.app = (() => {
       renderControls();
       bindEvents();
       rerender();
+      // 背景載入「車機鏡頭上線明細」（規則H，OAuth）；不 await，避免拖慢主看板顯示，
+      // 也讓授權失敗只影響這兩張 KPI 卡（見 renderKpi 的 ONLINE_AGE_KEYS 分支）。
+      loadOnlineAgeData().then(rerender);
     } catch (err) {
       showStatus(
         `<div style="font-size:15px;font-weight:600;margin-bottom:8px;">無法載入資料</div>

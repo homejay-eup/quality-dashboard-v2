@@ -18,8 +18,21 @@ App.auth = (() => {
   const ALLOWED_DOMAIN = 'eup.com.tw';
   const SESSION_KEY = 'eup_auth_session_v1';
 
+  // ── OAuth2 Token Client（供 js/sheets.js 讀取私有 Sheet「車機鏡頭上線明細」用）──
+  // 與上方 ID Token 登入流程是兩套獨立機制：ID Token 只證明身份，這裡才是能呼叫
+  // Google API 的 access token。SHEETS_SCOPE 唯讀即可，不需要寫入權限。
+  const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+  const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // 到期前 5 分鐘背景換發，避免使用者中途撞到 401
+
   const $ = (id) => document.getElementById(id);
   let onAuthed = null; // 登入成功（含既有有效 session）後呼叫一次
+
+  let tokenClient = null;              // google.accounts.oauth2 的 token client（延遲建立）
+  let sheetsToken = null;              // { accessToken, expiresAt(ms epoch) }
+  let refreshTimer = null;
+  let pendingResolve = null;           // 目前這一次 requestAccessToken() 呼叫對應的 Promise resolve/reject
+  let pendingReject = null;
+  let tokenPromise = null;             // 進行中（尚未回應）的授權請求，getSheetsToken() 可等待同一個結果
 
   function decodeJwt(token) {
     const base64Url = token.split('.')[1];
@@ -94,6 +107,86 @@ App.auth = (() => {
     if (onAuthed) { const cb = onAuthed; onAuthed = null; cb(); }
   }
 
+  // ── OAuth2 Token Client 內部工具 ──────────────────────
+
+  /** Sheets 授權失敗時統一包成可識別的 Error（code='SHEETS_AUTH_REQUIRED'），供呼叫端判斷是否要顯示重試 UI。*/
+  function buildSheetsAuthError(reason) {
+    const err = new Error(`Sheets 讀取授權失敗：${reason || '未知原因'}`);
+    err.code = 'SHEETS_AUTH_REQUIRED';
+    return err;
+  }
+
+  function scheduleRefresh() {
+    clearTimeout(refreshTimer);
+    if (!sheetsToken) return;
+    const delay = Math.max(sheetsToken.expiresAt - Date.now() - TOKEN_REFRESH_MARGIN_MS, 10000);
+    // 已授權過的背景換發：prompt: '' 只在已同意過的情況下才會靜默完成，不需使用者手勢。
+    refreshTimer = setTimeout(() => { fireTokenRequest({ prompt: '' }); }, delay);
+  }
+
+  function handleTokenResponse(resp) {
+    if (!resp || resp.error) {
+      sheetsToken = null;
+      if (pendingReject) pendingReject(buildSheetsAuthError(resp && resp.error));
+      pendingResolve = null; pendingReject = null; tokenPromise = null;
+      return;
+    }
+    const expiresInSec = Number(resp.expires_in) || 3600;
+    sheetsToken = { accessToken: resp.access_token, expiresAt: Date.now() + expiresInSec * 1000 };
+    scheduleRefresh();
+    if (pendingResolve) pendingResolve(sheetsToken.accessToken);
+    pendingResolve = null; pendingReject = null; tokenPromise = null;
+  }
+
+  function ensureTokenClient() {
+    if (tokenClient) return tokenClient;
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+      throw buildSheetsAuthError('Google OAuth 元件載入失敗');
+    }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SHEETS_SCOPE,
+      callback: handleTokenResponse,
+    });
+    return tokenClient;
+  }
+
+  /**
+   * 送出一次 access token 請求。⚠️ 只有在「使用者點擊事件的同一個呼叫堆疊」內同步呼叫，
+   * 才不會被瀏覽器彈出視窗封鎖擋掉（見檔案開頭說明）；背景換發（scheduleRefresh 的計時器）
+   * 因為帶 prompt:''、且先前已同意過，屬例外、不需要使用者手勢。
+   * @param {Object} [opts] - 傳給 google.accounts.oauth2 的 requestAccessToken()，例如 { prompt: '' }
+   * @returns {Promise<string>} resolve 為 access token；被拒絕/失敗則 reject（Error.code='SHEETS_AUTH_REQUIRED'）
+   */
+  function fireTokenRequest(opts) {
+    let client;
+    try { client = ensureTokenClient(); } catch (err) { return Promise.reject(err); }
+    tokenPromise = new Promise((resolve, reject) => { pendingResolve = resolve; pendingReject = reject; });
+    client.requestAccessToken(opts);
+    return tokenPromise;
+  }
+
+  /**
+   * 供「Sign In With Google」按鈕的登入回呼（handleCredentialResponse）與 KPI 卡「重試」按鈕呼叫。
+   * 兩者都是使用者點擊的同步回呼，符合觸發條件。
+   */
+  function requestSheetsAccess() { return fireTokenRequest(); }
+
+  /**
+   * 供 js/sheets.js 取用目前的 access token。
+   * - 快取仍有效 → 立即 resolve
+   * - 有進行中的授權請求（例如剛剛登入時觸發的那一次還沒回應）→ 等同一個 Promise
+   * - 兩者皆無（例如舊 session 快速通過、未曾觸發過 OAuth）→ 直接 reject，交由呼叫端顯示重試 UI
+   * @returns {Promise<string>}
+   */
+  function getSheetsToken() {
+    if (sheetsToken && sheetsToken.expiresAt > Date.now() + 10000) {
+      return Promise.resolve(sheetsToken.accessToken);
+    }
+    if (tokenPromise) return tokenPromise;
+    return Promise.reject(buildSheetsAuthError('尚未取得 Sheets 讀取授權，請點選重試'));
+  }
+
   function handleCredentialResponse(resp) {
     let payload;
     try { payload = decodeJwt(resp.credential); } catch { showErr('登入資料解析失敗，請重試。'); return; }
@@ -106,6 +199,10 @@ App.auth = (() => {
     }
     const session = { email, name: payload.name || email, picture: payload.picture || '', exp: payload.exp };
     saveSession(session);
+    // ⚠️ 緊接著同步呼叫（不 await、不包 setTimeout），沿用這次使用者點擊登入按鈕的合法使用者手勢，
+    // 才能讓 requestAccessToken() 跳出的同意畫面不被瀏覽器彈出視窗封鎖擋掉。
+    // 失敗不擋登入流程，交由 KPI 卡片的「無法載入，點選重試」機制處理（見 js/app.js）。
+    requestSheetsAccess().catch(() => {});
     proceed(session);
   }
 
@@ -141,5 +238,12 @@ App.auth = (() => {
     initGsi();
   }
 
-  return { init, logout };
+  return {
+    init,
+    logout,
+    /** 供 KPI 卡「重試」按鈕呼叫：必須在使用者點擊事件的同步回呼內呼叫，見上方 fireTokenRequest 說明。*/
+    requestSheetsAccess,
+    /** 供 js/sheets.js 取得目前 access token；Promise reject 時 err.code === 'SHEETS_AUTH_REQUIRED'。*/
+    getSheetsToken,
+  };
 })();

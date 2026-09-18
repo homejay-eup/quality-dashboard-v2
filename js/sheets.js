@@ -135,6 +135,79 @@ App.sheets = (() => {
   }
 
   // ─────────────────────────────────────────────────
+  // 車機鏡頭上線明細（私有 Sheet，OAuth + Sheets API v4，非 gviz CSV）
+  // ─────────────────────────────────────────────────
+
+  /** 私有 Sheet「車機鏡頭上線明細」的試算表 ID／範圍（只取 A:I，不含 J:M 車代/客代/客戶名稱/機種）。*/
+  const ONLINE_DETAIL_SHEET_ID = '1_YtwRVcyc9ShfZurlfDF71i76tgUClCoENh7QUtX_oo';
+  const ONLINE_DETAIL_RANGE = "'車機鏡頭上線明細'!A:I";
+
+  /**
+   * 把 Sheets API v4 values.get 回傳的二維陣列（第一列為標題）轉成
+   * 跟 fetchSheet() 一致的「陣列 of 列物件」格式。
+   * 各列長度不一（Sheets API 尾端空白 cell 會被省略）時，缺的欄位補為 ''。
+   * @param {Array<Array<string>>} values
+   * @returns {Array<Object>}
+   */
+  function valuesToRows(values) {
+    if (!values || values.length === 0) return [];
+    const headers = values[0].map((h) => String(h || '').trim());
+    return values.slice(1).map((row) => {
+      const obj = {};
+      headers.forEach((h, i) => { if (h) obj[h] = row[i] !== undefined ? row[i] : ''; });
+      return obj;
+    });
+  }
+
+  /**
+   * 呼叫 Sheets API v4 spreadsheets.values.get，帶 OAuth Bearer token。
+   * 授權失敗（401/403）與網路/HTTP 錯誤都會丟出附 code 的 Error，供呼叫端區分：
+   *   code='SHEETS_AUTH_REQUIRED' → 授權問題（驅動 KPI 卡「無法載入，點選重試」）
+   *   code='NETWORK_ERROR' / 'FETCH_ERROR' → 其他失敗
+   * @param {string} spreadsheetId
+   * @param {string} range
+   * @param {string} token - App.auth.getSheetsToken() 取得的 access token
+   * @returns {Promise<Array<Object>>}
+   */
+  async function fetchSheetsApiValues(spreadsheetId, range, token) {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+    let response;
+    try {
+      response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (networkErr) {
+      const err = new Error('讀取「車機鏡頭上線明細」失敗（網路錯誤）');
+      err.code = 'NETWORK_ERROR';
+      throw err;
+    }
+    if (response.status === 401 || response.status === 403) {
+      const err = new Error('讀取「車機鏡頭上線明細」授權失敗或已過期，請重試');
+      err.code = 'SHEETS_AUTH_REQUIRED';
+      throw err;
+    }
+    if (!response.ok) {
+      const err = new Error(`讀取「車機鏡頭上線明細」失敗（HTTP ${response.status}）`);
+      err.code = 'FETCH_ERROR';
+      throw err;
+    }
+    const data = await response.json();
+    return valuesToRows(data.values);
+  }
+
+  /**
+   * 讀取私有 Sheet「車機鏡頭上線明細」（OAuth，非既有 gviz CSV 讀法）。
+   * 只取 A:I 欄（條碼/設備類型/產品類別/ERP品號/品名/進貨日/安裝日/日期/日期依據），
+   * 不含 J:M（車代/客代/客戶名稱/機種），減少回應大小、也避免不必要地經手客戶資訊。
+   *
+   * 授權問題（尚未取得 token／token 過期且背景換發失敗）會在 App.auth.getSheetsToken()
+   * 這一步就 reject（err.code='SHEETS_AUTH_REQUIRED'），一併往上丟給呼叫端。
+   * @returns {Promise<Array<Object>>} key：條碼/設備類型/產品類別/ERP品號/品名/進貨日/安裝日/日期/日期依據
+   */
+  async function loadOnlineDetail() {
+    const token = await App.auth.getSheetsToken();
+    return fetchSheetsApiValues(ONLINE_DETAIL_SHEET_ID, ONLINE_DETAIL_RANGE, token);
+  }
+
+  // ─────────────────────────────────────────────────
   // 公開 API
   // ─────────────────────────────────────────────────
 
@@ -219,5 +292,7 @@ App.sheets = (() => {
     loadAll,
     /** 抓取 SQL_派工 全欄（供快照匯出）*/
     fetchFullDispatch,
+    /** 讀取私有 Sheet「車機鏡頭上線明細」（OAuth + Sheets API v4，供「在線平均已使用年限」KPI 用）*/
+    loadOnlineDetail,
   };
 })();
