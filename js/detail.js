@@ -1,6 +1,9 @@
 /**
  * js/detail.js — 明細彙整表（掛 App.detail）
  *
+ * 下方 METRIC_LOGIC/METRIC_BUCKET_COLS 對應的規則定義見
+ * ../設備品質分析_分冊文件/00_規則定義.md（現行 v9），本檔案只記逆查用的旗標比對邏輯。
+ *
  * 依 App.metrics.aggregate 產生「依 ERP品號 彙整、依 類型/廠商 分組、含小計/總計」的表。
  * 這個模組同時管理畫面上的兩張表（各自獨立的欄位設定／折疊依據／只顯示小計／拖曳排序／
  * 逐欄 Excel 風格下拉篩選，篩選元件由 App.tablefilter 共用）：
