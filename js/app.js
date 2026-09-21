@@ -30,9 +30,13 @@ App.app = (() => {
     { key: '過保數',       label: '過保數',       fmt: 'int', better: null,  def: false, get: (k) => k.過保數 },
     { key: '未歸類數',     label: '未歸類數',     fmt: 'int', better: null,  def: false, get: (k) => k.未歸類數 },
     // 在線平均已使用年限（規則H，資料來源與其他 KPI 完全獨立；見 App.metrics.computeOnlineAge）
-    { key: '在線平均已使用年限_車機', label: '在線平均已使用年限（車機）', fmt: 'year', better: null, def: true, get: (k) => k.在線平均已使用年限_車機 },
-    { key: '在線平均已使用年限_鏡頭', label: '在線平均已使用年限（鏡頭）', fmt: 'year', better: null, def: true, get: (k) => k.在線平均已使用年限_鏡頭 },
+    // deviceScope：只在對應的車機/鏡頭分析分頁顯示（另一分頁一定是「無資料」，不用重複佔位）
+    { key: '在線平均已使用年限_車機', label: '在線平均已使用年限（車機）', fmt: 'year', better: null, def: true, deviceScope: '車機', get: (k) => k.在線平均已使用年限_車機 },
+    { key: '在線平均已使用年限_鏡頭', label: '在線平均已使用年限（鏡頭）', fmt: 'year', better: null, def: true, deviceScope: '鏡頭', get: (k) => k.在線平均已使用年限_鏡頭 },
   ];
+
+  // deviceScope 未設定＝兩分頁都顯示；有設定＝只在對應分頁顯示（見上方 METRICS 註解）
+  function metricVisible(m) { return !m.deviceScope || m.deviceScope === state.deviceTab; }
 
   // 上述兩個 key 讀取失敗（OAuth 授權問題/網路錯誤）時，renderKpi() 改顯示「無法載入，點選重試」。
   const ONLINE_AGE_KEYS = new Set(['在線平均已使用年限_車機', '在線平均已使用年限_鏡頭']);
@@ -156,7 +160,7 @@ App.app = (() => {
     cmp += `<option value="__load__">📁 載入快照檔…</option>${cloudOpt}`;
     $('sel-compare').innerHTML = cmp;
 
-    $('metric-chips').innerHTML = METRICS.map((m) =>
+    $('metric-chips').innerHTML = METRICS.filter(metricVisible).map((m) =>
       `<button class="chip ${state.visible.has(m.key) ? 'chip--on' : ''}" data-key="${m.key}">${m.label}</button>`).join('');
     $('metric-chips').querySelectorAll('.chip').forEach((b) => {
       b.addEventListener('click', () => {
@@ -218,7 +222,7 @@ App.app = (() => {
   }
 
   function renderKpi() {
-    const cards = METRICS.filter((m) => state.visible.has(m.key)).map(renderOneKpi).join('');
+    const cards = METRICS.filter((m) => state.visible.has(m.key) && metricVisible(m)).map(renderOneKpi).join('');
     $('kpi-primary').innerHTML = cards || '<div class="kpi__empty">（未選任何指標）</div>';
     $('kpi-secondary').innerHTML = '';
     $('kpi-primary').querySelectorAll('[data-online-age-retry]').forEach((btn) => {
