@@ -47,25 +47,8 @@ try {
     # 指令第一行（heredoc／commit message 內文不算——同 [skip-verify] 的處理）
     $firstLine = ($cmd -split "`r?`n", 2)[0]
 
-    # git push 須人類授權（CLAUDE.md 工作範圍）——不可自動接在 commit 後
-    # 遠端分支常接自動部署，push 等同把未經人看過的變更推上正式站
-    # 只認第一行、push 是 git 的子指令（指令位置或 shell 分隔符之後，
-    #   git 與 push 之間只能夾 flag token）：
-    #   - 涵蓋 wrapper 前綴（`rtk git push`、`rtk proxy git push`）——同 C-1 教訓，
-    #     不用行首錨點，改允許 git 前面有一串小寫指令詞
-    #   - 不誤命中 commit message 內文的「... git push ...」（前面被非 flag token 阻斷）
-    if ($firstLine -match '(?:^|&&|\|\||;|\||\$\()\s*(?:[a-z][\w./-]*\s+)*git\s+(?:-{1,2}[A-Za-z-]+(?:[= ]\S+)?\s+)*push\b') {
-        @{
-            hookSpecificOutput = @{
-                hookEventName            = 'PreToolUse'
-                permissionDecision       = 'deny'
-                permissionDecisionReason = "🛡️ git push 須人類授權（見 CLAUDE.md 工作範圍）。" +
-                    "先告知使用者「即將推送 N 個 commit 到 {分支}，此分支若已接自動部署等同推上正式站」並取得同意；" +
-                    "確認後由**使用者自行執行** git push。"
-            }
-        } | ConvertTo-Json -Depth 5 -Compress
-        exit 0
-    }
+    # 2026-09-21：git push 攔截已依使用者明確要求移除——本專案是使用者個人專案，
+    # 只有他自己會改動，評估後認為不需要這道閘。若之後想恢復，見 git log 這行的上一版。
 
     # 只管 git commit（放寬：涵蓋 git -C <path> commit、git -c k=v commit、
     # 指令串中的 commit，以及前面被任何 wrapper 包裝的 git，如 `rtk proxy git commit`）

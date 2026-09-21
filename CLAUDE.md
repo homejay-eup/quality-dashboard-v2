@@ -12,7 +12,8 @@
 ## 工具配置
 
 - **RTK**：PreToolUse hook 自動過濾 Bash 雜訊。查看節省 `rtk gain`。
-- **原則四閘門**：Pre/PostToolUse hook，`git commit` 前檢查程式碼是否已驗證（見「原則四」），並攔截 `git push`。**僅 Windows PowerShell 生效**；其他環境閘門靜默失效，需人工在 commit 前確認驗證已跑、push 前確認已獲授權。
+- **原則四閘門**：Pre/PostToolUse hook，`git commit` 前檢查程式碼是否已驗證（見「原則四」）。**僅 Windows PowerShell 生效**；其他環境閘門靜默失效，需人工在 commit 前確認驗證已跑。
+  > 2026-09-21：`git push` 的 hook 技術性攔截已依使用者明確要求移除（本專案為個人專案，只有他自己會改動）——**push 前仍須在對話裡取得使用者同意**（見「工作範圍」），只是不再靠 hook 強制擋下，改靠這條規則本身自律。
 - **CodeGraph**：MCP 定義在根目錄 `.mcp.json`；新專案 `git init` 後跑一次 `codegraph init -i`。查依賴一律用它、不用 grep 盲搜——誰呼叫 X→call graph／X 被誰 import→import graph／搬動 X 前哪裡斷→blast radius。
 
 > `.mcp.json` 變更與索引重建都要**重開 session** 才生效。
@@ -32,7 +33,7 @@
 4. 金流操作（真實扣款、串接正式金流 API）
 5. 破壞性 migration（`DROP COLUMN`／`DROP TABLE`／不可逆轉換；見 `data.md`）
 6. 無法判斷目前用哪個環境的金鑰
-7. `git push`（見「工作範圍」；已由閘門攔截）
+7. `git push`（見「工作範圍」；2026-09-21 起不再有 hook 攔截，靠規則自律）
 8. `[skip-verify]` 的使用（見「原則四」）
 9. 技術選型或架構決策的**變更**（改既有決定一律問，與是否動到十六維度無關——十六維度只管第一次選型）
 
