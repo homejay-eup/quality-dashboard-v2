@@ -138,8 +138,8 @@ App.sheets = (() => {
   // 車機鏡頭上線明細（私有 Sheet，OAuth + Sheets API v4，非 gviz CSV）
   // ─────────────────────────────────────────────────
 
-  /** 私有 Sheet「車機鏡頭上線明細」的試算表 ID／範圍（只取 A:I，不含 J:M 車代/客代/客戶名稱/機種）。*/
-  const ONLINE_DETAIL_SHEET_ID = '1_YtwRVcyc9ShfZurlfDF71i76tgUClCoENh7QUtX_oo';
+  /** 私有 Sheet「車機鏡頭上線明細」的範圍（只取 A:I，不含 J:M 車代/客代/客戶名稱/機種）。
+   *  試算表 ID 集中在 App.config.ONLINE_DETAIL_SHEET_ID（js/report.js 匯出快照也共用同一個常數）。*/
   const ONLINE_DETAIL_RANGE = "'車機鏡頭上線明細'!A:I";
 
   /**
@@ -204,7 +204,7 @@ App.sheets = (() => {
    */
   async function loadOnlineDetail() {
     const token = await App.auth.getSheetsToken();
-    return fetchSheetsApiValues(ONLINE_DETAIL_SHEET_ID, ONLINE_DETAIL_RANGE, token);
+    return fetchSheetsApiValues(App.config.ONLINE_DETAIL_SHEET_ID, ONLINE_DETAIL_RANGE, token);
   }
 
   // ─────────────────────────────────────────────────

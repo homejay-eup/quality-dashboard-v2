@@ -11,6 +11,13 @@ App.config = {
   SHEET_ID: '1DDvmuNley9safgUGMfolTZph6TkiLdC2h99nAiKG_j4',
 
   /**
+   * 私有 Sheet「車機鏡頭上線明細」ID（需 OAuth 才能讀，見 js/auth.js 的 Sheets 授權）。
+   * 供 js/sheets.js（讀取在線平均已使用年限資料）與 js/report.js（匯出快照）共用，
+   * 單一來源，避免兩處各自硬編同一個 ID 卻忘了同步更新。
+   */
+  ONLINE_DETAIL_SHEET_ID: '1_YtwRVcyc9ShfZurlfDF71i76tgUClCoENh7QUtX_oo',
+
+  /**
    * 共用雲端快照接收端（Apps Script Web App exec URL）。
    * 部署步驟見 apps-script/README.md。留空＝雲端功能隱藏，退回本機下載/載入。
    * 例：'https://script.google.com/macros/s/AKfycb.../exec'

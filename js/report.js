@@ -20,7 +20,7 @@ App.report = (() => {
   // 「車機鏡頭上線明細」私有 Sheet（供未來「去年同期」比較用，見規則 H／
   // _管理/specs/在線平均已使用年限.md）。跟主要快照走同一次 exportSnapshot()，
   // 但視為附加、非必要：失敗不應讓使用者以為本期主要快照也失敗。
-  const ONLINE_DETAIL_SHEET_ID = '1_YtwRVcyc9ShfZurlfDF71i76tgUClCoENh7QUtX_oo';
+  // 試算表 ID 集中在 App.config.ONLINE_DETAIL_SHEET_ID（js/sheets.js 讀取 KPI 資料也共用同一個常數）。
 
   /**
    * 建立全量快照 bundle：raw 的全部分頁直接收錄（不篩選、不投影），
@@ -88,7 +88,7 @@ App.report = (() => {
       // 「車機鏡頭上線明細」快照與主要快照同時發起（不用等主要快照完成才開始），
       // 但失敗只記警告、不拋出——這份資料現階段只是為未來歷史比較鋪路，不是
       // 使用者這次操作最在意的東西，不能讓它變成整個匯出動作的失敗點。
-      const onlineDetailSnap = App.cloud.snapshotSheet(ONLINE_DETAIL_SHEET_ID, label).catch((err) => {
+      const onlineDetailSnap = App.cloud.snapshotSheet(App.config.ONLINE_DETAIL_SHEET_ID, label).catch((err) => {
         console.warn('「車機鏡頭上線明細」快照失敗（不影響本期主要快照）：', err && err.message);
         return null;
       });

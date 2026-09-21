@@ -121,7 +121,7 @@ App.auth = (() => {
     if (!sheetsToken) return;
     const delay = Math.max(sheetsToken.expiresAt - Date.now() - TOKEN_REFRESH_MARGIN_MS, 10000);
     // 已授權過的背景換發：prompt: '' 只在已同意過的情況下才會靜默完成，不需使用者手勢。
-    refreshTimer = setTimeout(() => { fireTokenRequest({ prompt: '' }); }, delay);
+    refreshTimer = setTimeout(() => { fireTokenRequest({ prompt: '' }).catch(() => {}); }, delay);
   }
 
   function handleTokenResponse(resp) {
