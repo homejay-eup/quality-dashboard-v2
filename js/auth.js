@@ -233,7 +233,15 @@ App.auth = (() => {
   function init(onSuccess) {
     onAuthed = onSuccess;
     const session = loadSession();
-    if (session) { proceed(session); return; }
+    if (session) {
+      // 走快取 session 這條路徑時沒有使用者點擊手勢（跳過了登入按鈕），無法比照
+      // handleCredentialResponse() 用點擊手勢跳出同意畫面；改嘗試靜默換發（prompt:''），
+      // 只有先前已同意過 Sheets 授權才會成功、不會跳出任何畫面。失敗不影響登入本身，
+      // 沿用既有「無法載入，點選重試」機制兜底（見 js/app.js retryOnlineAge）。
+      fireTokenRequest({ prompt: '' }).catch(() => {});
+      proceed(session);
+      return;
+    }
     showOverlay();
     initGsi();
   }
