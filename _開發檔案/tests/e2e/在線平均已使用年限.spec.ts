@@ -165,6 +165,124 @@ section('案例六：依廠商/類型/ERP品號篩選後重新計算');
 }
 
 // ============================================================
+// 【tester 補測】以下為 tester agent 獨立設計（不重跑 frontend 自己寫的案例），
+// 針對 App.metrics.aggregate()/summarizeRows() 新增的「在線平均已使用年限」欄位
+// ============================================================
+
+function mkDetailRow(o) {
+  return {
+    廠商: o.廠商, 廠牌型號: o.類型, ERP品號: o.ERP品號, 替換前品項: o.品名 || 'X',
+    回廠狀態: o.回廠狀態 || '已回廠',
+    良品: !!o.良品, 不良品: !!o.不良品, 過保: !!o.過保, 未歸類: !!o.未歸類,
+    維修分類: o.維修分類 || '', QC: o.QC || '',
+    已使用年限: o.已使用年限 != null ? o.已使用年限 : null,
+    維護類型: o.維護類型 || '其他',
+  };
+}
+function mkOnlineEnriched(o) {
+  return { ERP品號: o.ERP品號, 品名: o.品名 || 'X', 設備類型: o.設備類型, 廠牌型號: o.類型, 廠商: o.廠商, 上線量: o.上線量 };
+}
+
+// 案例七：report.js 既有 4 個呼叫點的呼叫方式（不傳 onlineAgeRows/deviceType）不受影響
+section('案例七：aggregate() 不傳 onlineAgeRows/deviceType（比照 report.js 既有呼叫點）不拋錯、新欄位=null、舊欄位不變');
+{
+  const rows = [
+    mkDetailRow({ 廠商: '廠商甲', 類型: '型號A', ERP品號: 'E1', 過保: true, 已使用年限: 1.2 }),
+    mkDetailRow({ 廠商: '廠商甲', 類型: '型號A', ERP品號: 'E1', 良品: true, QC: '回廠QC' }),
+  ];
+  const online = [mkOnlineEnriched({ 廠商: '廠商甲', 類型: '型號A', ERP品號: 'E1', 設備類型: '車機', 上線量: 100 })];
+  const agg = metrics.aggregate(rows, online, {}, { groupBy: '類型' });
+  const e1 = agg.groups[0].rows.find((r) => r.ERP品號 === 'E1');
+  assertEqual(e1.在線平均已使用年限, null, '未提供 onlineAgeRows/deviceType 時新欄位為 null（不拋錯）');
+  assertEqual(e1.已使用年限, 1.2, '既有「已使用年限」欄位數值不受影響');
+  assertEqual(e1.上線量, 100, '既有「上線量」欄位數值不受影響');
+}
+
+// 案例八：關鍵回歸 —— 小計/總計必須是個別 ERP品號列 sum/n 重新加總的加權平均，
+// 不可簡化成「先算好每個 ERP品號列的平均、再對這些平均值做算術平均」
+section('案例八（重點）：小計/總計＝加權平均（sum/n 重新加總），非簡單平均個別 ERP 列的年限值');
+{
+  const rows = [
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1' }),
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E2' }),
+  ];
+  const online = [
+    mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 設備類型: '車機', 上線量: 1 }),
+    mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E2', 設備類型: '車機', 上線量: 1 }),
+  ];
+  // E1：9 筆皆 1.0 年 → 平均 1.0；E2：1 筆 11.0 年 → 平均 11.0
+  const onlineAgeRows = [
+    ...Array.from({ length: 9 }, () => ({ ERP品號: 'E1', 設備類型: '車機', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365), 日期依據: '', 進貨日: '', 安裝日: '' })),
+    { ERP品號: 'E2', 設備類型: '車機', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365 * 11), 日期依據: '', 進貨日: '', 安裝日: '' },
+  ];
+  const agg = metrics.aggregate(rows, online, {}, { groupBy: '類型', onlineAgeRows, deviceType: '車機' });
+  const weighted = (9 * 1.0 + 1 * 11.0) / 10; // = 2.0
+  const naive = (1.0 + 11.0) / 2; // = 6.0（誤解法，不應是這個值）
+  assertEqual(agg.groups[0].subtotal.在線平均已使用年限, weighted, `小計＝加權平均 sum/n＝${weighted}（不是簡單平均 ${naive}）`);
+  assertEqual(agg.grandTotal.在線平均已使用年限, weighted, `總計＝加權平均＝${weighted}`);
+}
+
+// 案例九：summarizeRows() 對子集重算 = aggregate() 內部一致
+section('案例九：summarizeRows() 重算子集結果 = aggregate() 內部 subtotal/grandTotal');
+{
+  const rows = [
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1' }),
+    mkDetailRow({ 廠商: '乙', 類型: 'B', ERP品號: 'E3' }),
+  ];
+  const online = [
+    mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 設備類型: '車機', 上線量: 5 }),
+    mkOnlineEnriched({ 廠商: '乙', 類型: 'B', ERP品號: 'E3', 設備類型: '車機', 上線量: 5 }),
+  ];
+  const onlineAgeRows = [
+    { ERP品號: 'E1', 設備類型: '車機', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365), 日期依據: '', 進貨日: '', 安裝日: '' },
+    { ERP品號: 'E3', 設備類型: '車機', 廠商: '乙', 廠牌型號: 'B', 日期: isoDaysAgo(365 * 7), 日期依據: '', 進貨日: '', 安裝日: '' },
+  ];
+  const agg = metrics.aggregate(rows, online, {}, { groupBy: '類型', onlineAgeRows, deviceType: '車機' });
+  const allRows = agg.groups.flatMap((g) => g.rows);
+  const recomputed = metrics.summarizeRows(allRows, null);
+  assertEqual(recomputed.在線平均已使用年限, agg.grandTotal.在線平均已使用年限, 'summarizeRows(全部ERP列) 重算結果 = grandTotal');
+}
+
+// 案例十：deviceType 篩選正確（同 ERP品號下車機/鏡頭列不互相混入）
+section('案例十：deviceType 篩選——車機明細不混進鏡頭平均，反之亦然');
+{
+  const rows = [mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1' })];
+  const online = [mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 設備類型: '車機', 上線量: 1 })];
+  const onlineAgeRows = [
+    { ERP品號: 'E1', 設備類型: '車機', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365), 日期依據: '', 進貨日: '', 安裝日: '' },
+    { ERP品號: 'E1', 設備類型: '鏡頭', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365 * 10), 日期依據: '', 進貨日: '', 安裝日: '' },
+  ];
+  const aggCar = metrics.aggregate(rows, online, {}, { groupBy: '類型', onlineAgeRows, deviceType: '車機' });
+  assertEqual(aggCar.groups[0].rows[0].在線平均已使用年限, 1.0, 'deviceType=車機 時鏡頭列(10.0年)不混入 → 1.0');
+}
+
+// 案例十一：分組完全無符合資料 → null（不是 0）
+section('案例十一：ERP品號完全無對應上線明細資料 → null（不是 0）');
+{
+  const rows = [mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1' })];
+  const online = [mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 設備類型: '車機', 上線量: 1 })];
+  const onlineAgeRows = [{ ERP品號: 'E999', 設備類型: '車機', 廠商: '甲', 廠牌型號: 'A', 日期: isoDaysAgo(365), 日期依據: '', 進貨日: '', 安裝日: '' }];
+  const agg = metrics.aggregate(rows, online, {}, { groupBy: '類型', onlineAgeRows, deviceType: '車機' });
+  assertEqual(agg.groups[0].rows[0].在線平均已使用年限, null, 'E1 無對應資料 → null（不是 0）');
+  assertEqual(agg.grandTotal.在線平均已使用年限, null, '總計也是 null（不是 0）');
+}
+
+// 案例十二：既有「已使用年限」(規則E) 欄位邏輯未被改動 —— 獨立交叉核對
+section('案例十二：既有「已使用年限」(規則E) 邏輯未受影響（良品/未歸類無值/不回廠皆不計入）');
+{
+  const rows = [
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 良品: true, 已使用年限: 99 }),
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 不良品: true, 已使用年限: 2.5 }),
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 過保: true, 已使用年限: 3.5 }),
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 未歸類: true, 已使用年限: null }),
+    mkDetailRow({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 不良品: true, 已使用年限: 999, 回廠狀態: '不回廠' }),
+  ];
+  const online = [mkOnlineEnriched({ 廠商: '甲', 類型: 'A', ERP品號: 'E1', 設備類型: '車機', 上線量: 10 })];
+  const agg = metrics.aggregate(rows, online, {}, { groupBy: '類型' });
+  assertEqual(agg.groups[0].rows[0].已使用年限, 3.0, '已使用年限=(2.5+3.5)/2=3.0（良品/未歸類無值/不回廠皆不計入分母）');
+}
+
+// ============================================================
 console.log(`\n${'='.repeat(50)}`);
 console.log(`總計：${passed} passed, ${failed} failed`);
 console.log('='.repeat(50));

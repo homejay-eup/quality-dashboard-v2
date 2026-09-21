@@ -512,14 +512,20 @@ App.metrics = (() => {
    * @param {Object[]} rows
    * @param {Object[]} 上線量Enriched
    * @param {Object} selection
-   * @param {{ groupBy?: '類型'|'廠商', faultCols?: string[] }} [opts] - faultCols：5 個故障原因分類
+   * @param {{ groupBy?: '類型'|'廠商', faultCols?: string[], onlineAgeRows?: Object[]|null, deviceType?: string|null }} [opts]
+   *   - faultCols：5 個故障原因分類
    *   （車機＝['AB點','失聯','定位不良','訊號異常','其他']；鏡頭＝['黑畫面','進水/模糊','水波紋','時有時無','其他']），
    *   最後一項為餘數「其他」。提供時，回傳列會附加這 5 欄的計數。
+   *   - onlineAgeRows／deviceType（規則 H，資料來源與 rows/上線量Enriched 完全獨立，選填）：
+   *   提供時附加「在線平均已使用年限」欄位（依 ERP品號 分組平均，算法見 computeOnlineAge）；
+   *   任一未提供 → 該欄一律回傳 null，不影響既有欄位（供 report.js 等舊呼叫點沿用不傳新參數時行為不變）。
    * @returns {{ groups: Array<{key, rows, subtotal}>, grandTotal: Object, groupBy: '類型'|'廠商' }}
    */
   function aggregate(rows, 上線量Enriched, selection, opts) {
     const groupBy = (opts && opts.groupBy === '廠商') ? '廠商' : '類型';
     const faultCols = (opts && opts.faultCols) || null;
+    const onlineAgeRows = (opts && opts.onlineAgeRows) || null;
+    const deviceType = (opts && opts.deviceType) || null;
     const filtered   = applyFilter(rows, selection);
     const filtered上線 = applyFilter(上線量Enriched, selection);
 
@@ -527,6 +533,26 @@ App.metrics = (() => {
     for (const o of filtered上線) {
       const e = String(o.ERP品號 || '');
       onlineByERP.set(e, (onlineByERP.get(e) || 0) + (Number(o.上線量) || 0));
+    }
+
+    // 規則 H：在線平均已使用年限，依 ERP品號 分組 sum/count（onlineAgeRows／deviceType 未提供時回傳空 Map，
+    // 下方 mkRow 對應欄位一律得 null，不影響既有彙整邏輯）。日期解析重用 computeOnlineAge 的 helper。
+    const onlineAgeByERP = new Map();
+    if (onlineAgeRows && deviceType) {
+      const filteredOnlineAge = applyFilter(onlineAgeRows, selection);
+      const today = new Date();
+      for (const r of filteredOnlineAge) {
+        if (String(r['設備類型'] || '').trim() !== deviceType) continue;
+        const refDate = pickOnlineRefDate(r);
+        if (!refDate) continue;
+        const diffMs = today.getTime() - refDate.getTime();
+        if (diffMs < 0) continue; // 負值年限（資料異常）不計入
+        const erp = String(r['ERP品號'] || '').trim();
+        if (!onlineAgeByERP.has(erp)) onlineAgeByERP.set(erp, { sum: 0, n: 0 });
+        const bucket = onlineAgeByERP.get(erp);
+        bucket.sum += diffMs / (365 * 24 * 60 * 60 * 1000);
+        bucket.n++;
+      }
     }
 
     const isReturned = (r) => r.回廠狀態 && r.回廠狀態 !== '無記錄' && r.回廠狀態 !== '不回廠';
@@ -566,7 +592,7 @@ App.metrics = (() => {
       }
     }
 
-    const mkRow = (a, 上線量) => {
+    const mkRow = (a, 上線量, 線上年限) => {
       const mc = a.維修分類count, qc = a.QCcount;
       const d = mc['D /停產報廢'] || 0, e = mc['E /過保報廢'] || 0, gg = mc['G /評估後退修'] || 0,
         h = mc['H /人為報廢'] || 0, o = mc['O /測試正常'] || 0, x = mc['X /已完修'] || 0,
@@ -578,6 +604,7 @@ App.metrics = (() => {
         再使用率: safeDiv(a.良品數, a.回廠量), 不良率: safeDiv(a.不良品數, a.回廠量), 過保率: safeDiv(a.過保數, a.回廠量),
         未歸類率: safeDiv(a.未歸類數, a.回廠量),
         已使用年限: a.年限N ? Math.round(a.年限Sum / a.年限N * 10) / 10 : null,
+        在線平均已使用年限: 線上年限 && 線上年限.n ? Math.round(線上年限.sum / 線上年限.n * 10) / 10 : null,
         整體不良率: safeDiv(a.不良品數, 上線量), 整體過保率: safeDiv(a.過保數, 上線量),
         'D /停產報廢': d, 'E /過保報廢': e, 'G /評估後退修': gg, 'H /人為報廢': h,
         'O /測試正常': o, 'X /已完修': x, 'V /已完修 人為': v, '維修換貨＋換貨條碼': ex,
@@ -589,6 +616,7 @@ App.metrics = (() => {
         '回廠過保數': d + e + qcScrap,
         '回廠人為數': h,
         _年限Sum: a.年限Sum, _年限N: a.年限N,
+        _線上年限Sum: 線上年限 ? 線上年限.sum : 0, _線上年限N: 線上年限 ? 線上年限.n : 0,
       };
       if (faultCols) {
         const main4 = faultCols.slice(0, -1);
@@ -599,7 +627,7 @@ App.metrics = (() => {
       return row;
     };
 
-    const erpRows = [...acc.values()].map((a) => mkRow(a, onlineByERP.get(a.ERP品號) || 0));
+    const erpRows = [...acc.values()].map((a) => mkRow(a, onlineByERP.get(a.ERP品號) || 0, onlineAgeByERP.get(a.ERP品號) || null));
 
     const groupMap = new Map();
     for (const row of erpRows) {
@@ -625,17 +653,19 @@ App.metrics = (() => {
    */
   function summarizeRows(rows, faultCols) {
     const sumKeys = ['上線量', '回廠量', '良品數', '不良品數', '過保數', '未歸類數', ...EXTRA_COUNT_KEYS, ...(faultCols || [])];
-    const s = { 年限Sum: 0, 年限N: 0 };
+    const s = { 年限Sum: 0, 年限N: 0, 線上年限Sum: 0, 線上年限N: 0 };
     for (const k of sumKeys) s[k] = 0;
     for (const r of rows) {
       for (const k of sumKeys) s[k] += (r[k] || 0);
       s.年限Sum += r._年限Sum || 0; s.年限N += r._年限N || 0;
+      s.線上年限Sum += r._線上年限Sum || 0; s.線上年限N += r._線上年限N || 0;
     }
     return {
       ...s,
       再使用率: safeDiv(s.良品數, s.回廠量), 不良率: safeDiv(s.不良品數, s.回廠量), 過保率: safeDiv(s.過保數, s.回廠量),
       未歸類率: safeDiv(s.未歸類數, s.回廠量),
       已使用年限: s.年限N ? Math.round(s.年限Sum / s.年限N * 10) / 10 : null,
+      在線平均已使用年限: s.線上年限N ? Math.round(s.線上年限Sum / s.線上年限N * 10) / 10 : null,
       整體不良率: safeDiv(s.不良品數, s.上線量), 整體過保率: safeDiv(s.過保數, s.上線量),
     };
   }
@@ -698,6 +728,8 @@ App.metrics = (() => {
 
     /**
      * 依 ERP品號 彙整＋分組（類型/廠商）＋小計/總計，供折疊明細表與落地頁。
+     * opts.onlineAgeRows／opts.deviceType（選填）：提供時附加規則 H「在線平均已使用年限」欄位；
+     * 未提供時該欄一律 null，其餘欄位行為不變（供舊呼叫點不傳新參數時沿用）。
      * 回傳：{ groups:[{key,rows,subtotal}], grandTotal, groupBy }
      */
     aggregate,

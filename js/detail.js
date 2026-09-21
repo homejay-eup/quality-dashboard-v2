@@ -67,6 +67,7 @@ App.detail = (() => {
     { key: '其他(良品)', label: '其他(良品)', fmt: 'int', num: true },
     { key: '其他(回廠)', label: '其他(回廠)', fmt: 'int', num: true },
     { key: '已使用年限', label: '已使用年限(年)', fmt: 'year', num: true },
+    { key: '在線平均已使用年限', label: '在線平均已使用年限(年)', fmt: 'year', num: true },
   ];
   function buildAnalysisCols(deviceTab) {
     const faultCols = faultColsFor(deviceTab).map((f) => ({ key: f, label: f, fmt: 'int', num: true }));
@@ -92,6 +93,7 @@ App.detail = (() => {
     { key: '未歸類數', label: '未歸類數', fmt: 'int', num: true },
     { key: '未歸類率', label: '未歸類率(%)', fmt: 'pct', num: true },
     { key: '已使用年限', label: '已使用年限(年)', fmt: 'year', num: true },
+    { key: '在線平均已使用年限', label: '在線平均已使用年限(年)', fmt: 'year', num: true },
     { key: '整體不良率', label: '整體不良率(%)', fmt: 'pct', num: true },
     { key: '整體過保率', label: '整體過保率(%)', fmt: 'pct', num: true },
   ].map((c) => ({ ...c, on: !SUMMARY_DEFAULT_OFF.has(c.key) }));
@@ -318,7 +320,11 @@ App.detail = (() => {
         if (built) renderChips();
       }
       const faultCols = deviceAware ? faultColsFor(st.deviceTab || lastDeviceTab) : null;
-      const agg = App.metrics.aggregate(st.rows, st.onlineList, st.selection, { groupBy: ui.groupBy, faultCols });
+      const agg = App.metrics.aggregate(st.rows, st.onlineList, st.selection, {
+        groupBy: ui.groupBy, faultCols,
+        onlineAgeRows: st.onlineAgeStatus === 'ok' ? st.onlineAgeRows : null,
+        deviceType: st.deviceTab,
+      });
       const periodLabel = `${st.year}-Q${st.quarter}`;
       const cols = ui.cols.filter((c) => c.on);
       const labelIdx = Math.max(0, cols.findIndex((c) => c.key === ui.groupBy));
