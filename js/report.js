@@ -179,7 +179,7 @@ App.report = (() => {
   }
 
   // ── 依機型／依廠商彙整（沿用 App.metrics.aggregate，不重寫彙整邏輯）───
-  function aggByType(d, selection) { return App.metrics.aggregate(d.rows, d.online, selection, { groupBy: '類型' }); }
+  function aggByType(d, selection, extraOpts) { return App.metrics.aggregate(d.rows, d.online, selection, { groupBy: '類型', ...extraOpts }); }
   function aggByVendor(d, selection) { return App.metrics.aggregate(d.rows, d.online, selection, { groupBy: '廠商' }); }
 
   // ── 合併車機＋鏡頭的整體 KPI（供整體總覽／同期比較頁用）──────────────
@@ -358,8 +358,8 @@ App.report = (() => {
   const CAR_RANK_ORDER_IMAGING = ['FUHO 4CH', 'FUHO 8CH', 'F6N', 'C43'];
   const CAR_RANK_ORDER_INDEX = Object.fromEntries([...CAR_RANK_ORDER_GENERAL, ...CAR_RANK_ORDER_IMAGING].map((k, i) => [k, i]));
 
-  function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId) {
-    const agg = aggByType(d, selection);
+  function deviceTypeSectionHTML(deviceKey, icon, d, selection, chartId, onlineAgeRows) {
+    const agg = aggByType(d, selection, { onlineAgeRows, deviceType: deviceKey });
     if (deviceKey === '車機') {
       agg.groups = [...agg.groups].sort((a, b) => {
         const ai = CAR_RANK_ORDER_INDEX[a.key], bi = CAR_RANK_ORDER_INDEX[b.key];
@@ -378,7 +378,7 @@ App.report = (() => {
     const ucUncatRate = (s) => `<span class="uc-uncat-rate" data-uncat="${s.未歸類數 || 0}" data-den="${s.回廠量}">${rPct(s.未歸類率)}</span>`;
     const rows = agg.groups.map((g) => {
       const s = g.subtotal;
-      return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rInt(s.回廠量)}</td>
+      return `<tr><td class="l">${esc(g.key)}</td><td>${rInt(s.上線量)}</td><td>${rYear(s.在線平均已使用年限)}</td><td>${rInt(s.回廠量)}</td>
         <td>${rInt(s.良品數)}<span class="colRate">（${rPct(s.再使用率)}）</span></td><td>${ucBad(s)}<span class="colRate">（${ucBadRate(s)}）</span></td>
         <td>${rInt(s.過保數)}<span class="colRate">（${rPct(s.過保率)}）</span></td>
         <td class="hl">${ucOverallRate(s)}</td><td class="hl2">${rPct(s.整體過保率)}</td><td>${rYear(s.已使用年限)}</td>
@@ -409,10 +409,10 @@ App.report = (() => {
             <div class="donutlegend">${esc(deviceKey)}　｜　總上線量 ${rInt(gt.上線量)}</div></div>
           <div class="twrap"><div class="scroll scroll--full">
             <table class="rtable">
-              <thead><tr><th rowspan="2">機型</th><th rowspan="2">上線量</th><th colspan="4">回廠量</th><th rowspan="2">整體不良率</th><th rowspan="2">整體過保率</th><th rowspan="2">平均已使用年限</th><th rowspan="2" class="colUncat">未歸類數</th></tr>
+              <thead><tr><th rowspan="2">機型</th><th rowspan="2">上線量</th><th rowspan="2">在線平均已使用年限</th><th colspan="4">回廠量</th><th rowspan="2">整體不良率</th><th rowspan="2">整體過保率</th><th rowspan="2">平均已使用年限</th><th rowspan="2" class="colUncat">未歸類數</th></tr>
               <tr><th>回廠量</th><th>良品數(再使用)</th><th>不良品數</th><th>過保數</th></tr></thead>
               <tbody>${rows}
-                <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rInt(gt.回廠量)}</td>
+                <tr class="grand"><td class="l">總計</td><td>${rInt(gt.上線量)}</td><td>${rYear(gt.在線平均已使用年限)}</td><td>${rInt(gt.回廠量)}</td>
                   <td>${rInt(gt.良品數)}<span class="colRate">（${rPct(gt.再使用率)}）</span></td><td>${ucBad(gt)}<span class="colRate">（${ucBadRate(gt)}）</span></td>
                   <td>${rInt(gt.過保數)}<span class="colRate">（${rPct(gt.過保率)}）</span></td>
                   <td class="hl">${ucOverallRate(gt)}</td><td class="hl2">${rPct(gt.整體過保率)}</td><td>${rYear(gt.已使用年限)}</td>
@@ -544,8 +544,9 @@ App.report = (() => {
     const { car, lens, carSelection, lensSelection } = ctx;
     const combined = combineKPI(car.kpi, lens.kpi);
     const combinedCmp = (ctx.hasCmp && car.cmpKpi && lens.cmpKpi) ? combineKPI(car.cmpKpi, lens.cmpKpi) : null;
-    const carSec = deviceTypeSectionHTML('車機', App.icons.car(), car, carSelection, 'ov-donut-car');
-    const lensSec = deviceTypeSectionHTML('鏡頭', App.icons.camera(), lens, lensSelection, 'ov-donut-lens');
+    const onlineAgeRows = ctx.state && ctx.state.onlineAgeStatus === 'ok' ? ctx.state.onlineAgeRows : null;
+    const carSec = deviceTypeSectionHTML('車機', App.icons.car(), car, carSelection, 'ov-donut-car', onlineAgeRows);
+    const lensSec = deviceTypeSectionHTML('鏡頭', App.icons.camera(), lens, lensSelection, 'ov-donut-lens', onlineAgeRows);
     const carTrend = buildQuarterSeries(ctx.state, '車機');
     const lensTrend = buildQuarterSeries(ctx.state, '鏡頭');
     const carTrendSec = trendChartSectionHTML('車機', carTrend, 'ov-trend-car');
