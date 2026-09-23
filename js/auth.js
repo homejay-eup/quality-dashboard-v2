@@ -219,12 +219,14 @@ App.auth = (() => {
       client_id: CLIENT_ID,
       callback: handleCredentialResponse,
       hd: ALLOWED_DOMAIN,
-      auto_select: true,
     });
     google.accounts.id.renderButton($('auth-gsi-btn'), {
       type: 'standard', theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'zh_TW',
     });
-    google.accounts.id.prompt(); // One Tap：已登入 Google 且曾授權過可直接免點擊完成
+    // 刻意不呼叫 google.accounts.id.prompt()（One Tap）：One Tap 跟這顆按鈕是 Google
+    // 兩套獨立的登入捷徑，常常會同時跳出來，使用者會誤以為跳了兩次登入畫面（使用者回報，
+    // 2026-09-23）。只留這顆按鈕，畫面單純好懂；同一支帳號登入過一次後，下次就是走
+    // 上面 init() 的快取 session 路徑，不會再看到這個畫面。
   }
 
   /**
