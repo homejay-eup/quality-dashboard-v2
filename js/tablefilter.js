@@ -212,7 +212,10 @@ App.tablefilter = (() => {
       const th = table.querySelector(`th[data-key="${key}"]`);
       const width = th ? th.offsetWidth : 0;
       const isLast = i === prefixKeys.length - 1;
-      table.querySelectorAll(`[data-key="${key}"]`).forEach((el) => {
+      // 只選 th／td 本身，不能用單純 [data-key="..."]：表頭篩選按鈕（.col-filter-btn）
+      // 自己也帶 data-key（給點擊事件辨識用），選太寬會連按鈕也套上凍結欄的不透明底色，
+      // 蓋住按鈕本來該透明、讓「▾」浮在表頭底色上的效果，變成一個空白方塊（實際踩到過）。
+      table.querySelectorAll(`th[data-key="${key}"], td[data-key="${key}"]`).forEach((el) => {
         el.classList.add('frozen-col');
         el.style.position = 'sticky';
         el.style.left = `${offset}px`;
