@@ -499,6 +499,13 @@ details.icon-collapse[open] > summary .lowkey-toggle-text { display: inline; }
 .auth-card__title { font-size: 19px; font-weight: 700; color: var(--gray-800); margin-bottom: 6px; }
 .auth-card__sub { font-size: 14px; color: var(--gray-400); margin-bottom: 22px; line-height: 1.6; }
 .auth-card__btn { display: flex; justify-content: center; }
+.google-btn {
+  display: inline-flex; align-items: center; gap: 10px; font-family: inherit;
+  font-size: 14px; font-weight: 500; color: var(--gray-700); background: #fff;
+  border: 1px solid var(--gray-200); border-radius: 999px; padding: 9px 20px; cursor: pointer;
+}
+.google-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+.google-btn__icon { flex-shrink: 0; }
 .auth-card__err {
   margin-top: 16px; padding: 10px 12px; border-radius: var(--radius-sm);
   background: var(--warn-bg); color: var(--warn); font-size: 13.5px; line-height: 1.6; text-align: left;

@@ -4,9 +4,14 @@
  * 純前端靜態網站（GitHub Pages，無後端），僅作為「介面層」門檔：
  * 擋不知道網址／不想登入的人看到儀表板畫面，不是真正的資料存取控制
  * （來源 Google Sheet 仍設為「知道連結的人可檢視」，見 js/sheets.js 的 ERR_PRIVATE）。
- * 只信任 Google ID Token 的 email／email_verified／hd claim（前端解析、未驗證簽章），
- * 足以擋住隨手瀏覽，但技術能力足夠的人仍可繞過——之後若要做到「連資料也真的鎖住」，
- * 需改為限制 Sheet 分享對象＋改用 OAuth token 呼叫 Sheets API。
+ * 只信任 Google userinfo 端點回傳的 email／email_verified，足以擋住隨手瀏覽，
+ * 但技術能力足夠的人仍可繞過——之後若要做到「連資料也真的鎖住」，需改為限制
+ * Sheet 分享對象＋改用 OAuth token 呼叫 Sheets API（後者已經是現在的做法）。
+ *
+ * 2026-09-23：改成單一 OAuth2 token client 同時要「身份」＋「讀取 Sheets」授權
+ * （原本是 ID Token 登入＋另一套 OAuth2 token client 分兩步各跳一次同意畫面，
+ * 使用者反映體驗不好）。合併後身份判斷改用 access token 打 userinfo 端點，
+ * 不再解析 ID Token JWT；一次同意涵蓋兩種用途，只跳一次畫面。
  *
  * 依賴：https://accounts.google.com/gsi/client（需先於本檔載入）
  * 由 index.html 於 DOMContentLoaded 呼叫 App.auth.init()；登入成功才會呼叫 App.app.init()。
@@ -17,11 +22,11 @@ App.auth = (() => {
   const CLIENT_ID = '49182385706-96bcusg30519r5q8tioleovdqmoti4d7.apps.googleusercontent.com';
   const ALLOWED_DOMAIN = 'eup.com.tw';
   const SESSION_KEY = 'eup_auth_session_v1';
+  const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 
-  // ── OAuth2 Token Client（供 js/sheets.js 讀取私有 Sheet「車機鏡頭上線明細」用）──
-  // 與上方 ID Token 登入流程是兩套獨立機制：ID Token 只證明身份，這裡才是能呼叫
-  // Google API 的 access token。SHEETS_SCOPE 唯讀即可，不需要寫入權限。
-  const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+  // ── OAuth2 Token Client：一次涵蓋「確認身份」（email/profile）＋「讀取私有 Sheet
+  // 車機鏡頭上線明細」（spreadsheets.readonly）兩種用途，只跳一次同意畫面。──
+  const SCOPE = 'email profile https://www.googleapis.com/auth/spreadsheets.readonly';
   const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // 到期前 5 分鐘背景換發，避免使用者中途撞到 401
 
   const $ = (id) => document.getElementById(id);
@@ -33,15 +38,6 @@ App.auth = (() => {
   let pendingResolve = null;           // 目前這一次 requestAccessToken() 呼叫對應的 Promise resolve/reject
   let pendingReject = null;
   let tokenPromise = null;             // 進行中（尚未回應）的授權請求，getSheetsToken() 可等待同一個結果
-
-  function decodeJwt(token) {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(
-      atob(base64).split('').map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
-    );
-    return JSON.parse(json);
-  }
 
   function loadSession() {
     try {
@@ -65,7 +61,17 @@ App.auth = (() => {
         <div class="auth-card__icon">${App.icons.lock()}</div>
         <div class="auth-card__title">設備品質分析</div>
         <div class="auth-card__sub">EUP 弋揚科技　內部工具，請使用公司 Google 帳號登入</div>
-        <div class="auth-card__btn" id="auth-gsi-btn"></div>
+        <div class="auth-card__btn">
+          <button type="button" class="google-btn" id="auth-login-btn">
+            <svg class="google-btn__icon" viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+            </svg>
+            <span>使用 Google 帳戶登入</span>
+          </button>
+        </div>
         <div class="auth-card__err" id="auth-err" hidden></div>
       </div>`;
     document.body.appendChild(el);
@@ -97,7 +103,8 @@ App.auth = (() => {
 
   function logout() {
     clearSession();
-    if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+    sheetsToken = null;
+    clearTimeout(refreshTimer);
     location.reload();
   }
 
@@ -145,7 +152,7 @@ App.auth = (() => {
     }
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: SHEETS_SCOPE,
+      scope: SCOPE,
       callback: handleTokenResponse,
     });
     return tokenClient;
@@ -167,7 +174,7 @@ App.auth = (() => {
   }
 
   /**
-   * 供「Sign In With Google」按鈕的登入回呼（handleCredentialResponse）與 KPI 卡「重試」按鈕呼叫。
+   * 供登入按鈕的點擊回呼（handleLoginClick）與 KPI 卡「重試」按鈕呼叫。
    * 兩者都是使用者點擊的同步回呼，符合觸發條件。
    */
   function requestSheetsAccess() { return fireTokenRequest(); }
@@ -187,27 +194,51 @@ App.auth = (() => {
     return Promise.reject(buildSheetsAuthError('尚未取得 Sheets 讀取授權，請點選重試'));
   }
 
-  function handleCredentialResponse(resp) {
-    let payload;
-    try { payload = decodeJwt(resp.credential); } catch { showErr('登入資料解析失敗，請重試。'); return; }
-    const email = payload.email || '';
-    const verified = payload.email_verified === true || payload.email_verified === 'true';
-    if (!verified || !email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
-      showErr(`僅限 @${ALLOWED_DOMAIN} 網域的公司 Google 帳號登入，請改用公司帳號重試。`);
-      if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+  /** 用拿到的 access token 打 Google userinfo 端點換身份資訊（取代原本解析 ID Token JWT）。*/
+  async function fetchUserInfo(accessToken) {
+    const res = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) throw new Error(`讀取使用者資訊失敗（HTTP ${res.status}）`);
+    return res.json(); // { email, email_verified, name, picture, ... }
+  }
+
+  /**
+   * 登入按鈕點擊：一次跳出同意畫面，同時取得「身份」＋「Sheets 讀取」授權（SCOPE 已合併兩者）。
+   * fireTokenRequest() 必須在這個點擊的同一個呼叫堆疊內同步送出（見 fireTokenRequest 說明），
+   * 拿到 access token 後才非同步去 userinfo 端點換身份、判斷網域——這段不影響彈出視窗封鎖判斷。
+   */
+  async function handleLoginClick() {
+    let accessToken;
+    try {
+      accessToken = await fireTokenRequest();
+    } catch (err) {
+      showErr('登入授權失敗，請重試（若瀏覽器擋下了 Google 的彈出視窗，請允許後再試一次）。');
       return;
     }
-    const session = { email, name: payload.name || email, picture: payload.picture || '', exp: payload.exp };
+    let info;
+    try {
+      info = await fetchUserInfo(accessToken);
+    } catch {
+      showErr('讀取帳號資訊失敗，請重試。');
+      return;
+    }
+    const email = info.email || '';
+    const verified = info.email_verified === true || info.email_verified === 'true';
+    if (!verified || !email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
+      showErr(`僅限 @${ALLOWED_DOMAIN} 網域的公司 Google 帳號登入，請改用公司帳號重試。`);
+      sheetsToken = null;
+      clearTimeout(refreshTimer);
+      return;
+    }
+    const session = {
+      email, name: info.name || email, picture: info.picture || '',
+      exp: Math.floor((sheetsToken ? sheetsToken.expiresAt : Date.now() + 3600000) / 1000),
+    };
     saveSession(session);
-    // ⚠️ 緊接著同步呼叫（不 await、不包 setTimeout），沿用這次使用者點擊登入按鈕的合法使用者手勢，
-    // 才能讓 requestAccessToken() 跳出的同意畫面不被瀏覽器彈出視窗封鎖擋掉。
-    // 失敗不擋登入流程，交由 KPI 卡片的「無法載入，點選重試」機制處理（見 js/app.js）。
-    requestSheetsAccess().catch(() => {});
     proceed(session);
   }
 
-  function initGsi() {
-    if (!window.google || !google.accounts || !google.accounts.id) {
+  function initLoginUI() {
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
       showErr('Google 登入元件載入失敗，請確認網路連線（或防火牆是否封鎖 accounts.google.com）後重新整理。');
       return;
     }
@@ -215,18 +246,8 @@ App.auth = (() => {
       showErr('尚未設定 Google OAuth Client ID，請洽系統管理員完成登入設定。');
       return;
     }
-    google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: handleCredentialResponse,
-      hd: ALLOWED_DOMAIN,
-    });
-    google.accounts.id.renderButton($('auth-gsi-btn'), {
-      type: 'standard', theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'zh_TW',
-    });
-    // 刻意不呼叫 google.accounts.id.prompt()（One Tap）：One Tap 跟這顆按鈕是 Google
-    // 兩套獨立的登入捷徑，常常會同時跳出來，使用者會誤以為跳了兩次登入畫面（使用者回報，
-    // 2026-09-23）。只留這顆按鈕，畫面單純好懂；同一支帳號登入過一次後，下次就是走
-    // 上面 init() 的快取 session 路徑，不會再看到這個畫面。
+    const btn = $('auth-login-btn');
+    if (btn) btn.addEventListener('click', handleLoginClick);
   }
 
   /**
@@ -237,15 +258,15 @@ App.auth = (() => {
     const session = loadSession();
     if (session) {
       // 走快取 session 這條路徑時沒有使用者點擊手勢（跳過了登入按鈕），無法比照
-      // handleCredentialResponse() 用點擊手勢跳出同意畫面；改嘗試靜默換發（prompt:''），
-      // 只有先前已同意過 Sheets 授權才會成功、不會跳出任何畫面。失敗不影響登入本身，
-      // 沿用既有「無法載入，點選重試」機制兜底（見 js/app.js retryOnlineAge）。
+      // handleLoginClick() 用點擊手勢跳出同意畫面；改嘗試靜默換發（prompt:''），
+      // 只有先前已同意過才會成功、不會跳出任何畫面。失敗不影響登入本身（session 本身
+      // 還沒過期），沿用既有「無法載入，點選重試」機制兜底（見 js/app.js retryOnlineAge）。
       fireTokenRequest({ prompt: '' }).catch(() => {});
       proceed(session);
       return;
     }
     showOverlay();
-    initGsi();
+    initLoginUI();
   }
 
   return {
