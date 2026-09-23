@@ -175,6 +175,55 @@ App.tablefilter = (() => {
   }
 
   /**
+   * 凍結欄（比率表/分析表/彙整表共用；規格見 kit 互動慣例 C 類／TT-1 第 1 項）：
+   * 依目前欄位順序/開關狀態，把從索引 0 開始「連續」屬於 freezeKeys 的前幾欄設為凍結欄
+   * （position:sticky; left:...）。
+   *   - 只認「從最左邊開始、連續在名單裡」的前綴；使用者拖曳打亂順序或關掉某個凍結欄，
+   *     導致不再連續 → 後面部分不凍結，屬合理降級，不特別提示。
+   *   - 累積 left 偏移量用當下實際 offsetWidth 量出來，不寫死像素（欄寬會因內容/字級變動）。
+   *   - 呼叫端（detail.js／rawtable.js）表格重繪（欄位開關/拖曳排序/篩選）與 window.resize
+   *     後都要重新呼叫一次，讓凍結位置跟著重算。
+   * @param {HTMLElement} wrapEl - 表格捲動容器（內含 <table>，th/td 皆已標 data-key）
+   * @param {Array<{key:string}>} cols - 目前顯示中的欄位（依畫面順序，已套用開關/拖曳排序）
+   * @param {string[]|Set<string>} freezeKeys - 這張表允許凍結的欄位 key 名單
+   */
+  function applyStickyCols(wrapEl, cols, freezeKeys) {
+    if (!wrapEl) return;
+    const table = wrapEl.querySelector('table');
+    if (!table) return;
+    const freezeSet = freezeKeys instanceof Set ? freezeKeys : new Set(freezeKeys || []);
+
+    // 先清掉舊的凍結標記——欄位順序/開關/視窗大小改變都可能讓「連續前綴」跟上次不一樣。
+    table.querySelectorAll('.frozen-col').forEach((el) => {
+      el.classList.remove('frozen-col', 'frozen-col--head', 'frozen-col--last');
+      el.style.position = '';
+      el.style.left = '';
+    });
+
+    const prefixKeys = [];
+    for (const c of cols) {
+      if (!freezeSet.has(c.key)) break;
+      prefixKeys.push(c.key);
+    }
+    if (!prefixKeys.length) return;
+
+    let offset = 0;
+    prefixKeys.forEach((key, i) => {
+      const th = table.querySelector(`th[data-key="${key}"]`);
+      const width = th ? th.offsetWidth : 0;
+      const isLast = i === prefixKeys.length - 1;
+      table.querySelectorAll(`[data-key="${key}"]`).forEach((el) => {
+        el.classList.add('frozen-col');
+        el.style.position = 'sticky';
+        el.style.left = `${offset}px`;
+        if (el.tagName === 'TH') el.classList.add('frozen-col--head');
+        if (isLast) el.classList.add('frozen-col--last');
+      });
+      offset += width;
+    });
+  }
+
+  /**
    * 把目前畫面上的表格（依可見欄位＋已套用的篩選/排序）匯出成 CSV 並觸發下載。
    * @param {string} filename
    * @param {string[]} headers - 欄位標題（依畫面顯示順序）
@@ -194,5 +243,5 @@ App.tablefilter = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  return { esc, uniqueOptions, matches, headerCellHTML, open, close, isOpenFor, reposition, downloadCsv };
+  return { esc, uniqueOptions, matches, headerCellHTML, applyStickyCols, open, close, isOpenFor, reposition, downloadCsv };
 })();

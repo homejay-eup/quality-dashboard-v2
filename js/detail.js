@@ -171,8 +171,9 @@ App.detail = (() => {
    *   colsInit 為 Function 時依 deviceTab 動態算欄位（分析表）；為固定陣列時兩分頁共用（比率表）。
    *   metricLinkKeys：這張表裡點擊會觸發「分析表只留對應欄位」的欄位 key 集合（比率表用）。
    *   logicLinks：這張表裡點擊會觸發「彙整表依邏輯篩選」的欄位 key → {label,test} 對照（分析表用）。
+   *   freezeKeys：凍結欄名單（見 App.tablefilter.applyStickyCols；只認從最左邊開始連續的前綴）。
    */
-  function makeTable({ slotId, title, colsInit, deviceAware, metricLinkKeys, logicLinks }) {
+  function makeTable({ slotId, title, colsInit, deviceAware, metricLinkKeys, logicLinks, freezeKeys }) {
     const ids = {
       title: `${slotId}-title`, count: `${slotId}-count`, wrap: `${slotId}-wrap`,
       chips: `${slotId}-col-chips`, colsToggle: `${slotId}-cols-toggle`, colsReset: `${slotId}-cols-reset`,
@@ -190,6 +191,8 @@ App.detail = (() => {
     let built = false;
     let lastDeviceTab = '車機';
     let lastOptionsByKey = {};
+    const freezeSet = new Set(freezeKeys || []);
+    const syncFreeze = () => App.tablefilter.applyStickyCols($(ids.wrap), ui.cols.filter((c) => c.on), freezeSet);
 
     function buildShell() {
       $(slotId).innerHTML = `
@@ -267,6 +270,8 @@ App.detail = (() => {
           },
         }, btn);
       });
+      // 凍結欄寬度會隨字級/內容改變；視窗改變大小時（非表格重繪）也要重算一次。
+      window.addEventListener('resize', () => { if (built) syncFreeze(); });
       built = true;
     }
 
@@ -350,12 +355,12 @@ App.detail = (() => {
       const cell = (c, row) => {
         const v = cellVal(c, row);
         if (metricLinkKeys && metricLinkKeys.has(c.key)) {
-          return `<td class="num metric-link" data-metric="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊只看分析表對應的分類欄位，並鎖定彙整表到這個品號">${v}</td>`;
+          return `<td class="num metric-link" data-key="${c.key}" data-metric="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊只看分析表對應的分類欄位，並鎖定彙整表到這個品號">${v}</td>`;
         }
         if (logicLinks && logicLinks[c.key]) {
-          return `<td class="num logic-link" data-logic="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊查看彙整表對應的原始資料（鎖定這個品號）">${v}</td>`;
+          return `<td class="num logic-link" data-key="${c.key}" data-logic="${c.key}" data-erp="${esc(row.ERP品號 || '')}" title="點擊查看彙整表對應的原始資料（鎖定這個品號）">${v}</td>`;
         }
-        return `<td class="${c.num ? 'num' : ''}">${v}</td>`;
+        return `<td class="${c.num ? 'num' : ''}" data-key="${c.key}">${v}</td>`;
       };
 
       let body = '';
@@ -369,21 +374,22 @@ App.detail = (() => {
         }
         const subLabel = ui.onlySubtotal ? g.key : `${g.key} 小計`;
         body += `<tr class="sub">${cols.map((c, i) => {
-          if (i === labelIdx) return `<td class="sub__label">${esc(subLabel)}</td>`;
-          return `<td class="num">${c.num ? fmtCell(c, g.subtotal[c.key]) : ''}</td>`;
+          if (i === labelIdx) return `<td class="sub__label" data-key="${c.key}">${esc(subLabel)}</td>`;
+          return `<td class="num" data-key="${c.key}">${c.num ? fmtCell(c, g.subtotal[c.key]) : ''}</td>`;
         }).join('')}</tr>`;
         exportRows.push(cols.map((c, i) => (i === labelIdx ? subLabel : (c.num ? fmtCell(c, g.subtotal[c.key]) : ''))));
       }
       // 總計
       body += `<tr class="grand">${cols.map((c, i) => {
-        if (i === labelIdx) return `<td>總計</td>`;
-        return `<td class="num">${c.num ? fmtCell(c, grandTotal[c.key]) : ''}</td>`;
+        if (i === labelIdx) return `<td data-key="${c.key}">總計</td>`;
+        return `<td class="num" data-key="${c.key}">${c.num ? fmtCell(c, grandTotal[c.key]) : ''}</td>`;
       }).join('')}</tr>`;
       exportRows.push(cols.map((c, i) => (i === labelIdx ? '總計' : (c.num ? fmtCell(c, grandTotal[c.key]) : ''))));
       lastExport = { headers: cols.map((c) => c.label), rows: exportRows };
 
       $(ids.wrap).innerHTML = `<table class="agg-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
       App.tablefilter.reposition();
+      syncFreeze();
     }
 
     function onRerender() {
@@ -402,10 +408,12 @@ App.detail = (() => {
   const summaryTable = makeTable({
     slotId: 'detail-simple-slot', title: '比率表', colsInit: SUMMARY_COLS, deviceAware: false,
     metricLinkKeys: new Set(['良品數', '不良品數', '過保數', '未歸類數', '已使用年限']),
+    freezeKeys: ['廠商', 'ERP品號', '品名'],
   });
   analysisTable = makeTable({
     slotId: 'detail-slot', title: '分析表', colsInit: buildAnalysisCols, deviceAware: true,
     logicLinks: ANALYSIS_COL_LOGIC,
+    freezeKeys: ['期間', '類型', '廠商', 'ERP品號', '品名'],
   });
 
   function onRerender() {

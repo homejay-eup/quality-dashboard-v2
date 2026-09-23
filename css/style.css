@@ -263,8 +263,9 @@ body {
   padding: 8px 10px; text-align: left; white-space: nowrap; z-index: 1;
 }
 .detail-table td { padding: 6px 10px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; }
-.detail-table tbody tr:nth-child(even), .detail-table tbody tr:nth-child(even) { background: #fafbfc; }
-.detail-table tbody tr:hover { background: var(--teal-pale); }
+/* 變色寫在 td 上、不寫在 tr 上：凍結欄有自己的不透明底色，寫在 tr 半列會沒上色（見 .frozen-col）*/
+.detail-table tbody tr:nth-child(even) td { background: #fafbfc; }
+.detail-table tbody tr:hover td { background: var(--teal-pale); }
 
 /* ── 指標顯示 chips（F3）───────────────────────────── */
 .metric-toggle { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--gray-200); padding-top: 12px; }
@@ -366,9 +367,21 @@ body {
 .agg-table tr.sub td { background: #f3f6f9; font-weight: 700; border-bottom: 1px solid var(--gray-200); }
 .sub__label { color: var(--gray-600); }
 .agg-table tr.grand td { background: var(--gray-800); color: #fff; font-weight: 700; position: sticky; bottom: 0; }
-.agg-table tbody tr:not(.sub):not(.grand):hover { background: #fafbfc; }
+/* 變色寫在 td 上、不寫在 tr 上：凍結欄有自己的不透明底色，寫在 tr 半列會沒上色（見 .frozen-col）*/
+.agg-table tbody tr:not(.sub):not(.grand):hover td { background: #fafbfc; }
 .metric-link, .logic-link { color: var(--teal-dark); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 .metric-link:hover, .logic-link:hover { background: var(--teal-pale); text-decoration-style: solid; }
+
+/* ── 凍結欄（TT-1／互動慣例 C 類；比率表/分析表/彙整表共用）─────────────
+   left 偏移量由 js/tablefilter.js 的 applyStickyCols() 依實際欄寬即時計算並寫成行內樣式，
+   這裡只放樣式：預設不透明底色（蓋住捲動內容）＋分層＋右側陰影。各列狀態（hover/小計/總計/
+   斑馬紋）的底色由上面各自的 td 選擇器覆蓋（選擇器組合數量較多、優先權天生高於這裡的單一
+   class，不用另外重複寫一次）。 */
+.frozen-col { position: sticky; z-index: 2; background: var(--white); }
+/* 用 th.frozen-col--head（而非純 class）拉高選擇器優先權，蓋過前面 .agg-table th／.detail-table th
+   本來就有的 z-index:1（同樣是 1 個 class + 1 個 type，優先權打平時後寫的這條才會生效）*/
+th.frozen-col--head { z-index: 3; } /* 表頭 × 凍結欄交叉的那一格，層級最高 */
+.frozen-col--last { box-shadow: 4px 0 8px -2px rgba(0, 0, 0, .22); } /* 陰影不用細線，避免捲到中間時看不出右邊還有欄位 */
 
 .cols-reset {
   background: none; border: none; font-family: inherit; font-size: 14px; color: var(--teal-dark);

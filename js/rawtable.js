@@ -34,6 +34,9 @@ App.rawtable = (() => {
   // 預設關閉：輸入年月、輸入時間、報廢單狀態、報廢原因、上線量（仍可從欄位顯示手動開啟）
   const RAW_DEFAULT_OFF = new Set(['輸入年月', '輸入時間', '報廢單狀態', '報廢原因', '_上線量']);
 
+  // 凍結欄名單（見 App.tablefilter.applyStickyCols；只認從最左邊開始連續的前綴）
+  const RAW_FREEZE_KEYS = ['品項完工日期', '廠牌型號', 'ERP品號'];
+
   const ids = {
     chips: 'raw-col-chips', colsToggle: 'raw-cols-toggle', logicBar: 'raw-logic-bar',
   };
@@ -47,6 +50,10 @@ App.rawtable = (() => {
   let built = false;
   let lastOptionsByKey = {};
   let lastExport = null; // { headers, rows } 依畫面目前顯示內容（欄位/篩選皆已套用，含被 500 筆上限截掉的部分）
+
+  function syncFreeze() {
+    App.tablefilter.applyStickyCols($('raw-wrap'), ui.cols.filter((c) => c.on), RAW_FREEZE_KEYS);
+  }
 
   function cellVal(k, v) {
     if (k === '已使用年限') return fmtYear(v);
@@ -100,6 +107,8 @@ App.rawtable = (() => {
       const st = App.app.state;
       App.tablefilter.downloadCsv(`彙整表_${st.deviceTab || ''}_${st.year}-Q${st.quarter}.csv`, lastExport.headers, lastExport.rows);
     });
+    // 凍結欄寬度會隨字級/內容改變；視窗改變大小時（非表格重繪）也要重算一次。
+    window.addEventListener('resize', () => { if (built) syncFreeze(); });
     built = true;
   }
 
@@ -168,9 +177,10 @@ App.rawtable = (() => {
     $('raw-title').textContent = `彙整表（${st.deviceTab || ''}）`;
     $('raw-count').textContent = total > MAX_ROWS ? `顯示前 ${MAX_ROWS} / 共 ${total.toLocaleString()} 筆` : `共 ${total.toLocaleString()} 筆`;
     const head = `<tr>${cols.map((c) => App.tablefilter.headerCellHTML(c, ui.colFilters)).join('')}</tr>`;
-    const body = shown.map((r) => `<tr>${cols.map((c) => `<td>${cellVal(c.key, r[c.key])}</td>`).join('')}</tr>`).join('');
+    const body = shown.map((r) => `<tr>${cols.map((c) => `<td data-key="${c.key}">${cellVal(c.key, r[c.key])}</td>`).join('')}</tr>`).join('');
     $('raw-wrap').innerHTML = `<table class="detail-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     App.tablefilter.reposition();
+    syncFreeze();
     // 下載匯出完整篩選結果（不受畫面 500 筆顯示上限影響）
     lastExport = { headers: cols.map((c) => c.label), rows: rows.map((r) => cols.map((c) => cellVal(c.key, r[c.key]))) };
   }
