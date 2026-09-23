@@ -204,6 +204,14 @@ App.app = (() => {
           <div class="kpi__empty">無法載入 <button type="button" class="btn-ghost" data-online-age-retry="1">點選重試</button></div>
         </div>`;
       }
+      // 資料量大（逐條碼上線明細），背景載入需要幾秒鐘；區分「還在讀取」跟「讀完但真的沒有資料」，
+      // 不然使用者會誤以為卡片已經跑完、結果是空的（見踩坑記錄／使用者回報）。
+      if (ONLINE_AGE_KEYS.has(m.key) && (state.onlineAgeStatus === 'idle' || state.onlineAgeStatus === 'loading')) {
+        return `<div class="kpi">
+          <div class="kpi__label">${m.label}</div>
+          <div class="kpi__empty">讀取中…</div>
+        </div>`;
+      }
       const val = m.get(state.kpi);
       const valueMarkup = (val === null || val === undefined)
         ? `<div class="kpi__empty">無資料</div>`
