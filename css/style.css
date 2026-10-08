@@ -4,14 +4,14 @@
 
 :root {
   /* 主色系 */
-  --teal-dark: #00796B;
-  --teal:      #009688;
-  --teal-mid:  #26A69A;
-  --teal-light:#4DB6AC;
-  --teal-pale: #E0F2F1;
-  --blue:      #1565C0;
-  --blue-mid:  #1E88E5;
-  --grad: linear-gradient(135deg, #4DB6AC 0%, #26A69A 38%, #1E88E5 100%);
+  --teal-dark: #1565C0;
+  --teal:      #1E88E5;
+  --teal-mid:  #42A5F5;
+  --teal-light:#64B5F6;
+  --teal-pale: #E3F2FD;
+  --blue:      #0D47A1;
+  --blue-mid:  #1976D2;
+  --grad: linear-gradient(135deg, #42A5F5 0%, #1E88E5 45%, #1565C0 100%);
 
   /* 灰階 */
   --gray-50:  #F5F7FA;
@@ -130,7 +130,7 @@ body {
 }
 .field select:focus, .field input:focus {
   border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(0,150,136,.1);
+  box-shadow: 0 0 0 3px rgba(30,136,229,.1);
 }
 
 /* ── Switch ─────────────────────────────────────────── */
@@ -200,7 +200,7 @@ body {
   font-size: 15px; font-weight: 700; font-family: var(--font);
   cursor: pointer; transition: all .18s;
   background: var(--grad); color: #fff;
-  box-shadow: 0 2px 8px rgba(0,150,136,.35);
+  box-shadow: 0 2px 8px rgba(30,136,229,.35);
   margin-top: 12px;
 }
 .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
@@ -254,7 +254,7 @@ body {
   padding: 7px 12px; border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm);
   font-size: 15px; font-family: var(--font); outline: none;
 }
-.detail__search:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,150,136,.1); }
+.detail__search:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,136,229,.1); }
 .detail__count { font-size: 14px; color: var(--gray-400); margin-left: auto; }
 .detail__scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); }
 .detail-table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
@@ -278,7 +278,7 @@ body {
   cursor: pointer; font-family: var(--font); transition: all .15s;
 }
 .chip:hover { border-color: var(--teal-light); color: var(--teal); }
-.chip--on { background: var(--teal); color: #fff; border-color: var(--teal); box-shadow: 0 2px 8px rgba(0,150,136,.3); }
+.chip--on { background: var(--teal); color: #fff; border-color: var(--teal); box-shadow: 0 2px 8px rgba(30,136,229,.3); }
 .chip--on:hover { color: #fff; }
 .kpi__empty { color: var(--gray-400); font-size: 15px; padding: 10px; }
 
@@ -431,7 +431,7 @@ details.icon-collapse[open] > summary .lowkey-toggle-text { display: inline; }
   font-family: var(--font); font-size: 15.5px; line-height: 1.8; color: var(--gray-800);
   background: var(--gray-50); outline: none;
 }
-.advice__text:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,150,136,.1); background: #fff; }
+.advice__text:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,136,229,.1); background: #fff; }
 .advice__actions { display: flex; gap: 8px; margin-top: 10px; }
 
 /* ── 快照動作列（S3）──────────────────────────────── */

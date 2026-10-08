@@ -133,7 +133,7 @@ App.report = (() => {
   const rPct = (v) => `${((Number(v) || 0) * 100).toFixed(1)}%`;
   const rYear = (v) => (v == null || v === '' ? '資料缺' : `${Number(v).toFixed(1)} 年`);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const PAL = ['#009688', '#26A69A', '#4DB6AC', '#1E88E5', '#1565C0', '#80CBC4', '#B2DFDB', '#E08E00', '#9AA0A6', '#EF5350'];
+  const PAL = ['#1E88E5', '#42A5F5', '#64B5F6', '#1565C0', '#0D47A1', '#90CAF9', '#BBDEFB', '#E08E00', '#9AA0A6', '#EF5350'];
 
   // 季度在本工具是累加制（Q1=1–3月、Q2=1–6月、Q3=1–9月、Q4=1–12月），供期間文字換算月份範圍用
   const QUARTER_MONTH_RANGE = { 1: '1–3月', 2: '1–6月', 3: '1–9月', 4: '1–12月' };
@@ -1185,7 +1185,7 @@ App.report = (() => {
           data:{labels:['新眾 VP（花費）','呈岳科技 CR（省下）'],
             datasets:[
               {label:'114年1-6月',data:[${LENS_VP_COST.y114.total},${LENS_CR_COST.y114.total}],backgroundColor:'#9AA0A6'},
-              {label:'115年1-6月',data:[${LENS_VP_COST.y115.total},${LENS_CR_COST.y115.total}],backgroundColor:'#009688'}
+              {label:'115年1-6月',data:[${LENS_VP_COST.y115.total},${LENS_CR_COST.y115.total}],backgroundColor:'#1E88E5'}
             ]},
           options:{maintainAspectRatio:false,plugins:{legend:{position:'top'},title:{display:true,text:'維修／整新成本對比（元）'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('en-US')}}}},
           plugins:[{
@@ -1461,7 +1461,7 @@ App.report = (() => {
         </div>` : ''}
       </section>`,
       chartScript: `
-        const KPI_TEAL='#009688',KPI_GRAY='#9AA0A6';
+        const KPI_TEAL='#1E88E5',KPI_GRAY='#9AA0A6';
         new Chart(document.getElementById('kpi-c1'),{type:'bar',
           data:{labels:${JSON.stringify(rows.map((r) => r.label))},
             datasets:[
@@ -1555,7 +1555,7 @@ App.report = (() => {
 <title>設備品質分析報告 ${esc(periodText(state))}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--teal:#009688;--teal-d:#00695C;--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F;
+:root{--teal:#1E88E5;--teal-d:#1565C0;--ink:#1F2535;--muted:#6B7384;--line:#DDE1E9;--bg:#F5F7FA;--good:#1a9c53;--warn:#e08e00;--bad:#D32F2F;
 --gold:#b8860b;--gold-bg:#fbf3e0;--bar-general:var(--teal);--bar-imaging:#9AA0A6;--marker:#5c6470}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft JhengHei","PingFang TC",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-weight:700;font-size:16px}
@@ -1664,7 +1664,7 @@ table.rtable .colRate{display:none}
 .uncat-toggle input{position:absolute;opacity:0;width:16px;height:16px;margin:0;cursor:pointer}
 .uncat-toggle .uncat-icon{font-size:18px;color:#c7cbd1;line-height:1;padding:2px;border-radius:4px;transition:color .15s,background .15s}
 .uncat-toggle:hover .uncat-icon{color:var(--muted);background:#f0f2f4}
-.uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e6f4f2}
+.uncat-toggle input:checked ~ .uncat-icon{color:var(--teal);background:#e3f2fd}
 .uncat-toggle input:focus-visible ~ .uncat-icon{outline:2px solid var(--teal);outline-offset:1px}
 table.ranktable tr.rank-top3 td{background:#fff8e6;font-weight:700}
 .lowkey-toggle{margin:10px 2px 0}
@@ -1739,7 +1739,7 @@ table.cmp th:first-child{text-align:left}
 table.cmp td{padding:9px 12px;text-align:center;border-bottom:1px solid var(--line)}
 table.cmp td.l{text-align:left;color:var(--muted);font-weight:700;white-space:nowrap}
 table.cmp tbody tr:nth-child(even) td{background:#fafafa}
-table.cmp tr.hl td{background:#e6f4f2;font-weight:700}
+table.cmp tr.hl td{background:#e3f2fd;font-weight:700}
 .cost-input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:17.5px}
 .flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0;padding:6px 0 4px}
 .flow-step{background:var(--teal);color:#fff;padding:12px 26px;border-radius:10px;font-weight:800;font-size:20.5px;box-shadow:0 2px 6px rgba(0,0,0,.15);white-space:nowrap}
@@ -1765,8 +1765,8 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .edit-wrap:focus-within .edit-toolbar{opacity:1;pointer-events:auto}
 .edit-tool-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border:none;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer;font-family:inherit;padding:0}
 .edit-tool-btn svg{width:15px;height:15px}
-.edit-tool-btn:hover{background:#eef2f2;color:var(--teal-d)}
-.edit-tool-btn.on{background:#e6f4f2;color:var(--teal-d)}
+.edit-tool-btn:hover{background:#eef3fa;color:var(--teal-d)}
+.edit-tool-btn.on{background:#e3f2fd;color:var(--teal-d)}
 .popover{position:absolute;top:30px;left:0;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:6px;display:none;z-index:10}
 .popover.open{display:flex;gap:5px}
 .popover.size-popover{flex-direction:column;width:96px;gap:0}
@@ -1775,7 +1775,7 @@ td.cond{text-align:left;font-size:17px;color:var(--ink)}
 .swatch{width:19px;height:19px;border-radius:5px;cursor:pointer;border:2px solid transparent;display:inline-block}
 .swatch:hover{border-color:var(--ink)}
 .save-bar{text-align:center;margin-top:10px}
-.save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4DB6AC 0%,#26A69A 38%,#1E88E5 100%);color:#fff;box-shadow:0 2px 8px rgba(0,150,136,.35)}
+.save-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border:none;border-radius:8px;font-size:18.5px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#42A5F5 0%,#1E88E5 45%,#1565C0 100%);color:#fff;box-shadow:0 2px 8px rgba(30,136,229,.35)}
 .foot{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
 .save-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;margin-left:4px;border:none;border-radius:8px;font-size:19px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;transition:background .15s}
 .save-icon-btn:hover{background:rgba(255,255,255,.24)}
