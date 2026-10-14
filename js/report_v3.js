@@ -1,22 +1,23 @@
 /**
- * js/report_v3.js — 落地頁報告 v3（試作，掛 App.reportV3）
+ * js/report_v3.js — 落地頁報告 v3（正式版，掛 App.reportV3；「生成落地頁報告」按鈕產生的就是這份）
  *
  * 2026-10-12 改版：整份報告聚焦三件事——
- *   01 良率狀況：整體良率（以上線量為母數）＋回廠不良分析（以回廠量為母數）＋曲線圖
- *   02 使用年限：線上設備（估算）vs 回廠設備（實際）的使用年限分布
+ *   01 良率狀況：整體良率（以線上量為母數）＋回廠不良分析（以回廠量為母數）＋曲線圖
+ *   02 使用年限：廠商／機型的已使用年限比較（本期 vs 去年同期）
  *   03 廠商細項：廠商 × 不良率 × 使用年限，可展開到機型
- * 版面沿用舊版落地報告（頂部分頁列＋圓角卡片），主色改為深藍；頂部「車機｜鏡頭」切換設備範圍，
- * 三個分頁對應三章。所有主要曲線圖皆為「本期 vs 去年同期」（有選對比期間時用對比期間）。
+ * 版面沿用舊版落地報告（頂部分頁列＋圓角卡片），主色為藍色；頂部「車機｜鏡頭」切換設備範圍。
+ * 所有主要曲線圖皆為「本期 vs 去年同期」（有選對比期間時用對比期間）。
  *
  * 計算一律沿用 App.transform.buildDetail／App.metrics（computeKPI、aggregate、applyFilter），
- * 只重做呈現；舊版 App.report.generateReportHTML 保留不動。
+ * 只重做呈現；舊版 App.report.generateReportHTML 仍保留於 report.js（快照匯出等共用），但按鈕已改接本檔。
  *
  * 口徑：
  *   - 不良數＝不良品數＋未歸類數（比照舊版報告「未歸類併入不良品」預設開啟）
- *   - 整體良率＝1 − 不良數 ÷ 上線量；回廠不良率＝不良數 ÷ 回廠量
- *   - 回廠使用年限＝已回廠明細的 已使用年限（完工日 − 進貨日）平均，含良品
- *   - 線上使用年限為估算：上線量分頁只有每個品號的「最早日／最新日」，
- *     假設該品號在這段期間內平均上線，以期間結束日為基準換算年齡
+ *   - 整體良率＝1 − 不良數 ÷ 線上量；回廠不良率＝不良數 ÷ 回廠量
+ *   - 平均已使用年限（回廠）＝規則 E／v9：不良品＋過保＋未歸類的 已使用年限（完工日 − 進貨日）平均
+ *   - 在線平均已使用年限＝規則 H：「車機鏡頭上線明細」逐台（今天 − 參考日期）平均，
+ *     一律由 App.metrics.aggregate（opts.onlineAgeRows／deviceType）算出，與舊版報告同一來源、同一數字；
+ *     該明細尚未載入（state.onlineAgeStatus !== 'ok'）時顯示「—」，不再用估算值
  */
 window.App = window.App || {};
 
@@ -31,7 +32,6 @@ App.reportV3 = (() => {
     { label: '5–7年', lo: 5, hi: 7 },
     { label: '7年以上', lo: 7, hi: Infinity },
   ];
-  const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fInt = (v) => (Number(v) || 0).toLocaleString('en-US');
@@ -43,46 +43,11 @@ App.reportV3 = (() => {
   const badOf = (s) => (s.不良品數 || 0) + (s.未歸類數 || 0);
   const groupKey = (v, fallback) => (v ? String(v) : fallback);
 
-  function parseDay(v) {
-    const s = String(v == null ? '' : v).replace(/"/g, '').trim();
-    if (!s) return null;
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? null : d;
-  }
   function ymOf(v) {
     const m = String(v || '').match(/(\d{4})\D?(\d{1,2})/);
     return m ? { y: Number(m[1]), m: Number(m[2]) } : null;
   }
 
-  // ── 線上使用年限估算：品號在 [最早日, 最新日] 期間平均上線 → 年齡區間 [ageMin, ageMax] ──
-  function onlineDateMap(src) {
-    const map = new Map();
-    for (const r of (src && src.上線量) || []) {
-      const erp = String(r['ERP品號'] || '').trim();
-      if (!erp || map.has(erp)) continue;
-      map.set(erp, { first: parseDay(r['最早日']), last: parseDay(r['最新日']) });
-    }
-    return map;
-  }
-  function onlineAgeInterval(o, dateMap, baseDate) {
-    const dt = dateMap.get(String(o.ERP品號 || ''));
-    if (!dt || !dt.first) return null;
-    const last = dt.last && dt.last >= dt.first ? dt.last : dt.first;
-    const ageMax = Math.max(0, (baseDate - dt.first) / YEAR_MS);
-    const ageMin = Math.max(0, (baseDate - last) / YEAR_MS);
-    return { ageMin, ageMax, mid: (ageMin + ageMax) / 2 };
-  }
-  function spreadIntoBuckets(iv, qty, out) {
-    const span = iv.ageMax - iv.ageMin;
-    AGE_BUCKETS.forEach((b, i) => {
-      if (span < 1e-6) {
-        if (iv.ageMin >= b.lo && iv.ageMin < b.hi) out[i] += qty;
-        return;
-      }
-      const overlap = Math.max(0, Math.min(iv.ageMax, b.hi) - Math.max(iv.ageMin, b.lo));
-      out[i] += qty * (overlap / span);
-    });
-  }
   const bucketIndex = (age) => AGE_BUCKETS.findIndex((b) => age >= b.lo && age < b.hi);
 
   // 不良原因歸納（暫定規則，待確認）：
@@ -127,8 +92,10 @@ App.reportV3 = (() => {
 
     const endMonth = state.quarter * 3;
     const cmpYear = state.cmp.on ? state.cmp.year : state.year - 1;
-    const baseDate = new Date(state.year, endMonth, 0);
-    const dateMap = onlineDateMap(state.currentSnap || state.raw);
+    // 規則 H：在線平均已使用年限（資料來源「車機鏡頭上線明細」，與回廠明細獨立）。
+    // 與舊版報告相同：state.onlineAgeStatus 非 'ok' 時一律傳 null → aggregate 回傳的在線年限欄位全為 null（顯示「—」）。
+    const onlineAgeRows = state.onlineAgeStatus === 'ok' ? state.onlineAgeRows : null;
+    const ageOpts = (groupBy) => ({ groupBy, onlineAgeRows, deviceType: deviceKey });
 
     const summarize = (k) => (k ? {
       上線量: k.總線上量, 回廠量: k.期間回廠量, 良品: k.良品數, 不良: badOf(k), 過保: k.過保數,
@@ -138,7 +105,7 @@ App.reportV3 = (() => {
       過保率: safeDiv(k.過保數, k.期間回廠量),
     } : null);
     const cur = summarize(kpi), cmp = summarize(cmpKpi);
-    const modelAggAll = App.metrics.aggregate(d.rows, d.online, sel, { groupBy: '類型' });
+    const modelAggAll = App.metrics.aggregate(d.rows, d.online, sel, ageOpts('類型'));
     cur.非良品年限 = modelAggAll.grandTotal.已使用年限;
     if (cmp && d.cmpRows) cmp.非良品年限 = App.metrics.aggregate(d.cmpRows, d.cmpOnline, sel, { groupBy: '類型' }).grandTotal.已使用年限;
     const lifeYears = EXPECTED_LIFE[deviceKey];
@@ -194,10 +161,9 @@ App.reportV3 = (() => {
     const faults = faultCols.map((f) => ({ label: f, qty: faultAgg.grandTotal[f] || 0 })).filter((f) => f.qty > 0)
       .sort((a, b) => (a.label === '其他') - (b.label === '其他') || b.qty - a.qty);
 
-    // ── 使用年限：回廠（實際）＋線上（估算），並依 機型／廠商 累計 ──
+    // ── 使用年限：回廠設備（規則 E，已使用年限），並依 機型／廠商 累計；在線年限（規則 H）見下方 aggregate ──
     const ageAcc = () => ({ sum: 0, n: 0, badSum: 0, badN: 0, overN: 0 });
-    const onAcc = () => ({ qty: 0, wSum: 0, wQty: 0, first: null, last: null });
-    const retByModel = new Map(), retByVendor = new Map(), onByModel = new Map(), onByVendor = new Map();
+    const retByModel = new Map(), retByVendor = new Map();
     const retTotal = ageAcc();
     const retBuckets = AGE_BUCKETS.map(() => ({ 回廠量: 0, 不良: 0, 過保: 0 }));
     const life = EXPECTED_LIFE[deviceKey];
@@ -225,27 +191,9 @@ App.reportV3 = (() => {
       const bi = bucketIndex(age);
       if (bi >= 0) { cmpBuckets[bi].回廠量++; if (isBad) cmpBuckets[bi].不良++; }
     }
-    const onTotal = onAcc(), onBuckets = AGE_BUCKETS.map(() => 0);
-    let onNoDate = 0;
-    for (const o of online) {
-      const qty = Number(o.上線量) || 0;
-      const iv = onlineAgeInterval(o, dateMap, baseDate);
-      const dt = dateMap.get(String(o.ERP品號 || ''));
-      const keys = [[onByModel, groupKey(o.廠牌型號, '(未分類)')], [onByVendor, groupKey(o.廠商, '未分類')]];
-      for (const acc of [onTotal, ...keys.map(([m, k]) => { if (!m.has(k)) m.set(k, onAcc()); return m.get(k); })]) {
-        acc.qty += qty;
-        if (iv) { acc.wSum += iv.mid * qty; acc.wQty += qty; }
-        if (dt && dt.first && (!acc.first || dt.first < acc.first)) acc.first = dt.first;
-        if (dt && dt.last && (!acc.last || dt.last > acc.last)) acc.last = dt.last;
-      }
-      if (iv) spreadIntoBuckets(iv, qty, onBuckets); else onNoDate += qty;
-    }
     const ageOf = (acc) => (acc && acc.n ? round(acc.sum / acc.n, 1) : null);
     const badAgeOf = (acc) => (acc && acc.badN ? round(acc.badSum / acc.badN, 1) : null);
-    const onAgeOf = (acc) => (acc && acc.wQty ? round(acc.wSum / acc.wQty, 1) : null);
-    const ymd = (dt) => (dt ? `${dt.getFullYear()}/${String(dt.getMonth() + 1).padStart(2, '0')}` : '—');
 
-    const onBucketTotal = onBuckets.reduce((s, v) => s + v, 0);
     const retBucketTotal = retBuckets.reduce((s, b) => s + b.回廠量, 0);
     const cmpBucketTotal = cmpBuckets.reduce((s, b) => s + b.回廠量, 0);
     const age = {
@@ -254,10 +202,12 @@ App.reportV3 = (() => {
       retOverShare: safeDiv(retTotal.overN, retTotal.n),
       cmpRetAvg: hasCmp ? ageOf(cmpTotal) : null, cmpRetBadAvg: hasCmp ? badAgeOf(cmpTotal) : null,
       cmpOverShare: hasCmp ? safeDiv(cmpTotal.overN, cmpTotal.n) : null,
-      onAvg: onAgeOf(onTotal), onNoDate, onQty: onTotal.qty,
+      // 總計用規則 H 本體 computeOnlineAge（與儀表板 KPI 卡同一函式、同一數字）；
+      // 機型／廠商列用 aggregate（與舊版報告各列同來源，只含本期有派工／回廠明細的 ERP品號）
+      onAvg: onlineAgeRows ? App.metrics.computeOnlineAge(onlineAgeRows, sel)[`在線平均已使用年限_${deviceKey}`] : null,
+      onlineAgeOk: !!onlineAgeRows,
       buckets: AGE_BUCKETS.map((b, i) => ({
         label: b.label,
-        線上占比: onBucketTotal ? round(onBuckets[i] / onBucketTotal * 100, 1) : 0,
         回廠占比: retBucketTotal ? round(retBuckets[i].回廠量 / retBucketTotal * 100, 1) : 0,
         回廠量: retBuckets[i].回廠量,
         回廠不良率: retBuckets[i].回廠量 ? round(retBuckets[i].不良 / retBuckets[i].回廠量 * 100, 1) : null,
@@ -268,22 +218,27 @@ App.reportV3 = (() => {
     };
 
     // ── 機型彙整 ──
-    const modelAgg = App.metrics.aggregate(d.rows, d.online, sel, { groupBy: '類型' });
+    const modelAgg = App.metrics.aggregate(d.rows, d.online, sel, ageOpts('類型'));
     const models = modelAgg.groups.map((g) => {
-      const s = g.subtotal, ra = retByModel.get(g.key), oa = onByModel.get(g.key);
+      const s = g.subtotal, ra = retByModel.get(g.key);
       return {
         key: g.key, 上線量: s.上線量, 回廠量: s.回廠量, 良品: s.良品數, 不良: badOf(s), 過保: s.過保數,
         回廠不良率: safeDiv(badOf(s), s.回廠量), 整體良率: s.上線量 ? 1 - badOf(s) / s.上線量 : null,
-        回廠年限: ageOf(ra), 不良年限: badAgeOf(ra), 線上年限: onAgeOf(oa), 非良品年限: s.已使用年限,
+        回廠年限: ageOf(ra), 不良年限: badAgeOf(ra), 線上年限: s.在線平均已使用年限, 非良品年限: s.已使用年限,
         整體過保率: s.上線量 ? s.過保數 / s.上線量 : null,
-        上線起: ymd(oa && oa.first), 上線迄: ymd(oa && oa.last),
       };
     });
-    // 上線但本期無回廠的機型也要出現在年限表
-    for (const [k, oa] of onByModel) {
+    // 線上有設備但本期無派工／回廠明細的機型也要出現在年限表（在線年限直接用規則 H 的 computeOnlineAge 依機型篩選）
+    const onQtyByModel = new Map();
+    for (const o of online) {
+      const k = groupKey(o.廠牌型號, '(未分類)');
+      onQtyByModel.set(k, (onQtyByModel.get(k) || 0) + (Number(o.上線量) || 0));
+    }
+    for (const [k, qty] of onQtyByModel) {
       if (models.some((m) => m.key === k)) continue;
-      models.push({ key: k, 上線量: oa.qty, 回廠量: 0, 良品: 0, 不良: 0, 過保: 0, 回廠不良率: null, 整體良率: oa.qty ? 1 : null,
-        回廠年限: null, 不良年限: null, 線上年限: onAgeOf(oa), 上線起: ymd(oa.first), 上線迄: ymd(oa.last) });
+      const onAge = onlineAgeRows ? App.metrics.computeOnlineAge(onlineAgeRows, { ...sel, 類型: [k] })[`在線平均已使用年限_${deviceKey}`] : null;
+      models.push({ key: k, 上線量: qty, 回廠量: 0, 良品: 0, 不良: 0, 過保: 0, 回廠不良率: null, 整體良率: qty ? 1 : null,
+        回廠年限: null, 不良年限: null, 線上年限: onAge });
     }
     models.sort((a, b) => b.回廠量 - a.回廠量 || b.上線量 - a.上線量);
     const reasonByModel = new Map();
@@ -300,40 +255,36 @@ App.reportV3 = (() => {
     });
 
     // ── 廠商彙整（含展開用機型明細、同期比較）──
-    const vendorAgg = App.metrics.aggregate(d.rows, d.online, sel, { groupBy: '廠商' });
+    const vendorAgg = App.metrics.aggregate(d.rows, d.online, sel, ageOpts('廠商'));
     const cmpVendorAgg = hasCmp && d.cmpRows ? App.metrics.aggregate(d.cmpRows, d.cmpOnline, sel, { groupBy: '廠商' }) : null;
+    // 品項（ERP品號）層級的在線年限：取自 aggregate 的 ERP 列（規則 H 依 ERP品號 分組平均）
+    const onAgeByErp = new Map();
+    for (const g of modelAggAll.groups) for (const r of g.rows) if (r.在線平均已使用年限 != null) onAgeByErp.set(String(r.ERP品號), r.在線平均已使用年限);
     const vendors = vendorAgg.groups.map((g) => {
-      const s = g.subtotal, ra = retByVendor.get(g.key), oa = onByVendor.get(g.key);
+      const s = g.subtotal, ra = retByVendor.get(g.key);
       const cg = cmpVendorAgg && cmpVendorAgg.groups.find((x) => x.key === g.key);
       const cmpVM = hasCmp && d.cmpRows ? App.metrics.aggregate(d.cmpRows, d.cmpOnline, { ...sel, 廠商: [g.key] }, { groupBy: '類型' }) : null;
-      const vModels = App.metrics.aggregate(d.rows, d.online, { ...sel, 廠商: [g.key] }, { groupBy: '類型' }).groups
+      const vModels = App.metrics.aggregate(d.rows, d.online, { ...sel, 廠商: [g.key] }, ageOpts('類型')).groups
         .map((mg) => {
-          const mOn = online.filter((o) => o.廠商 === g.key && groupKey(o.廠牌型號, '(未分類)') === mg.key).map((o) => ({ q: Number(o.上線量) || 0, iv: onlineAgeInterval(o, dateMap, baseDate) })).filter((x) => x.iv && x.q);
-          const mOnQ = mOn.reduce((t, x) => t + x.q, 0);
           const ms = mg.subtotal, mr = ret.filter((r) => r.廠商 === g.key && groupKey(r.廠牌型號, '(未分類)') === mg.key && r.已使用年限 != null);
           const mrBad = mr.filter((r) => r.不良品 || r.未歸類);
           const cmg = cmpVM && cmpVM.groups.find((x) => x.key === mg.key);
           const mc = cmpRet.filter((r) => r.廠商 === g.key && groupKey(r.廠牌型號, '(未分類)') === mg.key && r.已使用年限 != null);
           const avgAge = (xs) => (xs.length ? round(xs.reduce((t, r) => t + Number(r.已使用年限), 0) / xs.length, 1) : null);
-          const mDates = online.filter((o) => o.廠商 === g.key && groupKey(o.廠牌型號, '(未分類)') === mg.key).map((o) => dateMap.get(String(o.ERP品號 || ''))).filter((x) => x && x.first);
-          const mFirst = mDates.length ? new Date(Math.min(...mDates.map((x) => x.first))) : null;
-          const mLast = mDates.length ? new Date(Math.max(...mDates.map((x) => (x.last || x.first)))) : null;
           return {
             key: mg.key, 上線量: ms.上線量, 回廠量: ms.回廠量, 良品: ms.良品數, 不良: badOf(ms), 過保: ms.過保數,
             回廠不良率: safeDiv(badOf(ms), ms.回廠量), 整體良率: ms.上線量 ? 1 - badOf(ms) / ms.上線量 : null,
             回廠年限: mr.length ? round(mr.reduce((t, r) => t + Number(r.已使用年限), 0) / mr.length, 1) : null,
-            線上年限: mOnQ ? round(mOn.reduce((t, x) => t + x.iv.mid * x.q, 0) / mOnQ, 1) : null,
+            線上年限: ms.在線平均已使用年限,
             不良年限: avgAge(mrBad), cmp回廠年限: hasCmp ? avgAge(mc) : null, 年限樣本: mr.length,
             非良品年限: ms.已使用年限, cmp非良品年限: cmg ? cmg.subtotal.已使用年限 : null,
-            上線起: ymd(mFirst), 上線迄: ymd(mLast),
           };
         }).sort((a, b) => b.回廠量 - a.回廠量);
       return {
         key: g.key, 上線量: s.上線量, 回廠量: s.回廠量, 良品: s.良品數, 不良: badOf(s), 過保: s.過保數,
         回廠不良率: safeDiv(badOf(s), s.回廠量), 整體良率: s.上線量 ? 1 - badOf(s) / s.上線量 : null,
         再使用率: safeDiv(s.良品數, s.回廠量),
-        回廠年限: ageOf(ra), 線上年限: onAgeOf(oa), 不良年限: badAgeOf(ra),
-        上線起: ymd(oa && oa.first), 上線迄: ymd(oa && oa.last),
+        回廠年限: ageOf(ra), 線上年限: s.在線平均已使用年限, 不良年限: badAgeOf(ra),
         cmp回廠不良率: cg ? safeDiv(badOf(cg.subtotal), cg.subtotal.回廠量) : null,
         非良品年限: s.已使用年限, cmp非良品年限: cg ? cg.subtotal.已使用年限 : null,
         品項數: new Set(ret.filter((r) => groupKey(r.廠商, '未分類') === g.key).map((r) => r.ERP品號 || r.替換前品項)).size,
@@ -348,11 +299,9 @@ App.reportV3 = (() => {
             byErp.get(k).rows.push(r);
           }
           return [...byErp.values()].map((it) => {
-            const o = online.find((x) => String(x.ERP品號) === String(it.erp));
-            const iv = o ? onlineAgeInterval(o, dateMap, baseDate) : null;
             const cr = cmpRet.filter((r) => (r.ERP品號 || r.替換前品項) === (it.erp || it.name));
             return {
-              name: it.name, 在線年限: iv ? round(iv.mid, 1) : null, 回廠量: it.rows.length,
+              name: it.name, 在線年限: onAgeByErp.has(String(it.erp)) ? onAgeByErp.get(String(it.erp)) : null, 回廠量: it.rows.length,
               不良: it.rows.filter((r) => r.不良品 || r.未歸類).length, 過保: it.rows.filter((r) => r.過保).length,
               非良品年限: avg(it.rows.filter(ng)), cmp非良品年限: hasCmp ? avg(cr.filter(ng)) : null,
             };
@@ -381,7 +330,7 @@ App.reportV3 = (() => {
   }
   function ageFindings(D) {
     const a = D.age, out = [];
-    out.push(`線上${D.key}估算平均已使用 ${fYear(a.onAvg)}；本期回廠${D.key}平均已使用 ${fYear(a.retAvg)}${a.cmpRetAvg != null ? `（去年同期 ${fYear(a.cmpRetAvg)}）` : ''}，預期使用年限 ${a.life} 年。`);
+    out.push(`${a.onAvg != null ? `在線${D.key}平均已使用 ${fYear(a.onAvg)}；` : ''}本期回廠${D.key}平均已使用 ${fYear(a.retAvg)}${a.cmpRetAvg != null ? `（去年同期 ${fYear(a.cmpRetAvg)}）` : ''}，預期使用年限 ${a.life} 年。`);
     if (a.retOverShare != null) out.push(`回廠${D.key}中有 ${fPct(a.retOverShare)} 已超過預期使用年限 ${a.life} 年${a.retBadAvg != null ? `；其中不良品平均已使用 ${fYear(a.retBadAvg)}` : ''}。`);
     const withRate = a.buckets.filter((b) => b.回廠量 >= 20 && b.回廠不良率 != null);
     if (withRate.length >= 2) {
@@ -476,7 +425,7 @@ App.reportV3 = (() => {
             <td class="n">${qp(c.良品, c.再使用率)}</td><td class="n">${qp(c.不良, c.回廠不良率)}</td><td class="n">${qp(c.過保, c.過保率)}</td>
             <td class="n">${fPct(c.整體良率 == null ? null : 1 - c.整體良率)}</td><td class="n">${fPct(c.上線量 ? c.過保 / c.上線量 : null)}</td><td class="n">${fYear(c.非良品年限)}</td></tr>
         </tbody></table></div>
-      <p class="note">紅底＝回廠不良率高於整體 1.5 倍或超過 20%；橘底＝平均已使用年限未達 ${D.age.life} 年；回廠少於 ${MIN_JUDGE_QTY} 台不判斷。括號％為占回廠量比例；整體不良率／過保率以線上量為分母；在線年限目前為估算值。</p>
+      <p class="note">紅底＝回廠不良率高於整體 1.5 倍或超過 20%；橘底＝平均已使用年限未達 ${D.age.life} 年；回廠少於 ${MIN_JUDGE_QTY} 台不判斷。括號％為占回廠量比例；整體不良率／過保率以線上量為分母；在線平均已使用年限為目前線上設備逐台計算（規則 H），不隨期間變動${D.age.onlineAgeOk ? '' : '。<b>目前尚未載入「車機鏡頭上線明細」（需授權 Google Sheets），在線年限暫顯示「—」</b>'}。</p>
     </div>`;
   }
 
@@ -572,6 +521,9 @@ App.reportV3 = (() => {
   // 2026-10-13 已將該檔「115分類彙總」「114vs115比較」改為公式，直接由「115」明細「數量 × 金額」加總，
   // 1–6 月結果與原手填彙總表一致；換期時改 REFURB_PERIOD 與下列數字即可。
   const REFURB_PERIOD = '1–9月';
+  // 整新數字對應的報告期間（115年＝西元 2026，Q3＝1–9月）；報告選其他期間時整新頁會標示「期間不符」，
+  // 換期時 REFURB_PERIOD、REFURB_FOR 與下列數字要一起更新。
+  const REFURB_FOR = { year: 2026, quarter: 3 };
   const REFURB_CATEGORIES = [
     { label: '整新品循環/主機', y114: 2471160, y115: 3632950 },
     { label: '整新品循環/配件', y114: 1685155, y115: 1236030 },
@@ -586,7 +538,8 @@ App.reportV3 = (() => {
   const REFURB_QC_QTY = { y114: 9573, y115: 11746 };
   const growthTxt = (g) => `${g >= 0 ? '+' : ''}${(g * 100).toFixed(1)}%`;
   const diffTxt = (v) => `${v > 0 ? '+' : ''}${fInt(v)}`;
-  function refurbPageHTML() {
+  function refurbPageHTML(state) {
+    const periodMismatch = state.year !== REFURB_FOR.year || state.quarter !== REFURB_FOR.quarter;
     const rows = REFURB_CATEGORIES.map((r) => ({ ...r, diff: r.y115 - r.y114, growth: r.y114 ? (r.y115 - r.y114) / r.y114 : 0 }));
     const t114 = rows.reduce((t, r) => t + r.y114, 0), t115 = rows.reduce((t, r) => t + r.y115, 0);
     const tDiff = t115 - t114, tGrowth = t114 ? tDiff / t114 : 0;
@@ -601,6 +554,7 @@ App.reportV3 = (() => {
     const tr = rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td class="n">${fInt(r.y114)}</td><td class="n">${fInt(r.y115)}</td><td class="n">${diffTxt(r.diff)}</td><td class="n"><span class="dlt ${Math.abs(r.growth) < 0.02 ? 'flat' : r.growth > 0 ? 'good' : 'bad'}">${growthTxt(r.growth)}</span></td></tr>`).join('');
     return `<section class="page shared" data-sec="refurb">
       <div class="ph"><span class="ph-l">${App.icons.refresh()} 整新</span><span class="ph-s">整新循環 KPI　｜　114年 vs 115年 ${REFURB_PERIOD}　｜　來源：KPI_分類彙總.xlsx／114vs115比較</span></div>
+      ${periodMismatch ? `<div class="period-warn">⚠ 本頁為人工整理的 114／115 年 ${REFURB_PERIOD} 整新資料，與本報告期間（${esc(periodLabel(state))}）不同，數字僅供參考；換期時請先更新 KPI 整新資料。</div>` : ''}
       <div class="krow">
         ${kcard(`114年${REFURB_PERIOD}總計`, `${fInt(t114)} 元`, bigNum(t114))}
         ${kcard(`115年${REFURB_PERIOD}總計`, `${fInt(t115)} 元`, bigNum(t115), '', 'main')}
@@ -943,6 +897,7 @@ table.badm-t td.reasons{white-space:normal}
 @media(max-width:900px){.g-mix{grid-template-columns:1fr}}
 .g-refurb{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;min-width:0}
 .g-refurb>.card{display:flex;flex-direction:column}
+.period-warn{background:#FFF4E0;border:1px solid #E08E00;border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:15.5px;font-weight:700;color:#7A4B00}
 @media(max-width:1000px){.g-refurb{grid-template-columns:1fr}}
 .sech-note{font-size:15px;color:var(--muted);font-weight:700;margin-left:10px}
 table.vage-t td small{font-size:12.5px;color:var(--muted);margin-left:4px;font-weight:600}
@@ -1039,14 +994,14 @@ table.agg.tight .cnt{font-size:12px;padding:0 6px;margin-left:6px}
 ${devicePanelHTML(data.車機, state)}
 ${devicePanelHTML(data.鏡頭, state)}
 ${vendorPageHTML(data, state)}
-${refurbPageHTML()}
+${refurbPageHTML(state)}
 <div class="defs"><div class="defs-h">ⓘ 名詞與口徑</div><dl>
   <dt>不良數</dt><dd>不良品數＋未歸類數（比照舊版報告預設「未歸類併入不良品」）</dd>
   <dt>整體良率</dt><dd>1 − 不良數 ÷ 線上量</dd>
   <dt>回廠不良率</dt><dd>不良數 ÷ 期間回廠量；再使用率＝良品數 ÷ 期間回廠量；過保率＝過保數 ÷ 期間回廠量</dd>
   <dt>去年同期</dt><dd>儀表板有選「對比期間」時用該期間，否則用前一年同月份</dd>
   <dt>平均已使用年限</dt><dd>回廠的不良品、過保品、未歸類設備「派工完工日 − 進貨日」平均（比照舊版）；缺進貨日者不計</dd>
-  <dt>在線平均已使用年限</dt><dd>目前為估算值：線上量資料只有各品號最早／最新上線日，假設期間內平均上線，以期間結束日為基準</dd>
+  <dt>在線平均已使用年限</dt><dd>規則 H：「車機鏡頭上線明細」中目前線上的設備，逐台（今天 − 參考日期）÷ 365 取平均（參考日期＝「日期」欄，缺值依「日期依據」取進貨日／安裝日），不限回廠或良品狀態；不隨本期／去年同期變動</dd>
   <dt>整新</dt><dd>KPI_分類彙總.xlsx 明細「數量 × 金額」加總（114 vs 115 年 1–9 月），非即時資料</dd>
   <dt>範圍</dt><dd>車機＝維護原因「訊號異常」；鏡頭＝維護原因「影像異常(鏡頭)」；套用儀表板目前的廠商／機型篩選</dd>
 </dl></div>
@@ -1058,17 +1013,32 @@ ${refurbPageHTML()}
   }
 
   function reportFilename(state) {
-    return `品質分析報告v3_${state.year}-Q${state.quarter}_${new Date().toISOString().slice(0, 10)}.html`;
+    return `品質分析報告_${state.year}-Q${state.quarter}_${new Date().toISOString().slice(0, 10)}.html`;
   }
 
-  /** 生成新版報告並本機下載（試作期間不上傳共用雲端）。 */
-  function exportReport(state) {
+  /**
+   * 生成落地頁報告：本機下載一律執行；若 App.cloud 已設定 CLOUD_ENDPOINT，同時上傳到共用雲端
+   * （行為與舊版 App.report.exportReport 相同，供「生成落地頁報告」按鈕使用）。
+   * @returns {Promise<{cloud:{ok:boolean, error?:string, name?:string}|null}>}
+   */
+  async function exportReport(state) {
     const html = generateReportHTML(state);
+    const filename = reportFilename(state);
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-    a.download = reportFilename(state);
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
+
+    let cloud = null;
+    if (App.cloud && App.cloud.enabled()) {
+      try {
+        const r = await App.cloud.upload(html, filename, 'text/html');
+        cloud = { ok: true, name: r.name };
+      } catch (err) { cloud = { ok: false, error: err && err.message }; }
+    }
+    return { cloud };
   }
 
   return { generateReportHTML, exportReport, _buildDeviceData: buildDeviceData };

@@ -449,14 +449,11 @@ App.app = (() => {
       const orig = btn.textContent;
       btn.disabled = true; btn.textContent = '生成中…';
       try {
-        const r = await App.report.exportReport(state);
+        // 落地頁報告＝report_v3（2026-10-14 起取代舊版 App.report.exportReport；舊版函式仍留在 report.js）
+        const r = await App.reportV3.exportReport(state);
         reportCloudFeedback(r.cloud);
       } catch (err) { alert('生成報告失敗：' + (err && err.message)); }
       finally { btn.disabled = false; btn.textContent = orig; }
-    });
-    $('btn-report-v3').addEventListener('click', () => {
-      try { App.reportV3.exportReport(state); }
-      catch (err) { alert('生成新版報告失敗：' + (err && err.message)); }
     });
     $('btn-export').addEventListener('click', async () => {
       const btn = $('btn-export');
