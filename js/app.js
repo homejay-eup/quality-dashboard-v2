@@ -454,6 +454,10 @@ App.app = (() => {
       } catch (err) { alert('生成報告失敗：' + (err && err.message)); }
       finally { btn.disabled = false; btn.textContent = orig; }
     });
+    $('btn-report-v3').addEventListener('click', () => {
+      try { App.reportV3.exportReport(state); }
+      catch (err) { alert('生成新版報告失敗：' + (err && err.message)); }
+    });
     $('btn-export').addEventListener('click', async () => {
       const btn = $('btn-export');
       const orig = btn.textContent;

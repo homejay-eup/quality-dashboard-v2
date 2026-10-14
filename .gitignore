@@ -35,3 +35,6 @@ _管理/verify-bypass.log
 Thumbs.db
 .vscode/
 .idea/
+
+# === 報告預覽暫存（report_v3 本機預覽用）===
+_preview/
