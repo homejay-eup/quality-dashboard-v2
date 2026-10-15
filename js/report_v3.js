@@ -339,41 +339,60 @@ App.reportV3 = (() => {
     }
     return out;
   }
-  // 廠商比較：以「廠商・機型」為單位，年限口徑比照舊版（不良品＋過保＋未歸類的平均已使用年限）
-  // 車機依舊版預設分成一般定位／影像兩組；未列在兩組的機型歸「其他」
+  // 廠商比較：以「廠商・機型」為單位，左＝線上年限（規則 H）、右＝回廠年限（規則 E：不良品＋過保＋未歸類的平均已使用年限）
+  // 車機依舊版預設分成一般定位／影像兩組；未列在兩組的機型歸「其他」。
+  // 每組同時帶 onItems（有線上年限者，依線上年限由高到低）與 retItems（有回廠年限者，依回廠年限由高到低）。
   const VAGE_GENERAL = ['S168', 'EDR-168', 'GO-168', 'MT99'];
   const VAGE_IMAGING = ['FUHO 8CH', 'HS', 'FUHO 4CH', 'C43', 'F6N'];
   function vendorAgeGroups(D) {
     const items = [];
     D.vendors.forEach((v) => v.models.forEach((m) => {
-      if (m.非良品年限 == null) return;
-      items.push({ vendor: v.key, model: m.key, year: m.非良品年限, yearCmp: m.cmp非良品年限, 在線年限: m.線上年限, 回廠量: m.回廠量, 不良: m.不良, 過保: m.過保 });
+      if (m.非良品年限 == null && m.線上年限 == null) return;
+      items.push({ vendor: v.key, model: m.key, year: m.非良品年限, yearCmp: m.cmp非良品年限, on: m.線上年限, qty: m.上線量, 回廠量: m.回廠量, 不良: m.不良, 過保: m.過保 });
     }));
-    items.sort((a, b) => b.year - a.year);
-    if (D.key !== '車機') return [{ key: 'lens', label: '鏡頭', items }];
+    const mk = (key, label, xs) => ({
+      key, label, items: xs,
+      onItems: xs.filter((x) => x.on != null).sort((a, b) => b.on - a.on),
+      retItems: xs.filter((x) => x.year != null).sort((a, b) => b.year - a.year),
+    });
+    if (D.key !== '車機') return [mk('lens', '鏡頭', items)];
     const groups = [
-      { key: 'general', label: '一般定位', items: items.filter((x) => VAGE_GENERAL.includes(x.model)) },
-      { key: 'imaging', label: '影像', items: items.filter((x) => VAGE_IMAGING.includes(x.model)) },
+      mk('general', '一般定位', items.filter((x) => VAGE_GENERAL.includes(x.model))),
+      mk('imaging', '影像', items.filter((x) => VAGE_IMAGING.includes(x.model))),
     ];
     const other = items.filter((x) => !VAGE_GENERAL.includes(x.model) && !VAGE_IMAGING.includes(x.model));
-    if (other.length) groups.push({ key: 'other', label: '其他', items: other });
+    if (other.length) groups.push(mk('other', '其他', other));
     return groups;
   }
-  function vendorAgeFindings(D) {
-    const life = D.age.life, out = [];
-    vendorAgeGroups(D).forEach((g) => {
-      if (!g.items.length) return;
-      const top = g.items[0];
-      let line = `${g.label}：已使用年限最長為 ${top.model}（${top.vendor}）${fYear(top.year)}`;
-      const short = g.items.filter((x) => x.year < life && x.回廠量 >= 20);
-      if (short.length) line += `；未達預期 ${life} 年的有 ${short.map((x) => `${x.model}（${fYear(x.year)}）`).join('、')}`;
-      out.push(line + '。');
-      const withCmp = g.items.filter((x) => x.yearCmp != null);
-      if (withCmp.length) {
-        const up = [...withCmp].sort((a, b) => (b.year - b.yearCmp) - (a.year - a.yearCmp))[0];
-        if (up.year - up.yearCmp >= 0.1) out.push(`${g.label}：${up.model}（${up.vendor}）較去年同期多用 ${(up.year - up.yearCmp).toFixed(1)} 年。`);
-      }
+  // 重點分析（自動產生，可在報告內編輯）：整體線上 vs 回廠、各組最長、未達預期、線上與回廠差距、較去年同期變化
+  function ageCompareFindings(D) {
+    const c = D.cur, p = D.cmp, life = D.age.life, out = [];
+    const head = [];
+    if (D.age.onAvg != null) head.push(`線上${D.key}平均已使用 ${fYear(D.age.onAvg)}（線上量 ${fInt(c.上線量)} 台）`);
+    if (c.非良品年限 != null) {
+      const d = p && p.非良品年限 != null ? c.非良品年限 - p.非良品年限 : null;
+      head.push(`本期回廠${D.key}（不良／過保／未歸類）平均已使用 ${fYear(c.非良品年限)}${d == null ? '' : Math.abs(d) < 0.05 ? '，與去年同期持平' : `，較去年同期（${fYear(p.非良品年限)}）${d > 0 ? '延長' : '縮短'} ${Math.abs(d).toFixed(1)} 年`}`);
+    }
+    if (head.length) out.push(`${head.join('；')}；預期使用年限 ${life} 年。`);
+    const groups = vendorAgeGroups(D).filter((g) => g.items.length);
+    groups.forEach((g) => {
+      const parts = [];
+      if (g.onItems[0]) parts.push(`線上年限最長為 ${g.onItems[0].model}（${g.onItems[0].vendor}）${fYear(g.onItems[0].on)}`);
+      if (g.retItems[0]) parts.push(`回廠年限最長為 ${g.retItems[0].model}（${g.retItems[0].vendor}）${fYear(g.retItems[0].year)}`);
+      if (parts.length) out.push(`${g.label}：${parts.join('；')}。`);
+      const short = g.retItems.filter((x) => x.year < life && x.回廠量 >= MIN_JUDGE_QTY);
+      if (short.length) out.push(`${g.label}：回廠年限未達預期 ${life} 年的有 ${short.map((x) => `${x.model}（${fYear(x.year)}）`).join('、')}。`);
     });
+    const both = groups.flatMap((g) => g.items).filter((x) => x.on != null && x.year != null && x.回廠量 >= MIN_JUDGE_QTY);
+    const gaps = [...both].sort((a, b) => Math.abs(b.year - b.on) - Math.abs(a.year - a.on)).slice(0, 2).filter((x) => Math.abs(x.year - x.on) >= 0.3);
+    if (gaps.length) out.push(`線上與回廠年限差距較大：${gaps.map((x) => `${x.model}（${x.vendor}）線上 ${fYear(x.on)}、回廠 ${fYear(x.year)}，回廠比線上${x.year < x.on ? '短' : '長'} ${Math.abs(x.year - x.on).toFixed(1)} 年`).join('；')}。`);
+    groups.forEach((g) => {
+      const withCmp = g.retItems.filter((x) => x.yearCmp != null);
+      if (!withCmp.length) return;
+      const up = [...withCmp].sort((a, b) => (b.year - b.yearCmp) - (a.year - a.yearCmp))[0];
+      if (up.year - up.yearCmp >= 0.1) out.push(`${g.label}：${up.model}（${up.vendor}）回廠年限較去年同期多 ${(up.year - up.yearCmp).toFixed(1)} 年。`);
+    });
+    if (D.age.onAvg == null) out.push('線上年限資料尚未載入（需授權 Google Sheets），本頁左側暫無線上年限。');
     return out.length ? out : ['本期無可比較的廠商機型。'];
   }
 
@@ -454,26 +473,57 @@ App.reportV3 = (() => {
   }
   const rateCell = (v, dp = 1) => `<td class="n">${fPct(v, dp)}</td>`;
 
-  function vageCardHTML(D, g, cid, noTable) {
-    const life = D.age.life;
-    const top3 = g.items.slice(0, 3).map((x, i) => `<div class="top3-row"><span class="top3-no">${i + 1}</span><div class="top3-who"><b>${esc(x.model)}</b><span>${esc(x.vendor)}</span></div><div class="top3-years">${fYear(x.year)}</div></div>`).join('');
+  // 廠商比較的年限卡：左＝線上年限分析（規則 H）、右＝回廠年限分析（規則 E，本期 vs 去年同期）；
+  // 圖下方有「展開明細」。同組兩側圖高相同，列才對得齊。
+  const yearDeltaHTML = (a, b) => {
+    if (a == null || b == null) return '';
+    const x = a - b, flat = Math.abs(x) < 0.05;
+    return `<span class="dlt ${flat ? 'flat' : x > 0 ? 'good' : 'bad'}">${flat ? '－ 持平' : `${x > 0 ? '▲ +' : '▼ '}${Math.abs(x).toFixed(1)} 年`}</span>`;
+  };
+  const detailsHTML = (summary, body, attrs) => `<details class="lowkey-toggle"${attrs || ''}><summary>${summary}</summary><div class="lowkey-toggle-body">${body}</div></details>`;
+  function ageSideCardsHTML(D, pre) {
+    const id = (s) => `${pre}-${s}`;
+    const c = D.cur, p = D.cmp, life = D.age.life;
+    const groups = vendorAgeGroups(D).filter((g) => g.items.length);
+    const multi = groups.length > 1;
+    const chartH = (g) => Math.max(150, Math.max(g.onItems.length, g.retItems.length) * 46 + 50);
+    const grpHead = (g) => (multi ? `<div class="agrp">${esc(g.label)}</div>` : '');
+
+    // ── 左：線上年限分析 ──
+    const onTables = groups.map((g) => `${multi ? `<div class="agrp">${esc(g.label)}</div>` : ''}<div class="twrap"><table class="agg tight vage-t">
+        <thead><tr><th class="l">機型</th><th class="l">廠商</th><th>線上量</th><th>線上年限</th></tr></thead>
+        <tbody>${g.onItems.map((x) => `<tr><td class="l">${esc(x.model)}</td><td class="l">${esc(x.vendor)}</td><td class="n">${fInt(x.qty)}</td><td class="n"><b>${fYear(x.on)}</b></td></tr>`).join('')}</tbody></table></div>`).join('');
+    const onBody = D.age.onlineAgeOk
+      ? groups.filter((g) => g.onItems.length).map((g) => `${grpHead(g)}<div class="chartbox" style="height:${chartH(g)}px"><canvas id="${id(`vage-on-${g.key}`)}"></canvas></div>`).join('')
+        + detailsHTML('▸ 展開明細（機型／廠商／線上量／線上年限）', onTables)
+      : '<div class="nodata">尚未載入「車機鏡頭上線明細」（需授權 Google Sheets），線上年限暫無資料。請在儀表板確認 KPI 卡已顯示在線平均已使用年限後，再重新生成報告。</div>';
+    const onCard = `<div class="card">
+      <div class="chead"><div class="ct">線上年限分析</div><div class="cs">目前線上設備的平均已使用年限（規則 H，逐台計算）　｜　紅色虛線＝預期 ${life} 年　｜　現在的數字，不比去年同期</div></div>
+      ${statBar([{ label: `${D.key}整體線上年限`, value: fYear(D.age.onAvg) }, { label: '線上量', value: `${fInt(c.上線量)} 台` }])}
+      ${onBody}
+    </div>`;
+
+    // ── 右：回廠年限分析 ──
     const dlt = (x) => {
       if (x.yearCmp == null) return '<td class="n">—</td>';
       const d = x.year - x.yearCmp, flat = Math.abs(d) < 0.05;
       return `<td class="n"><span class="dlt ${flat ? 'flat' : d > 0 ? 'good' : 'bad'}">${flat ? '－' : d > 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)} 年</span></td>`;
     };
-    const rows = g.items.map((x) => `<tr class="${x.year < life ? 'st-warn' : ''}"><td class="l">${esc(x.model)}</td><td class="l">${esc(x.vendor)}</td>
-      <td class="n">${fYear(x.在線年限)}</td><td class="n">${fInt(x.回廠量)}</td><td class="n">${fInt(x.不良)}</td><td class="n">${fInt(x.過保)}</td>
-      <td class="n"><b class="${x.year < life ? 't-warn' : ''}">${fYear(x.year)}</b></td>${dlt(x)}</tr>`).join('');
-    const h = Math.max(200, g.items.length * 40 + 70);
-    return `<div class="card vage-card">
-      <div class="chead"><div class="ct">已使用年限比較（${esc(g.label)}）</div><div class="cs">本期 vs 去年同期　｜　紅色虛線＝預期 ${life} 年</div></div>
-      <div class="vage-top3"><div class="top3-cap">已使用年限最長的前 3 名</div>${top3}</div>
-      <div class="chartbox" style="height:${h}px"><canvas id="${cid}"></canvas></div>
-      ${noTable ? '' : `<div class="twrap" style="margin-top:14px"><table class="agg tight vage-t">
-        <thead><tr><th class="l">機型</th><th class="l">廠商</th><th>在線年限</th><th>回廠</th><th>不良</th><th>過保</th><th>已使用年限</th><th>同期差</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>`}
+    const retTables = groups.map((g) => `${multi ? `<div class="agrp">${esc(g.label)}</div>` : ''}<div class="twrap"><table class="agg tight vage-t">
+        <thead><tr><th class="l">機型</th><th class="l">廠商</th><th>回廠</th><th>不良</th><th>過保</th><th>回廠年限</th><th>同期差</th></tr></thead>
+        <tbody>${g.retItems.map((x) => `<tr class="${x.year < life ? 'st-warn' : ''}"><td class="l">${esc(x.model)}</td><td class="l">${esc(x.vendor)}</td>
+          <td class="n">${fInt(x.回廠量)}</td><td class="n">${fInt(x.不良)}</td><td class="n">${fInt(x.過保)}</td>
+          <td class="n"><b class="${x.year < life ? 't-warn' : ''}">${fYear(x.year)}</b></td>${dlt(x)}</tr>`).join('')}</tbody></table></div>`).join('');
+    const isLens = D.key === '鏡頭';
+    const retBody = groups.filter((g) => g.retItems.length).map((g) => `${grpHead(g)}<div class="chartbox" style="height:${chartH(g)}px"><canvas id="${id(`vage-ret-${g.key}`)}"></canvas></div>`).join('')
+      + detailsHTML('▸ 展開明細（回廠／不良／過保／回廠年限／同期差）', retTables)
+      + (isLens ? detailsHTML('▸ 展開回廠年限分布圖（各年限區間回廠占幾％）', `<div class="chartbox" style="height:300px"><canvas id="${id('age-dist2')}"></canvas></div>`, ` data-lazy="dist" data-dev="${esc(D.key)}"`) : '');
+    const retCard = `<div class="card">
+      <div class="chead"><div class="ct">回廠年限分析</div><div class="cs">回廠且不良／過保／未歸類設備的平均已使用年限（完工日 − 進貨日）　｜　本期 vs 去年同期　｜　紅色虛線＝預期 ${life} 年　｜　橘底＝未達預期</div></div>
+      ${statBar([{ label: `${D.key}整體回廠年限`, value: fYear(c.非良品年限) }, ...(p ? [{ label: '去年同期', value: fYear(p.非良品年限), prev: true }] : [])], p ? yearDeltaHTML(c.非良品年限, p.非良品年限) : '')}
+      ${retBody}
     </div>`;
+    return `<div class="g2-eq age-pair">${onCard}${retCard}</div>`;
   }
   // 使用年限分析卡（鏡頭）：整體摘要＋廠商彙總＋回廠年限分布（本期 vs 去年同期）
   function ageAnalysisCardHTML(D) {
@@ -600,17 +650,17 @@ App.reportV3 = (() => {
 
   // 廠商比較：一頁同時呈現車機（上）與鏡頭（下），不分設備切換
   function vendorBlockHTML(D) {
-    const id = (s) => `${D.key === '車機' ? 'car' : 'lens'}-${s}`;
-    const cards = vendorAgeGroups(D).filter((g) => g.items.length).map((g) => vageCardHTML(D, g, id(`vage-${g.key}`), D.key === '鏡頭'));
+    const pre = D.key === '車機' ? 'car' : 'lens';
     const icon = D.key === '車機' ? App.icons.car() : App.icons.camera();
+    const an = D.key === '鏡頭' ? ageAnalysisCardHTML(D) : null;
     return `<div class="sech sech-lg">${icon} ${esc(D.key)}<span class="sech-note">預期使用年限 ${D.age.life} 年</span></div>
-      ${(() => { const an = D.key === '鏡頭' ? ageAnalysisCardHTML(D) : null;
-        return `<div class="g2-eq">${cards.join('')}${an ? an.card : ''}</div>${an ? an.table : ''}`; })()}
-      ${advice(id('note-vendor'), `分析與說明（${D.key}・廠商比較）`, vendorAgeFindings(D))}`;
+      ${ageSideCardsHTML(D, pre)}
+      ${an ? detailsHTML('▸ 展開廠商使用年限明細（含品項；點廠商可展開）', an.table) : ''}
+      ${advice(`${pre}-note-vendor`, `重點分析（${D.key}・年限比較）`, ageCompareFindings(D))}`;
   }
   function vendorPageHTML(data, state) {
     return `<section class="page shared" data-sec="vendor">
-      <div class="ph"><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">已使用年限比較　｜　期間：${esc(periodLabel(state))}</span></div>
+      <div class="ph"><span class="ph-l">${App.icons.factory()} 廠商比較</span><span class="ph-s">線上年限 vs 回廠年限　｜　期間：${esc(periodLabel(state))}</span></div>
       ${vendorBlockHTML(data.車機)}
       ${vendorBlockHTML(data.鏡頭)}
     </section>`;
@@ -721,27 +771,44 @@ App.reportV3 = (() => {
       options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}});
     var B=D.age.buckets, hasCmp=D.hasCmp;
     var life=D.age.life;
-    (D.vageGroups||[]).forEach(function(g){
-      var el=document.getElementById(p+'vage-'+g.key); if(!el||!g.items.length)return;
-      var ds=[{label:M.curLabel,data:g.items.map(function(x){return x.year;}),backgroundColor:C.main,borderRadius:3,barPercentage:.9,categoryPercentage:.72}];
-      if(hasCmp)ds.push({label:M.prevLabel,data:g.items.map(function(x){return x.yearCmp;}),backgroundColor:C.barPrev,borderRadius:3,barPercentage:.9,categoryPercentage:.72});
-      new Chart(el,{type:'bar',data:{labels:g.items.map(function(x){return [x.model,x.vendor];}),datasets:ds},
-        options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:52}},
-          plugins:{legend:{position:'top',labels:{boxWidth:12}},tooltip:{callbacks:{label:function(x){return x.dataset.label+'：'+(x.raw==null?'—':(+x.raw).toFixed(1)+' 年');}}}},
-          scales:{x:{beginAtZero:true,suggestedMax:life+1,grid:{color:C.grid}},y:{grid:{display:false},ticks:{font:{size:12}}}}},
-        plugins:[{id:'lifeLine',afterDatasetsDraw:function(ch){var a=ch.chartArea,x=ch.scales.x.getPixelForValue(life),ctx=ch.ctx;ctx.save();
-          ctx.strokeStyle=C.bad;ctx.setLineDash([6,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,a.top);ctx.lineTo(x,a.bottom);ctx.stroke();ctx.setLineDash([]);
-          ctx.font='bold 12px sans-serif';ctx.fillStyle='#1F2535';ctx.textBaseline='middle';
-          ch.getDatasetMeta(0).data.forEach(function(b,i){var v=g.items[i].year;if(v!=null)ctx.fillText(v.toFixed(1)+' 年',b.x+6,b.y);});ctx.restore();}}]});
-    });
-    var ad=document.getElementById(p+'age-dist2');
-    if(ad){
-      var AB=D.age.buckets, adDs=[{label:M.curLabel,data:AB.map(function(b){return b['回廠占比'];}),backgroundColor:C.main,borderRadius:3}];
-      if(hasCmp)adDs.push({label:M.prevLabel,data:AB.map(function(b){return b['去年回廠占比'];}),backgroundColor:C.barPrev,borderRadius:3});
-      new Chart(ad,{type:'bar',data:{labels:AB.map(function(b){return b.label;}),datasets:adDs},
-        options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:12}},tooltip:{callbacks:{label:function(x){return x.dataset.label+'：'+x.raw+'%';}}}},
-          scales:{y:{beginAtZero:true,ticks:{callback:pctTick(0)},grid:{color:C.grid}},x:{grid:{display:false}}}}});
+    // 廠商比較：左＝線上年限（單一長條）、右＝回廠年限（本期 vs 去年同期）；兩側皆畫紅色虛線＝預期年限
+    function lifePlugin(vals){
+      return {id:'lifeLine',afterDatasetsDraw:function(ch){var a=ch.chartArea,x=ch.scales.x.getPixelForValue(life),ctx=ch.ctx;ctx.save();
+        ctx.strokeStyle=C.bad;ctx.setLineDash([6,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,a.top);ctx.lineTo(x,a.bottom);ctx.stroke();ctx.setLineDash([]);
+        ctx.font='bold 12px sans-serif';ctx.fillStyle='#1F2535';ctx.textBaseline='middle';
+        ch.getDatasetMeta(0).data.forEach(function(b,i){var v=vals[i];if(v!=null)ctx.fillText(v.toFixed(1)+' 年',b.x+6,b.y);});ctx.restore();}};
     }
+    function ageBars(el,items,ds,legend,tip){
+      new Chart(el,{type:'bar',data:{labels:items.map(function(x){return [x.model,x.vendor];}),datasets:ds},
+        options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:52}},
+          plugins:{legend:{display:legend,position:'top',labels:{boxWidth:12}},tooltip:{callbacks:{label:function(x){return x.dataset.label+'：'+(x.raw==null?'—':(+x.raw).toFixed(1)+' 年');}}}},
+          scales:{x:{beginAtZero:true,suggestedMax:life+1,grid:{color:C.grid}},y:{grid:{display:false},ticks:{font:{size:12}}}}},
+        plugins:[lifePlugin(items.map(function(x){return tip(x);}))]});
+    }
+    (D.vageGroups||[]).forEach(function(g){
+      var on=document.getElementById(p+'vage-on-'+g.key);
+      if(on&&g.onItems.length){
+        ageBars(on,g.onItems,[{label:'線上年限',data:g.onItems.map(function(x){return x.on;}),backgroundColor:C.main,borderRadius:3,barPercentage:.75,categoryPercentage:.8}],false,function(x){return x.on;});
+      }
+      var rt=document.getElementById(p+'vage-ret-'+g.key);
+      if(rt&&g.retItems.length){
+        var ds=[{label:M.curLabel,data:g.retItems.map(function(x){return x.year;}),backgroundColor:C.main,borderRadius:3,barPercentage:.9,categoryPercentage:.72}];
+        if(hasCmp)ds.push({label:M.prevLabel,data:g.retItems.map(function(x){return x.yearCmp;}),backgroundColor:C.barPrev,borderRadius:3,barPercentage:.9,categoryPercentage:.72});
+        ageBars(rt,g.retItems,ds,true,function(x){return x.year;});
+      }
+    });
+  }
+  // 鏡頭「回廠年限分布」在收合區內，展開時才畫（隱藏狀態下 Chart.js 量不到尺寸）
+  var distDone={};
+  function renderDist(dev){
+    if(distDone[dev]||typeof Chart==='undefined')return;
+    var D=window.__R3[dev], p=dev==='車機'?'car-':'lens-', M=D.monthly, ad=document.getElementById(p+'age-dist2');
+    if(!ad)return; distDone[dev]=true;
+    var AB=D.age.buckets, adDs=[{label:M.curLabel,data:AB.map(function(b){return b['回廠占比'];}),backgroundColor:C.main,borderRadius:3}];
+    if(D.hasCmp)adDs.push({label:M.prevLabel,data:AB.map(function(b){return b['去年回廠占比'];}),backgroundColor:C.barPrev,borderRadius:3});
+    new Chart(ad,{type:'bar',data:{labels:AB.map(function(b){return b.label;}),datasets:adDs},
+      options:{maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:12}},tooltip:{callbacks:{label:function(x){return x.dataset.label+'：'+x.raw+'%';}}}},
+        scales:{y:{beginAtZero:true,ticks:{callback:pctTick(0)},grid:{color:C.grid}},x:{grid:{display:false}}}}});
   }
   var refurbDone=false;
   function renderRefurb(){
@@ -783,6 +850,7 @@ App.reportV3 = (() => {
     document.querySelectorAll('.seg button').forEach(function(b){b.addEventListener('click',function(){if(cur.sec!=='yield')return;cur.dev=b.dataset.dev;apply();window.scrollTo(0,0);});});
     document.querySelectorAll('.tab-btn').forEach(function(b){b.addEventListener('click',function(){cur.sec=b.dataset.sec;apply();window.scrollTo(0,0);});});
     document.querySelectorAll('.advice-edit').forEach(function(ta){ta.addEventListener('input',function(){grow(ta);});});
+    document.querySelectorAll('details[data-lazy="dist"]').forEach(function(dt){dt.addEventListener('toggle',function(){if(dt.open)renderDist(dt.dataset.dev);});});
     document.querySelectorAll('tr.vrow').forEach(function(tr){tr.addEventListener('click',function(){
       var open=tr.classList.toggle('open');
       document.querySelectorAll('tr.sub[data-parent="'+tr.dataset.id+'"]').forEach(function(s){s.classList.toggle('show',open);});
@@ -872,16 +940,10 @@ table.glance-t tr.st-warn td{background:#FFF4E0}
 .rtag{display:inline-block;font-size:12.5px;font-weight:800;padding:0 7px;border-radius:9px;margin-left:8px;vertical-align:1px}
 .rtag.bad{background:var(--bad);color:#fff}.rtag.warn{background:#E08E00;color:#fff}
 .page.shared{display:none}.page.shared.on{display:block}
-.vage-top3{background:var(--main-l);border-radius:10px;padding:10px 16px 6px;margin-bottom:14px}
-.top3-cap{font-size:14px;font-weight:700;color:var(--muted);margin-bottom:2px}
-.top3-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:10px;padding:7px 0;border-top:1px solid rgba(30,90,168,.14)}
-.top3-cap+.top3-row{border-top:0}
-.top3-no{width:24px;height:24px;border-radius:50%;background:#fff;color:var(--main);border:1.5px solid var(--main-2);font-size:14px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
-.top3-cap+.top3-row .top3-no{background:var(--main);color:#fff;border-color:var(--main)}
-.top3-who{display:flex;align-items:baseline;gap:10px;min-width:0}
-.top3-who b{font-size:17px;font-weight:800;white-space:nowrap}
-.top3-who span{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top3-years{font-size:20px;font-weight:800;color:var(--main-d);font-variant-numeric:tabular-nums}
+.agrp{font-size:15px;font-weight:800;color:var(--main-d);margin:14px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+.agrp:first-of-type{margin-top:6px}
+.nodata{background:#FFF4E0;border:1px solid #E08E00;border-radius:10px;padding:12px 14px;font-size:15.5px;font-weight:700;color:#7A4B00;line-height:1.6}
+.age-pair .lowkey-toggle{margin:10px 2px 4px}.age-pair .lowkey-toggle summary{font-size:15px}
 table.vage-t tr.st-warn td{background:#FFF4E0}
 table.agg.vage-t{font-size:14.5px}
 table.agg.tight.vage-t th{white-space:nowrap;font-size:13.5px;padding:6px 6px}
@@ -1000,8 +1062,8 @@ ${refurbPageHTML(state)}
   <dt>整體良率</dt><dd>1 − 不良數 ÷ 線上量</dd>
   <dt>回廠不良率</dt><dd>不良數 ÷ 期間回廠量；再使用率＝良品數 ÷ 期間回廠量；過保率＝過保數 ÷ 期間回廠量</dd>
   <dt>去年同期</dt><dd>儀表板有選「對比期間」時用該期間，否則用前一年同月份</dd>
-  <dt>平均已使用年限</dt><dd>回廠的不良品、過保品、未歸類設備「派工完工日 − 進貨日」平均（比照舊版）；缺進貨日者不計</dd>
-  <dt>在線平均已使用年限</dt><dd>規則 H：「車機鏡頭上線明細」中目前線上的設備，逐台（今天 − 參考日期）÷ 365 取平均（參考日期＝「日期」欄，缺值依「日期依據」取進貨日／安裝日），不限回廠或良品狀態；不隨本期／去年同期變動</dd>
+  <dt>平均已使用年限（回廠年限）</dt><dd>回廠的不良品、過保品、未歸類設備「派工完工日 − 進貨日」平均（比照舊版）；缺進貨日者不計</dd>
+  <dt>在線平均已使用年限（線上年限）</dt><dd>規則 H：「車機鏡頭上線明細」中目前線上的設備，逐台（今天 − 參考日期）÷ 365 取平均（參考日期＝「日期」欄，缺值依「日期依據」取進貨日／安裝日），不限回廠或良品狀態；不隨本期／去年同期變動</dd>
   <dt>整新</dt><dd>KPI_分類彙總.xlsx 明細「數量 × 金額」加總（114 vs 115 年 1–9 月），非即時資料</dd>
   <dt>範圍</dt><dd>車機＝維護原因「訊號異常」；鏡頭＝維護原因「影像異常(鏡頭)」；套用儀表板目前的廠商／機型篩選</dd>
 </dl></div>
