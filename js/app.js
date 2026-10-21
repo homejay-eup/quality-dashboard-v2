@@ -236,6 +236,7 @@ App.app = (() => {
     $('kpi-primary').querySelectorAll('[data-online-age-retry]').forEach((btn) => {
       btn.addEventListener('click', retryOnlineAge);
     });
+    try { App.typeListCheck.render($('type-notice'), state, currentScope().設備類型); } catch (e) { console.warn('類型清單提醒失敗', e); }
   }
 
   // 解析期間來源 → { rows, online }。snapshot 用其自身凍結的上線量。

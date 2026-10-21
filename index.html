@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>設備品質分析</title>
-  <link rel="stylesheet" href="css/style.css?v=16" />
+  <link rel="stylesheet" href="css/style.css?v=17" />
 </head>
 <body>
   <!-- ── Header ─────────────────────────────────────── -->
@@ -67,6 +67,8 @@
 
     <!-- ── 主內容（載入完成才顯示）──────────────────── -->
     <div id="content" hidden>
+      <!-- 類型清單待補提醒（typelistcheck.js 注入，無問題時為空）-->
+      <div id="type-notice"></div>
       <!-- KPI 主卡列 -->
       <section class="cards" id="kpi-primary"></section>
       <!-- KPI 次卡列 -->
@@ -106,6 +108,7 @@
   <script src="js/sheets.js?v=4"></script>
   <script src="js/transform.js?v=5"></script>
   <script src="js/metrics.js?v=9"></script>
+  <script src="js/typelistcheck.js?v=1"></script>
   <script src="js/filters.js?v=3"></script>
   <script src="js/tablefilter.js?v=7"></script>
   <script src="js/detail.js?v=24"></script>
@@ -114,7 +117,7 @@
   <script src="js/report.js?v=61"></script>
   <script src="js/report_v3.js?v=46"></script>
   <script src="js/cloud.js?v=2"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/app.js?v=19"></script>
   <script src="js/auth.js?v=5"></script>
   <input type="file" id="snap-file" accept="application/json,.json" hidden />
   <script>
