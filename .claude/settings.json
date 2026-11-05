@@ -2,30 +2,71 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
             "command": "powershell -NoProfile -Command \"if (Get-Command rtk -ErrorAction SilentlyContinue) { rtk hook claude }\""
-          },
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/_開發檔案/scripts/hooks/verify-gate.ps1\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/_開發檔案/scripts/hooks/mark-verify.ps1\""
           }
         ]
       }
     ]
   },
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git remote:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npx eslint:*)",
+      "Bash(codegraph:*)",
+      "Bash(rtk:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(pytest:*)",
+      "PowerShell(git status:*)",
+      "PowerShell(git diff:*)",
+      "PowerShell(git log:*)",
+      "PowerShell(git show:*)",
+      "PowerShell(git add:*)",
+      "PowerShell(git commit:*)",
+      "PowerShell(git tag:*)",
+      "PowerShell(git rev-parse:*)",
+      "PowerShell(git remote:*)",
+      "PowerShell(npm run:*)",
+      "PowerShell(npm test:*)",
+      "PowerShell(npm install:*)",
+      "PowerShell(npx tsc:*)",
+      "PowerShell(npx playwright test:*)",
+      "PowerShell(npx eslint:*)",
+      "PowerShell(codegraph:*)",
+      "PowerShell(rtk:*)",
+      "PowerShell(python -m py_compile:*)",
+      "PowerShell(pytest:*)",
+      "Bash(git merge:*)",
+      "Bash(git init:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx jest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "PowerShell(git merge:*)",
+      "PowerShell(git init:*)",
+      "PowerShell(npx vitest:*)",
+      "PowerShell(npx jest:*)",
+      "PowerShell(python -m pytest:*)",
+      "PowerShell(gh run list:*)",
+      "PowerShell(gh run view:*)"
+    ]
+  }
 }

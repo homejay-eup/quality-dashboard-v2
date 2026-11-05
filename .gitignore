@@ -21,10 +21,7 @@ __pycache__/
 .claude/worktrees/
 .claude/settings.local.json
 
-# === 暫存產物（審查用，與 git 歷史重複，勿 commit）===
-_管理/任務報告/全分支diff.txt
-
-# === 原則四閘門的執行期產物 ===
+# === 存檔把關的執行期產物 ===
 _管理/.verify-marker
 _管理/verify-bypass.log
 
@@ -38,3 +35,11 @@ Thumbs.db
 
 # === 報告預覽暫存（report_v3 本機預覽用）===
 _preview/
+
+# === ai-os 外掛範本補充 ===
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+_管理/全分支diff.txt
