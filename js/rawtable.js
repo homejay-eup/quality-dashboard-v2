@@ -2,7 +2,7 @@
  * js/rawtable.js — 彙整表（逐筆明細，掛 App.rawtable）
  *
  * 依目前篩選（廠商/類型/ERP品號 + 期間 + 車機/鏡頭分頁）即時顯示逐筆明細，21 欄，
- * 欄位與計算邏輯對齊 新版產出/build_分析總表.py 的 build_detail()（見 report.js RAWCOLS）。
+ * 欄位沿用舊 Excel 分析總表的逐筆明細（見 report.js RAWCOLS）。
  * 支援欄位顯示開關／拖曳排序（同比率表/分析表）＋逐欄 Excel 風格下拉篩選（App.tablefilter 共用）。
  *
  * 逆查連結（2026-07-24 新增，見 detail.js）：
